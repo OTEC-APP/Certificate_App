@@ -1,5 +1,11 @@
-# Run from frontend/: gcloud builds submit --config=../deploy/cloudbuild.frontend.yaml --substitutions=_IMAGE=REGION-docker.pkg.dev/PROJECT/REPOSITORY/otec-web,_API_URL=https://YOUR_API_URL/api
+# Git-trigger frontend deployment. Configure _IMAGE, _API_URL, _REGION and _SERVICE
+# as trigger substitutions. The Docker build context is frontend/.
 steps:
   - name: gcr.io/cloud-builders/docker
+    dir: frontend
     args: [build, --build-arg, REACT_APP_API_URL=${_API_URL}, --tag, ${_IMAGE}, .]
-images: [${_IMAGE}]
+  - name: gcr.io/cloud-builders/docker
+    args: [push, ${_IMAGE}]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args: [run, deploy, ${_SERVICE}, --image, ${_IMAGE}, --region, ${_REGION}, --platform, managed, --allow-unauthenticated, --quiet]

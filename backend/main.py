@@ -47,7 +47,7 @@ configured_origins = {
     if origin.strip()
 }
 allowed_origins = sorted(
-    configured_origins | {"http://localhost:3000", "http://127.0.0.1:3000"}
+    configured_origins | {"http://localhost:3000", "https://certificate-app-820419599404.asia-south1.run.app"}
 )
 
 
