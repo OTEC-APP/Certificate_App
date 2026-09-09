@@ -1,0 +1,1000 @@
+/* Dashboard proportions based on the supplied reference; visual styling is unchanged. */
+.dashboard-greeting {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  min-height:80px;
+  margin-bottom:20px;
+  padding:24px 28px;
+  border:1px solid rgba(221,92,108,.2);
+  border-radius:20px;
+  background:radial-gradient(circle at 88% 0,rgba(255,190,176,.34),transparent 35%),linear-gradient(115deg,#fff,#fff0f1);
+  box-shadow:0 13px 30px rgba(139,46,61,.08);
+}
+.dashboard-greeting > div { min-width:0; }
+.dashboard-greeting span {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#bd3349;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.11em;
+}
+.dashboard-greeting h2 { margin:8px 0 4px;color:#3f2027;font:700 clamp(24px,2.5vw,34px)/1.1 'Space Grotesk',sans-serif; }
+.dashboard-greeting p { margin:0;color:#80656b;font-size:12px; }
+.dashboard-greeting time {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+  padding:10px 13px;
+  border:1px solid #edc5cc;
+  border-radius:11px;
+  color:#7b3541;
+  background:rgba(255,255,255,.74);
+  font-size:12px;
+  font-weight:700;
+}
+ 
+.er-view:has(> .er-kpis) {
+  width:100%;
+  /* max-width:1424px; */
+  margin-inline:auto;
+}
+ 
+.er-view:has(> .er-kpis) .er-grid {
+  gap:28px;
+}
+ 
+.er-view:has(> .er-kpis) .top-grid {
+  grid-template-columns:minmax(0,1.55fr) minmax(420px,1fr);
+  align-items:stretch;
+}
+ 
+.er-view:has(> .er-kpis) .top-grid > .er-card {
+  width:100%;
+  height:380px;
+  min-height:380px;
+}
+ 
+/* Fit the CTS summary and holder profiles inside the compact card. */
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts {
+  padding:16px 22px 18px;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts > div {
+  min-height:54px;
+  gap:12px;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts > div b {
+  font-size:44px;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts > div span {
+  font-size:14px;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts section {
+  gap:9px;
+  margin:12px 0;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts section p {
+  min-height:72px;
+  padding:10px 12px;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts section b {
+  font-size:22px;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts footer {
+  min-height:46px;
+  padding-top:12px;
+}
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts footer small {
+  margin-left:14px;
+  font-size:12px;
+}
+ 
+.er-view:has(> .er-kpis) .lead-grid {
+  grid-template-columns:minmax(390px,.67fr) minmax(0,1fr);
+  align-items:stretch;
+}
+ 
+.er-view:has(> .er-kpis) .lead-grid > .er-card {
+  width:100%;
+  min-height:330px;
+}
+ 
+.admin-dashboard-page .admin-dashboard-kpis {
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+  margin-bottom:18px;
+}
+ 
+.admin-dashboard-page .admin-dashboard-kpis > div {
+  min-height:110px;
+  padding:14px 16px;
+  border-radius:15px;
+}
+ 
+.admin-dashboard-page .top-grid > .er-card {
+  height:280px;
+  min-height:280px;
+}
+ 
+.admin-dashboard-page .lead-grid > .er-card {
+  min-height:250px;
+}
+ 
+@media(max-width:1100px) {
+  .er-view:has(> .er-kpis) .top-grid,
+  .er-view:has(> .er-kpis) .lead-grid {
+    grid-template-columns:1fr;
+  }
+ 
+  .er-view:has(> .er-kpis) .top-grid > .er-card {
+    height:auto;
+    min-height:360px;
+  }
+}
+ 
+@media(max-width:700px) {
+  .dashboard-greeting { align-items:flex-start;flex-direction:column;gap:14px;min-height:0;padding:20px; }
+  .dashboard-greeting h2 { font-size:24px; }
+  .dashboard-greeting time { width:100%;justify-content:center; }
+  .er-view:has(> .er-kpis) .er-grid { gap:14px; }
+  .er-view:has(> .er-kpis) .top-grid > .er-card,
+  .er-view:has(> .er-kpis) .lead-grid > .er-card { min-height:0; }
+}
+ 
+/* Keep chart titles fixed while wide year/month series scroll inside the card. */
+.er-card:has(.completion-chart-controls) .years,
+.user-chart-card .user-year-bars {
+  min-width:0;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:#34363d #f2ecee;
+}
+ 
+.er-card:has(.completion-chart-controls) .years::-webkit-scrollbar,
+.user-chart-card .user-year-bars::-webkit-scrollbar { height:9px; }
+.er-card:has(.completion-chart-controls) .years::-webkit-scrollbar-track,
+.user-chart-card .user-year-bars::-webkit-scrollbar-track { background:#f2ecee;border-radius:99px; }
+.er-card:has(.completion-chart-controls) .years::-webkit-scrollbar-thumb,
+.user-chart-card .user-year-bars::-webkit-scrollbar-thumb { border-radius:99px;background:#34363d; }
+ 
+.user-chart-card:has(.user-year-bars) {
+  overflow:hidden;
+}
+ 
+.exact-react .user-chart-card .user-year-bars {
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:minmax(72px,1fr);
+  align-items:end;
+  width:100%;
+  gap:16px;
+}
+.exact-react .user-chart-card .user-year-bars > div {
+  width:100%;
+  justify-items:center;
+}
+.exact-react .user-chart-card .user-year-bars i { margin-inline:auto; }
+ 
+.er-card:has(.completion-chart-controls) .years > div {
+  flex:0 0 72px;
+}
+ 
+/* User summary cards use a lighter, consistently aligned presentation. */
+.exact-react .user-kpis article,
+.exact-react .user-kpis article:nth-child(1),
+.exact-react .user-kpis article:nth-child(2),
+.exact-react .user-kpis article:nth-child(3) {
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr);
+  align-items:center;
+  min-height:132px;
+  gap:16px;
+  padding:22px 24px;
+  border:1px solid #efcdd3;
+  background:linear-gradient(135deg,#fffafa,#fff1f3);
+  box-shadow:0 10px 24px rgba(122,43,58,.08);
+}
+.exact-react .user-kpis article:nth-child(2) { background:linear-gradient(135deg,#fffaf8,#fff2ed); }
+.exact-react .user-kpis article:nth-child(3) { background:linear-gradient(135deg,#fffafa,#fcecef); }
+.exact-react .user-kpis article > i {
+  width:48px;
+  height:48px;
+  color:#c8334a;
+  background:#ffe3e7;
+}
+.exact-react .user-kpis article > span { align-content:center;gap:4px;color:#755159; }
+.exact-react .user-kpis article > span b { color:#3f252b;line-height:1.2;overflow-wrap:anywhere; }
+.exact-react .user-kpis article > span small { color:#8a666e; }
+ 
+.exact-react .user-renewal-card > header {
+  min-height:96px;
+  padding:22px 28px;
+}
+.exact-react .user-renewals article {
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
+  align-items:center;
+  gap:16px;
+  min-height:88px;
+  padding:16px 28px;
+}
+.exact-react .user-renewals article > i { justify-self:center; }
+.exact-react .user-renewals article > em { justify-self:end;white-space:nowrap; }
+ 
+@media(max-width:600px) {
+  .exact-react .user-renewal-card > header { min-height:0;padding:17px; }
+  .exact-react .user-renewals article {
+    grid-template-columns:40px minmax(0,1fr);
+    gap:12px;
+    padding:14px 16px;
+  }
+  .exact-react .user-renewals article > em { grid-column:2;justify-self:start; }
+}
+ 
+/* OEM directory icons follow the OTEC red visual language. */
+.exact-react .oem-settings-grid article > i {
+  width:44px;
+  height:44px;
+  flex:0 0 44px;
+  border:1px solid #f0c8cf;
+  border-radius:12px;
+  color:#c72f47;
+  background:linear-gradient(145deg,#fff3f5,#ffe4e8);
+  font-size:18px;
+  box-shadow:inset 0 1px 0 #fff,0 6px 14px rgba(190,45,68,.08);
+}
+.exact-react .oem-settings-grid article > .oem-action-trigger {
+  color:#b95364;
+}
+.exact-react .oem-settings-grid article > .oem-action-trigger:hover,
+.exact-react .oem-settings-grid article > .oem-action-trigger[aria-expanded="true"] {
+  color:#fff;
+  background:#d84457;
+}
+.exact-react .oem-empty > i { color:#c72f47; }
+ 
+/* Softer user greeting banner for the light-only interface. */
+.exact-react .user-welcome {
+  position:relative;
+  overflow:hidden;
+  border:1px solid #e9aeb8;
+  background:
+    radial-gradient(circle at 86% 22%,rgba(255,255,255,.58) 0 7%,transparent 7.3%),
+    radial-gradient(circle at 92% 72%,rgba(190,45,68,.09) 0 11%,transparent 11.3%),
+    linear-gradient(115deg,#fbe9ec 0%,#f7ccd2 55%,#f3b5ae 100%);
+  box-shadow:0 12px 28px rgba(150,48,65,.12);
+}
+.exact-react .user-welcome::before {
+  content:"";
+  position:absolute;
+  inset:22px auto 22px 0;
+  width:5px;
+  border-radius:0 8px 8px 0;
+  background:linear-gradient(#bd2942,#ef7766);
+}
+.exact-react .user-welcome::after {
+  content:"";
+  position:absolute;
+  right:7%;
+  bottom:-68px;
+  width:180px;
+  height:180px;
+  border:1px solid rgba(189,41,66,.13);
+  border-radius:50%;
+}
+.exact-react .user-welcome > * { position:relative;z-index:1; }
+ 
+/* Keep dashboard greetings useful without pushing dashboard content below the fold. */
+.exact-react .dashboard-greeting{
+  min-height:0;
+  margin-bottom:10px;
+  padding:12px 16px;
+  border-radius:14px;
+}
+.exact-react .dashboard-greeting span{font-size:8px}
+.exact-react .dashboard-greeting h2{margin:3px 0 1px;font-size:clamp(19px,1.65vw,23px)}
+.exact-react .dashboard-greeting p{font-size:10px}
+.exact-react .dashboard-greeting time{padding:7px 9px;font-size:10px}
+.exact-react .user-welcome{min-height:0;margin-bottom:10px;padding:12px 18px;border-radius:14px}
+.exact-react .user-welcome h2{margin:2px 0;font-size:22px}
+.exact-react .user-welcome p{font-size:11px}
+.exact-react .user-welcome .user-role-badge{display:none}
+@media(max-width:650px){
+  .exact-react .dashboard-greeting{padding:12px 14px;gap:8px}
+  .exact-react .dashboard-greeting time{display:none}
+  .exact-react .user-welcome{padding:13px 16px}
+}
+ 
+/* Greetings are context, not a hero: present them as a compact dashboard toolbar. */
+.exact-react .dashboard-greeting,
+.exact-react .user-welcome{
+  min-height:44px;
+  margin:0 0 12px;
+  padding:0 4px;
+  border:0;
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+}
+.exact-react .dashboard-greeting>div,
+.exact-react .user-welcome>div{
+  display:flex;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:5px 10px;
+}
+.exact-react .dashboard-greeting span,
+.exact-react .user-welcome span{display:none}
+.exact-react .dashboard-greeting h2,
+.exact-react .user-welcome h2{
+  margin:0;
+  color:#3f2027;
+  font-size:20px;
+  line-height:1.2;
+}
+.exact-react .dashboard-greeting .dashboard-greeting-details {
+  display:flex;
+  flex:1 0 100%;
+  flex-wrap:wrap;
+  gap:7px;
+  margin:0;
+}
+.exact-react .dashboard-greeting .dashboard-greeting-details strong {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 8px;
+  border:1px solid #efcbd0;
+  border-radius:7px;
+  background:#fff7f8;
+  color:#7d4e58;
+  font-size:10px;
+  font-weight:700;
+  line-height:1.25;
+}
+.exact-react .dashboard-greeting .dashboard-greeting-details i { color:#c4364c; font-size:11px; }
+.exact-react .dashboard-greeting p,
+.exact-react .user-welcome p{
+  color:#80656b;
+  font-size:11px;
+}
+.exact-react .dashboard-greeting time{
+  margin-left:auto;
+  padding:6px 9px;
+  border-radius:8px;
+  font-size:10px;
+}
+.exact-react .user-welcome::before,
+.exact-react .user-welcome::after{display:none}
+@media(max-width:650px){
+  .exact-react .dashboard-greeting,
+  .exact-react .user-welcome{min-height:0;padding:0 2px}
+  .exact-react .dashboard-greeting h2,
+  .exact-react .user-welcome h2{font-size:18px}
+}
+ 
+/* Above-the-fold dashboard density: retain every panel without a tall first screen. */
+@media(min-width:1051px){
+  .exact-react .er-view:has(> .dashboard-greeting){padding-top:14px}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-kpis{gap:12px;margin-bottom:12px}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-kpis>button{min-height:86px;padding:11px 14px}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-kpis>button>b{margin:5px 0 1px;font-size:25px}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-grid{gap:12px}
+  .exact-react .er-view:has(> .dashboard-greeting) .top-grid>.er-card{height:270px;min-height:270px}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-card>header{min-height:44px;padding:9px 14px}
+  .exact-react .er-view:has(> .dashboard-greeting) .prototype-channels{padding-top:7px}
+  .exact-react .er-view:has(> .dashboard-greeting) .prototype-scale,
+  .exact-react .er-view:has(> .dashboard-greeting) .channels{height:142px}
+  .exact-react .er-view:has(> .dashboard-greeting) .prototype-legend{margin-top:3px;padding:5px 0}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts{padding:10px 16px}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts>div{min-height:40px}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts>div b{font-size:34px}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts section{margin:8px 0;gap:7px}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts section p{min-height:54px;padding:7px 9px}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts section b{font-size:18px}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts footer{min-height:30px;padding-top:7px}
+}
+ 
+/* A distinct, relevant icon makes each global page heading recognizable. */
+.exact-react .page-content-heading {
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  min-width:0;
+  min-height:0;
+  gap:16px;
+  margin:0 0 18px;
+  padding:12px 22px;
+  border:1px solid #efcbd1;
+  border-radius:20px;
+  background:
+    radial-gradient(circle at 89% 15%,rgba(255,255,255,.62),transparent 21%),
+    linear-gradient(115deg,#fffafa 0%,#ffe9eb 62%,#ffddd6 100%);
+  box-shadow:0 14px 32px rgba(139,46,61,.09);
+}
+.exact-react .page-content-heading > div { min-width:0;order:1; }
+.exact-react .page-content-heading span {
+  display:block;
+  margin-bottom:5px;
+  color:#b32b42;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+}
+.exact-react .page-content-heading h1 { margin:0;color:#312125;font-size:clamp(24px,2vw,31px);line-height:1.12; }
+.exact-react .page-content-heading p { margin:4px 0 0;color:#73565d;font-size:13px; }
+.exact-react .page-heading-icon {
+  display:grid;
+  order:2;
+  width:46px;
+  height:46px;
+  flex:0 0 46px;
+  margin-left:auto;
+  place-items:center;
+  border:1px solid #edbec6;
+  border-radius:16px;
+  color:#c42f47;
+  background:rgba(255,250,250,.82);
+  box-shadow:0 10px 24px rgba(190,45,68,.1);
+  font-size:22px;
+}
+ 
+/* Keep approval content scrollable while hiding the distracting scrollbar. */
+.exact-react .approval-details-modal {
+  -ms-overflow-style:none;
+  scrollbar-width:none;
+}
+.exact-react .approval-details-modal::-webkit-scrollbar {
+  display:none;
+  width:0;
+  height:0;
+}
+ 
+@media(max-width:700px) {
+  .exact-react .page-content-heading { min-height:0;gap:10px;margin-bottom:12px;padding:11px 14px;border-radius:14px; }
+  .exact-react .page-heading-icon {
+    width:42px;
+    height:42px;
+    flex-basis:42px;
+    border-radius:12px;
+    font-size:18px;
+  }
+}
+ 
+@media(max-width:480px) {
+  .exact-react .page-content-heading .page-heading-icon { display:none; }
+}
+ 
+/* Global typography authority: Poppins across the complete application UI. */
+html,
+body,
+body * {
+  font-family:'Poppins',sans-serif!important;
+}
+.bi::before,
+[class^="bi-"]::before,
+[class*=" bi-"]::before {
+  font-family:"bootstrap-icons"!important;
+}
+ 
+/* Consistent two-axis scrolling for every application table. */
+.global-table-scroll,
+.table-responsive,
+.card-table-scroll,
+.catalog-details-table-wrap {
+  width:100%;
+  max-height:min(68dvh,680px);
+  overflow-x:auto;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable both-edges;
+}
+.global-table-scroll > table,
+.table-responsive > table,
+.card-table-scroll > table,
+.catalog-details-table-wrap > table {
+  width:max-content;
+  min-width:100%;
+}
+.global-table-scroll thead th,
+.table-responsive thead th,
+.card-table-scroll thead th,
+.catalog-details-table-wrap thead th {
+  position:sticky;
+  top:0;
+  z-index:3;
+  background:#fffafa;
+  box-shadow:0 1px 0 #efdfe2;
+}
+.exact-react .user-welcome span {
+  color:#bd3349;
+}
+.exact-react .user-welcome h2 {
+  color:#45252c;
+}
+.exact-react .user-welcome p {
+  color:#78535b;
+}
+ 
+/* Pagination stays attached below its two-axis table viewport. */
+.exact-react .er-card > .app-pagination,
+.exact-react .completion-records-card > .app-pagination {
+  width:100%;
+  margin:0;
+  padding:14px 20px;
+  border-top:1px solid #f0dfe2;
+  background:#fffafa;
+}
+ 
+.exact-react .compliance-pulse + .compliance-view-toggle {
+  justify-self:start;
+  margin-top:-4px;
+}
+.exact-react .er-card > .compliance-view-toggle {
+  display:flex;
+  justify-content:flex-start;
+  width:100%;
+  max-width:none;
+  margin:0;
+  gap:6px;
+  padding:10px 14px;
+  border-width:0 0 1px;
+  border-radius:0;
+  box-sizing:border-box;
+  background:#fffafa;
+  box-shadow:none;
+}
+.exact-react .er-card > .compliance-view-toggle button {
+  min-height:44px;
+  padding:0 15px;
+}
+ 
+@media(max-width:700px) {
+  .exact-react .er-card > .compliance-view-toggle {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    padding:9px 12px;
+  }
+}
+ 
+@media(max-width:480px) {
+  .exact-react .er-card > .compliance-view-toggle { grid-template-columns:1fr; }
+}
+ 
+/* AVIXA automatic match review inside the administrator approval dialog. */
+.exact-react .approval-ru-review {
+  margin:22px 28px 0;
+  padding:20px;
+  border:1px solid #edc9cf;
+  border-radius:18px;
+  background:linear-gradient(135deg,#fffafa,#fff0f2);
+}
+.exact-react .approval-ru-review > header { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px; }
+.exact-react .approval-ru-review small { color:#bd3349;font-size:9px;font-weight:800;letter-spacing:.12em; }
+.exact-react .approval-ru-review h3 { margin:3px 0 0;color:#3f252b;font-size:19px; }
+.exact-react .ru-match-status { padding:7px 10px;border-radius:999px;color:#9b2940;background:#ffe2e7;font-size:11px;font-weight:700;white-space:nowrap; }
+.exact-react .ru-match-status.suggested,.exact-react .ru-match-status.verified { color:#087b58;background:#e3f7ee; }
+.exact-react .approval-ru-fields { display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(120px,.55fr) minmax(130px,.55fr);gap:12px; }
+.exact-react .approval-ru-fields label { display:grid;gap:6px;color:#72545b;font-size:11px;font-weight:700; }
+.exact-react .approval-ru-fields input,.exact-react .approval-ru-fields select { width:100%;height:42px;border:1px solid #e8c7cd;border-radius:10px;padding:0 11px;color:#38252a;background:#fff; }
+.exact-react .approval-ru-review > p { margin:14px 0 0;color:#80646a;font-size:11px; }
+.exact-react .approval-ru-review > p i { margin-right:5px;color:#d33b52; }
+.exact-react .record-ru-total { background:linear-gradient(145deg,#fff8f8,#ffe8eb); }
+.exact-react .record-ru-total b { color:#c62f47; }
+.exact-react .record-verified-ru { color:#b72f45!important;font-weight:700; }
+.exact-react .record-verified-ru i { margin-right:4px;color:#d84457; }
+@media(max-width:700px) {
+  .exact-react .approval-ru-review { margin:16px 12px 0;padding:15px; }
+  .exact-react .approval-ru-review > header { align-items:flex-start;flex-direction:column; }
+  .exact-react .approval-ru-fields { grid-template-columns:1fr; }
+}
+ 
+/* Catalog layout: heading, view switch, and table are deliberately separate cards. */
+.exact-react .compliance-workspace > .compliance-view-toggle {
+  justify-self:start;
+  width:max-content;
+  margin:0;
+}
+.exact-react .catalog-heading-card,
+.exact-react .catalog-data-card { overflow:visible; }
+.exact-react .catalog-data-card > .catalog-filters { border-top:0; }
+.exact-react .catalog-data-card > .global-table-scroll { border-bottom-left-radius:inherit;border-bottom-right-radius:inherit; }
+ 
+@media(max-width:700px) {
+  .exact-react .compliance-workspace > .compliance-view-toggle { width:100%; }
+}
+ 
+/* Compact navigation drawer: remove excess vertical whitespace. */
+.exact-react .er-side,
+.exact-react.sidebar-collapsed .er-side {
+  padding-top:12px;
+  padding-bottom:12px;
+}
+.exact-react .er-side .er-brand {
+  min-height:54px;
+  gap:8px;
+  padding:0 2px 10px;
+}
+.exact-react .er-side .er-brand .o2k {
+  width:66px;
+  height:42px;
+}
+.exact-react .er-side .er-brand-copy b { font-size:19px;line-height:1.1; }
+.exact-react .er-side .er-brand-copy small { font-size:10px;line-height:1.25; }
+.exact-react .er-side .er-nav-scroll { padding:5px 0; }
+.exact-react .er-side label {
+  padding:9px 10px 5px;
+  font-size:9px;
+}
+.exact-react .er-side nav { gap:2px; }
+.exact-react .er-side nav a {
+  min-height:40px;
+  padding:8px 12px;
+  gap:11px;
+  font-size:13px;
+}
+.exact-react .er-side nav a i { font-size:16px; }
+.exact-react .sidebar-account {
+  margin-bottom:-12px;
+  padding-top:9px;
+  padding-bottom:11px;
+  gap:8px;
+}
+.exact-react .sidebar-actions { margin:0; }
+.exact-react .sidebar-logout {
+  min-height:36px;
+  height:36px;
+  padding:0 12px;
+}
+ 
+/* Final device-width authority for dashboard and OEM/compliance pages. */
+@media (max-width: 1360px) {
+  .exact-react .compliance-grid,
+  .exact-react .compliance-cert-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+ 
+@media (max-width: 1100px) {
+  .exact-react .compliance-pulse {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .exact-react .compliance-pulse-stats {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+  }
+  .exact-react .compliance-pulse-stats > div { min-width:0; }
+  .exact-react .holder-card-grid { grid-template-columns:minmax(0,1fr); }
+}
+ 
+@media (max-width: 760px) {
+  .exact-react .compliance-pulse,
+  .exact-react .compliance-detail-head,
+  .exact-react .compliance-credential-hero {
+    width:100%;
+    min-width:0;
+    box-sizing:border-box;
+  }
+  .exact-react .compliance-grid,
+  .exact-react .compliance-cert-grid {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .exact-react .compliance-card,
+  .exact-react .compliance-card-link,
+  .exact-react .compliance-card-link > header,
+  .exact-react .requirement-editor { min-width:0; }
+  .exact-react .compliance-card-link h3,
+  .exact-react .compliance-card-link p,
+  .exact-react .holder-profile-head b,
+  .exact-react .holder-profile-head small {
+    overflow-wrap:anywhere;
+  }
+  .exact-react .requirement-editor {
+    grid-template-columns:minmax(0,1fr) 72px;
+  }
+  .exact-react .requirement-editor button { grid-column:1/-1; }
+}
+ 
+@media (max-width: 520px) {
+  .exact-react .er-top {
+    display:grid;
+    grid-template-columns:40px minmax(0,1fr) 40px 40px minmax(0,1fr) 40px;
+    align-items:center;
+    width:100%;
+    min-height:64px;
+    padding:10px 12px;
+    gap:8px;
+  }
+  .exact-react .mobile-menu-button {
+    grid-column:1;
+    margin:0;
+  }
+  .exact-react .top-notification {
+    display:grid;
+    grid-column:3;
+    width:40px;
+    height:40px;
+    place-items:center;
+  }
+  .exact-react .global-back-button {
+    grid-column:6;
+    margin:0;
+    width:40px;
+    min-width:40px;
+    height:40px;
+  }
+  .exact-react .er-top .er-add {
+    grid-column:4;
+    flex:0 0 40px;
+    width:40px;
+    height:40px;
+  }
+  .exact-react .page-content-heading {
+    margin-bottom:12px;
+    padding:16px 17px 18px;
+  }
+  .exact-react .page-content-heading h1 {
+    font-size:clamp(23px,7vw,28px);
+    overflow-wrap:anywhere;
+  }
+  .exact-react .page-content-heading p {
+    font-size:12px;
+    line-height:1.45;
+  }
+  .exact-react .user-renewal-card > header {
+    padding:18px;
+  }
+  .exact-react .user-renewals article {
+    grid-template-columns:40px minmax(0,1fr) auto;
+    align-items:center;
+    gap:11px;
+    min-height:82px;
+    padding:15px 18px;
+  }
+  .exact-react .user-renewals article > div { min-width:0; }
+  .exact-react .user-renewals article > div b,
+  .exact-react .user-renewals article > div small {
+    overflow-wrap:anywhere;
+    white-space:normal;
+  }
+  .exact-react .user-renewals article > em {
+    grid-column:3;
+    grid-row:1;
+    align-self:center;
+    justify-self:end;
+    margin:0;
+  }
+  .exact-react .compliance-pulse-stats { grid-template-columns:minmax(0,1fr); }
+  .exact-react .holder-profile-head,
+  .exact-react .holder-credential-meta { grid-template-columns:minmax(0,1fr); }
+}
+ 
+@media (max-width: 380px) {
+  .exact-react .user-renewals article {
+    grid-template-columns:38px minmax(0,1fr);
+  }
+  .exact-react .user-renewals article > em {
+    grid-column:2;
+    grid-row:2;
+    justify-self:start;
+  }
+}
+ 
+/* Fluid layout authority: use broadly supported grid rules on every browser. */
+.exact-react .er-view { min-width:0; }
+.exact-react .er-view > *,
+.exact-react .compliance-grid > *,
+.exact-react .holder-card-grid > * {
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.exact-react .compliance-view,
+.exact-react .compliance-overview,
+.exact-react .compliance-workspace,
+.exact-react .compliance-card,
+.exact-react .holder-profile-card {
+  width:100%;
+  min-width:0;
+  max-width:100%;
+}
+ 
+@media (max-width: 1000px) {
+  .exact-react .compliance-grid,
+  .exact-react .compliance-cert-grid,
+  .exact-react .holder-card-grid {
+    display:grid;
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+}
+ 
+@media (max-width: 700px) {
+  .exact-react .compliance-detail-head,
+  .exact-react .compliance-credential-hero {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .exact-react .compliance-detail-head > b,
+  .exact-react .credential-total {
+    width:100%;
+    min-width:0;
+  }
+  .exact-react .compliance-pulse-stats {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+  }
+  .exact-react .compliance-view-toggle {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    width:100%;
+  }
+  .exact-react .holder-profile-head {
+    grid-template-columns:42px minmax(0,1fr);
+  }
+  .exact-react .holder-profile-head em {
+    grid-column:2;
+    justify-self:start;
+  }
+}
+ 
+@media (max-width: 430px) {
+  .exact-react .prototype-channels,
+  .exact-react .years {
+    scrollbar-gutter:stable;
+  }
+  .exact-react .compliance-pulse,
+  .exact-react .compliance-card-link > header,
+  .exact-react .compliance-detail-head,
+  .exact-react .compliance-credential-hero {
+    padding-inline:15px;
+  }
+  .exact-react .requirement-editor {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .exact-react .requirement-editor button { grid-column:auto; }
+  .exact-react .holder-profile-head,
+  .exact-react .holder-credential-meta {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .exact-react .holder-profile-head em { grid-column:1; }
+  .exact-react .compliance-pulse-stats,
+  .exact-react .compliance-view-toggle {
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+ 
+/* Dashboard density authority: compact, balanced cards and readable type. */
+.exact-react .er-view:has(> .dashboard-greeting) {
+  /* dash */
+  padding:20px 24px 40px;
+}
+.exact-react .dashboard-greeting {
+  min-height:0;
+  margin-bottom:14px;
+  padding:17px 22px;
+  border-radius:16px;
+  box-shadow:0 8px 22px rgba(139,46,61,.07);
+}
+.exact-react .dashboard-greeting span { font-size:9px; }
+.exact-react .dashboard-greeting h2 {
+  margin:6px 0 3px;
+  font-size:clamp(20px,2vw,27px);
+}
+.exact-react .dashboard-greeting p,
+.exact-react .dashboard-greeting time { font-size:11px; }
+.exact-react .dashboard-greeting time { padding:8px 11px; }
+ 
+.exact-react .er-view:has(> .dashboard-greeting) .er-kpis {
+  gap:12px;
+  margin-bottom:16px;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .er-kpis > button {
+  min-height:108px;
+  padding:14px 16px;
+  border-radius:14px;
+  box-shadow:0 7px 20px rgba(43,42,73,.065);
+}
+.exact-react .er-view:has(> .dashboard-greeting) .er-kpis > button > span { font-size:11px; }
+.exact-react .er-view:has(> .dashboard-greeting) .er-kpis > button > span i {
+  width:30px;
+  height:30px;
+  padding:0;
+  place-items:center;
+  font-size:14px;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .er-kpis > button > b {
+  margin:10px 0 3px;
+  font-size:27px;
+  letter-spacing:-.7px;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .er-kpis > button > b small,
+.exact-react .er-view:has(> .dashboard-greeting) .er-kpis > button > small { font-size:9px; }
+ 
+.exact-react .er-view:has(> .dashboard-greeting) .er-grid { gap:16px; }
+.exact-react .er-view:has(> .dashboard-greeting) .top-grid > .er-card {
+  height:330px;
+  min-height:330px;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .prototype-channels {
+  padding-top:12px;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .prototype-scale,
+.exact-react .er-view:has(> .dashboard-greeting) .channels {
+  height:190px;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .prototype-legend {
+  margin-top:8px;
+  padding:10px 0;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .lead-grid > .er-card { min-height:285px; }
+.exact-react .er-view:has(> .dashboard-greeting) .er-card { border-radius:14px; }
+.exact-react .er-view:has(> .dashboard-greeting) .er-card > header {
+  min-height:52px;
+  padding:12px 15px;
+}
+.exact-react .er-view:has(> .dashboard-greeting) .er-card > header h3 { font-size:13px; }
+.exact-react .er-view:has(> .dashboard-greeting) .er-card > header > span,
+.exact-react .er-view:has(> .dashboard-greeting) .card-action { font-size:9px; }
+.exact-react .er-view:has(> .dashboard-greeting) .leader,
+.exact-react .er-view:has(> .dashboard-greeting) .renewal-list > button { min-height:43px; }
+.exact-react .er-view:has(> .dashboard-greeting) .leader span b,
+.exact-react .er-view:has(> .dashboard-greeting) .renewal-list b,
+.exact-react .er-view:has(> .dashboard-greeting) .hbars span { font-size:11px; }
+.exact-react .er-view:has(> .dashboard-greeting) .leader span small,
+.exact-react .er-view:has(> .dashboard-greeting) .renewal-list small,
+.exact-react .er-view:has(> .dashboard-greeting) .partner { font-size:10px; }
+ 
+@media (max-width: 1100px) {
+  .exact-react .er-view:has(> .dashboard-greeting) .top-grid > .er-card {
+    height:auto;
+    min-height:310px;
+  }
+}
+@media (max-width: 700px) {
+  .exact-react .er-view:has(> .dashboard-greeting) { padding:14px 14px 32px; }
+  .exact-react .dashboard-greeting { gap:10px;padding:15px 16px; }
+  .exact-react .dashboard-greeting h2 { font-size:21px; }
+  .exact-react .er-view:has(> .dashboard-greeting) .er-kpis > button { min-height:100px;padding:13px; }
+  .exact-react .er-view:has(> .dashboard-greeting) .top-grid > .er-card,
+  .exact-react .er-view:has(> .dashboard-greeting) .lead-grid > .er-card { min-height:0; }
+}
+ 
+/* Final desktop density override — intentionally last so dashboard theme rules cannot expand it. */
+.exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid > .er-card.dark .cts > div {
+  align-items:center;
+}
+@media (min-width:1051px) {
+  .exact-react .er-view:has(> .dashboard-greeting){padding-top:10px!important}
+  .exact-react .dashboard-greeting{min-height:44px!important;margin:0 0 10px!important;padding:0 4px!important;border:0!important;background:none!important;box-shadow:none!important}
+  .exact-react .dashboard-greeting>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 10px}
+  .exact-react .dashboard-greeting span{display:none!important}
+  .exact-react .dashboard-greeting h2{margin:0!important;font-size:20px!important}
+  .exact-react .dashboard-greeting p{font-size:11px!important}
+  .exact-react .dashboard-greeting time{padding:6px 9px!important;font-size:10px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-kpis{gap:12px!important;margin-bottom:12px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-kpis>button{min-height:102px!important;padding:13px 16px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-kpis>button>b{margin:8px 0 1px!important;font-size:27px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-grid{gap:12px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .top-grid>.er-card{height:295px!important;min-height:295px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .er-card>header{min-height:48px!important;padding:10px 15px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .prototype-channels{padding-top:9px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .prototype-scale,
+  .exact-react .er-view:has(> .dashboard-greeting) .channels{height:165px!important}
+  .exact-react .er-view:has(> .dashboard-greeting) .prototype-legend{margin-top:5px!important;padding:6px 0!important}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts{padding:12px 18px!important}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts>div{min-height:46px!important}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts>div b{font-size:38px!important}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts section{margin:10px 0!important;gap:8px!important}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts section p{min-height:62px!important;padding:8px 10px!important}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts section b{font-size:20px!important}
+  .exact-react[data-theme="light"] .er-view:has(> .er-kpis) .top-grid>.er-card.dark .cts footer{min-height:36px!important;padding-top:9px!important}
+}

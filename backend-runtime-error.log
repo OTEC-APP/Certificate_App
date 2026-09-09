@@ -1,0 +1,107 @@
+INFO:     Started server process [20844]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:5000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 60506) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49795) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59828) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 55586) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 62587) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 61030) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 57403) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 64226) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 59512) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 57571) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 57074) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 52116) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 56194) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 51430) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 51368) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 53827) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 64162) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 63361) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 57131) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 63875) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 63988) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 58757) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 62960) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 64658) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 65512) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 53457) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 53793) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 51526) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 54822) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 50567) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 55652) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 56499) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+C:\Users\ADMIN\AppData\Local\Programs\Python\Python314\Lib\site-packages\google\cloud\firestore_v1\base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+  return query.where(field_path, op_string, value)
+INFO:     connection closed
+INFO:     ('127.0.0.1', 52351) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 55585) - "WebSocket /ws/updates" [accepted]
+INFO:     connection open

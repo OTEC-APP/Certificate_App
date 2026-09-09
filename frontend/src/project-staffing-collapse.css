@@ -1,0 +1,44 @@
+.staff-project > header {
+  grid-template-columns: minmax(0, 1fr) auto 36px 36px;
+  gap: 12px;
+}
+
+.staff-project {
+  border: 1px solid #d9dce5;
+  box-shadow: 0 5px 16px rgba(31, 36, 52, 0.09);
+}
+
+.staff-project-toggle {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.staff-project .staff-project-toggle h3 {
+  margin: 2px 0;
+  color: var(--text) !important;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.staff-project .staff-project-toggle p {
+  margin: 0;
+  color: var(--text);
+  opacity: 0.78;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.staff-chevron {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: #5147e5;
+  cursor: pointer;
+}

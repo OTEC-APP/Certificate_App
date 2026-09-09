@@ -1,0 +1,17 @@
+node_modules/
+dist/
+frontend/build/
+__pycache__/
+.venv/
+venv/
+# Local and production environment files contain credentials. Commit only examples.
+**/.env*
+!**/.env.example
+!**/.env.*.example
+
+# Never commit Firebase or Google Cloud service-account keys.
+backend/certtract.json
+backend/*service-account*.json
+backend/*firebase*.json
+backend/.notification_reads.json
+backend/.notification_reads.tmp

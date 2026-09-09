@@ -1,0 +1,25 @@
+
+.completion-chart-controls { display:flex; align-items:center; gap:8px; }
+.completion-chart-toggle { display:flex; gap:3px; padding:3px; border-radius:8px; background:#f0f1f6; }
+.completion-chart-toggle button { padding:5px 10px; border:0; border-radius:6px; background:transparent; color:#697086; font-size:10px; font-weight:700; cursor:pointer; }
+.completion-chart-toggle button.active { background:#5147e5; color:#fff; box-shadow:0 2px 6px rgba(79,70,229,.2); }
+.completion-year-select { display:flex; align-items:center; gap:4px; color:#697086; font-size:10px; font-weight:700; }
+.completion-year-select select { border:1px solid #dfe1ea; border-radius:6px; background:#fff; color:#343947; padding:4px 6px; font:inherit; cursor:pointer; }
+.er-card:has(.completion-chart-controls) { align-self:stretch; display:flex; flex-direction:column; height:100%; }
+.er-card:has(.completion-chart-controls) .years { flex:1; height:auto; min-height:190px; padding-bottom:12px; overflow-x:auto; overflow-y:hidden; overscroll-behavior-inline:contain; scrollbar-gutter:stable; }
+.er-card:has(.completion-chart-controls) .years > div { flex:0 0 72px; }
+.er-card:has(.completion-chart-controls) .years > div > i { display:flex; align-items:flex-start; justify-content:center; min-height:28px; padding:6px 3px 0; }
+.years.month-view { gap:6px; padding-right:14px; padding-left:14px; }
+.years.month-view > div { min-width:72px; }
+.years.month-view > div > i { width:24px; }
+.years.month-view > div > b { font-size:8px; }
+.years:not(.month-view) > div { min-width:54px; }
+.prototype-channels .chan .bar { min-height:32px; padding-top:6px; }
+.prototype-channels .chan .bar b { line-height:18px; flex:0 0 auto; }
+.completion-bar-link { cursor:pointer; border-radius:8px; transition:background .16s ease,transform .16s ease; }
+.completion-bar-link:hover { background:#f4f3ff; transform:translateY(-2px); }
+.completion-bar-link:focus-visible { outline:2px solid #5147e5; outline-offset:3px; }
+.exact-react[data-theme='dark'] .completion-chart-toggle { background:#252c40; }
+.exact-react[data-theme='dark'] .completion-chart-toggle button { color:#aeb5ca; }
+.exact-react[data-theme='dark'] .completion-chart-toggle button.active { color:#fff; }
+.exact-react[data-theme='dark'] .completion-year-select select { background:#252c40; border-color:#3b4358; color:#eef1ff; }

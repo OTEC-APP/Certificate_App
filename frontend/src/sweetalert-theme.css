@@ -1,0 +1,125 @@
+.certtrack-swal {
+  width: min(430px, calc(100% - 32px));
+  padding: 28px;
+  border: 1px solid #e2e6ef;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(19, 24, 42, .22);
+  font-family: Inter, sans-serif;
+}
+.certtrack-swal .swal2-icon {
+  margin: 0 auto 14px;
+}
+.certtrack-swal-title {
+  padding: 0;
+  color: #171b27;
+  font: 700 22px/1.25 'Space Grotesk', Inter, sans-serif;
+}
+.certtrack-swal-message {
+  margin: 9px 0 0;
+  color: #697086;
+  font: 14px/1.55 Inter, sans-serif;
+}
+.certtrack-swal-message strong { color: #303747; }
+.certtrack-swal-actions {
+  width: 100%;
+  margin: 24px 0 0;
+  gap: 10px;
+}
+.certtrack-swal-confirm, .certtrack-swal-cancel {
+  min-height: 42px;
+  margin: 0;
+  padding: 0 18px;
+  border-radius: 9px;
+  font: 700 14px Inter, sans-serif;
+  cursor: pointer;
+}
+.certtrack-swal-confirm {
+  border: 1px solid #ef4762;
+  background: #ef4762;
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(239, 71, 98, .2);
+}
+.certtrack-swal-confirm:hover { background: #d93652; }
+.certtrack-swal-primary {
+  min-height: 42px;
+  margin: 0;
+  padding: 0 18px;
+  border: 1px solid #4f46e5;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #4f46e5, #6f66ea);
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(79, 70, 229, .2);
+  font: 700 14px Inter, sans-serif;
+  cursor: pointer;
+}
+.certtrack-swal-primary:hover { filter: brightness(1.05); }
+.certtrack-swal-danger {
+  min-height: 42px;
+  margin: 0;
+  padding: 0 18px;
+  border: 1px solid #ef4762;
+  border-radius: 9px;
+  background: #ef4762;
+  color: #fff;
+  box-shadow: 0 7px 16px rgba(239, 71, 98, .2);
+  font: 700 14px Inter, sans-serif;
+  cursor: pointer;
+}
+.certtrack-swal-danger:hover { background: #d93652; }
+.certtrack-swal-toast {
+  width: min(340px, calc(100vw - 28px));
+  min-height: 58px;
+  padding: 10px 13px;
+  border-left: 4px solid #10a58e;
+  border-radius: 12px;
+  box-shadow: 0 12px 35px rgba(19, 24, 42, .18);
+}
+.certtrack-swal-toast.swal2-icon-error {
+  border-left-color: #ef4762;
+}
+.certtrack-swal-toast .swal2-icon {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  margin: 0 11px 0 0;
+  border-width: 2px;
+  font-size: 16px;
+}
+.certtrack-swal-toast .swal2-icon-content {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  font-size: 16px !important;
+  line-height: 1;
+}
+.certtrack-swal-toast .swal2-icon-content i {
+  display: block;
+  font-size: 16px;
+  line-height: 1;
+}
+.certtrack-swal-toast .certtrack-swal-title {
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+}
+.certtrack-swal-cancel {
+  border: 1px solid #d7ddea;
+  background: #fff;
+  color: #4d566b;
+}
+.certtrack-swal-cancel:hover { background: #f6f8fc; }
+.certtrack-swal-input {
+  width: 100%;
+  min-height: 46px;
+  margin: 18px 0 0;
+  border: 1px solid #cfd7e7;
+  border-radius: 9px;
+  box-shadow: none;
+  color: #171b27;
+  font: 14px Inter, sans-serif;
+}
+.certtrack-swal-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px #ecebff;
+}

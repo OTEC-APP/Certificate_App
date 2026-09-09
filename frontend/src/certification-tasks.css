@@ -1,0 +1,53 @@
+.certification-tasks-page{display:grid;gap:20px}.task-page-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 28px;border:1px solid #efcbd1;border-radius:20px;background:linear-gradient(120deg,#fffafa,#ffecef 58%,#ffe1dd);box-shadow:0 13px 32px rgba(118,39,55,.08)}.task-page-hero span,.task-assignment-form header span,.task-list-section>header span{color:#c63149;font-size:10px;font-weight:800;letter-spacing:.13em}.task-page-hero h1{margin:4px 0;font-size:27px}.task-page-hero p{margin:0;color:#7d646a}.task-page-hero strong{display:grid;min-width:110px;padding:13px;border:1px solid #efc7ce;border-radius:14px;background:#fff8f9;color:#bd3047;font-size:25px;text-align:center}.task-page-hero strong small{color:#80676d;font-size:10px}.task-assignment-form{padding:0;overflow:hidden}.task-assignment-form>header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #f0dfe2}.task-assignment-form h2,.task-list-section h2{margin:3px 0 0;color:#44282f;font-size:20px}.task-assignment-form>header>i{display:grid;width:44px;height:44px;place-items:center;border-radius:12px;background:#ffe9ec;color:#ca354c;font-size:20px}.task-form-fields{display:grid;grid-template-columns:1fr 1.3fr .65fr;gap:15px;padding:20px 22px}.task-form-fields label{display:grid;gap:7px;color:#6d5057;font-size:11px;font-weight:750}.task-form-fields label small{font-weight:500}.task-form-fields input{width:100%;height:43px;padding:0 12px;border:1px solid #e5d5d8;border-radius:9px;background:#fff;color:#38252a}.task-team-picker{margin:0;padding:0 22px 20px;border:0}.task-team-picker legend{color:#4c3037;font-size:13px;font-weight:800}.task-team-picker>p{margin:4px 0 12px;color:#897278;font-size:11px}.task-team-picker>div{display:flex;flex-wrap:wrap;gap:8px}.task-team-picker>div label{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1px solid #ead9dc;border-radius:9px;color:#6f555b;background:#fff;cursor:pointer;font-size:11px;font-weight:700}.task-team-picker>div label.selected{border-color:#e39ca8;color:#a72e42;background:#fff1f3}.task-team-picker input{position:absolute;opacity:0}.task-team-picker i{color:#d23d53}.task-assignment-form>footer{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:15px 22px;border-top:1px solid #f0dfe2;background:#fffafa}.task-assignment-form>footer span{color:#856c72;font-size:11px}.task-assignment-form>footer button{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 17px;border:0;border-radius:9px;color:#fff;background:linear-gradient(115deg,#bd2942,#ef7465);font-weight:800}.task-assignment-form>footer button:disabled{opacity:.5}.task-list-section{display:grid;gap:14px}.task-list-section>header{display:flex;align-items:end;justify-content:space-between}.task-list-section>header b{padding:8px 11px;border-radius:9px;color:#bd3349;background:#fff0f2;font-size:11px}.task-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.task-card{display:grid;gap:16px;padding:18px;border:1px solid #ead9dc;border-radius:16px;background:rgba(255,255,255,.9);box-shadow:0 8px 22px rgba(96,37,49,.07)}.task-card>header{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:11px}.task-card>header>i{display:grid;width:42px;height:42px;place-items:center;border-radius:11px;background:#ffe9ec;color:#cd374e;font-size:18px}.task-card h3{margin:5px 0 0;color:#42272e;font-size:16px;overflow-wrap:anywhere}.task-card header span{display:inline-flex;padding:4px 7px;border-radius:99px;font-size:9px;font-weight:800;text-transform:uppercase}.task-card header span.mandatory{color:#b52940;background:#ffe5e9}.task-card header span.optional{color:#38735e;background:#e8f7f1}.task-delete{width:32px;height:32px;border:1px solid #efd4d8;border-radius:8px;color:#bd3349;background:#fff}.task-card dl{display:grid;gap:8px;margin:0}.task-card dl>div{display:grid;gap:3px}.task-card dt{color:#9a8388;font-size:9px;text-transform:uppercase}.task-card dd{margin:0;color:#61474e;font-size:11px;overflow-wrap:anywhere}.task-card>footer{display:flex;align-items:center;justify-content:space-between;gap:8px}.task-card>footer a,.task-card>footer button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 11px;border:1px solid #e6c8cd;border-radius:8px;color:#b72f46;background:#fff;text-decoration:none;font-size:10px;font-weight:800}.task-card>footer button.done{border-color:#bfe2d5;color:#26715a;background:#ecf8f4}.task-card.completed{opacity:.72}.task-empty{margin:0;padding:45px;border:1px dashed #e1cfd3;border-radius:14px;color:#8a7177;text-align:center}@media(max-width:1050px){.task-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.task-form-fields{grid-template-columns:1fr 1fr}.task-form-fields label:last-child{grid-column:1/-1}}@media(max-width:650px){.task-page-hero{align-items:flex-start;flex-direction:column;padding:20px}.task-page-hero strong{width:100%}.task-form-fields{grid-template-columns:1fr;padding:17px}.task-form-fields label:last-child{grid-column:auto}.task-team-picker{padding:0 17px 17px}.task-assignment-form>footer,.task-card>footer{align-items:stretch;flex-direction:column}.task-assignment-form>footer button,.task-card>footer a,.task-card>footer button{width:100%;justify-content:center}.task-card-grid{grid-template-columns:1fr}}
+.task-card.completed{opacity:1!important;background:#fff!important;border-color:#ead9dc;box-shadow:0 8px 22px rgba(96,37,49,.07)}
+
+.course-table-section{padding:0;overflow:hidden;border:1px solid #ead9dc;border-radius:16px;background:#fff}.course-table-section>header{padding:13px 20px;border-bottom:1px solid #f0dfe2}.course-table-wrap{overflow-x:auto}.course-table{width:100%;border-collapse:collapse;min-width:850px}.course-table th{padding:9px 16px;color:#7d6970;background:#fffafa;font-size:10px;font-weight:800;letter-spacing:.06em;text-align:left;text-transform:uppercase}.course-table td{padding:9px 16px;border-top:1px solid #f3e7e9;color:#725a61;font-size:11px;line-height:1.25;vertical-align:middle}.course-table td b{color:#4b3037;font-size:12px}.course-table td span.done,.course-table td span.pending{display:inline-flex;padding:5px 8px;border-radius:99px;font-size:10px;font-weight:800}.course-table td span.done{color:#21775b;background:#e8f7f1}.course-table td span.pending{color:#b44a31;background:#fff0e7}.course-table-actions,.course-user-actions{display:flex;align-items:center;gap:7px}.course-table-actions button,.course-open-action,.course-user-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:31px;padding:0 10px;border:1px solid #edcbd0;border-radius:7px;color:#b72f46;background:#fff;font-size:10px;font-weight:800;cursor:pointer;text-decoration:none}.course-table-actions button.danger{width:31px;padding:0;color:#bf3148}.course-action-muted{color:#8a7479;font-size:10px}.course-table-section>.app-pagination{padding:10px 16px;border-top:1px solid #f0dfe2}@media(max-width:700px){.course-table{min-width:0}.course-table thead{display:none}.course-table,.course-table tbody,.course-table tr,.course-table td{display:block;width:100%}.course-table tr{padding:10px 12px;border-top:1px solid #f0e2e5}.course-table td{display:grid;grid-template-columns:100px minmax(0,1fr);gap:8px;padding:3px 0;border:0;overflow-wrap:anywhere}.course-table td::before{content:attr(data-label);color:#937d83;font-size:9px;font-weight:800;text-transform:uppercase}.course-table td:first-child{padding-bottom:6px}.course-table-actions,.course-user-actions{justify-content:flex-start;flex-wrap:wrap}.course-table-section>.app-pagination{padding:10px 12px}}
+
+.task-page-hero{padding:10px 22px;border-radius:16px}
+.task-page-hero h1{font-size:24px}
+@media(max-width:650px){.task-page-hero{padding:12px 16px;border-radius:14px}}
+
+/* Compact assignment layout: keeps essential task information visible without tall cards. */
+.task-form-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.task-form-fields select{width:100%;height:43px;padding:0 12px;border:1px solid #e5d5d8;border-radius:9px;background:#fff;color:#38252a}
+.task-card{gap:13px;padding:16px;min-height:0}
+.task-card dl{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px;padding:11px;border-radius:10px;background:#fff7f8}
+.task-card dl>div{min-width:0}
+@media(max-width:650px){.task-card dl{grid-template-columns:1fr}}
+
+/* Dense desktop card format. */
+.task-card-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.task-card{gap:11px;padding:14px;border-radius:14px}
+.task-card>header{grid-template-columns:38px minmax(0,1fr) auto;gap:9px}
+.task-card>header>i{width:38px;height:38px;border-radius:10px;font-size:16px}
+.task-card h3{margin:3px 0 0;font-size:18px}
+.task-card header span{padding:4px 7px;font-size:9px}
+.task-card dl{gap:8px 10px;padding:9px 10px;border-radius:9px}
+.task-card dt{font-size:10px}.task-card dd{font-size:13px}
+.task-card .task-completion-report{padding:10px!important;border-radius:9px!important}
+.task-card .task-completion-report>header{margin-bottom:6px!important;font-size:12px}
+.task-card .task-completion-report small,.task-card .task-completion-report summary{font-size:12px!important}
+.task-card>footer a,.task-card>footer button{min-height:36px;padding:0 11px;font-size:11px}
+@media(max-width:1300px){.task-card-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1050px){.task-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Show one assignment per row across the available page width. */
+.task-card-grid{grid-template-columns:minmax(0,1fr)}
+
+/* Full-width task rail: a single scannable assignment row rather than a dashboard tile. */
+@media(min-width:1051px){
+  .task-card{
+    position:relative;
+    grid-template-columns:minmax(220px,.85fr) minmax(310px,1.15fr) minmax(230px,.8fr) auto;
+    align-items:center;
+    gap:18px;
+    padding:16px 18px 16px 22px;
+    overflow:hidden;
+    background:linear-gradient(100deg,#fff 0%,#fffafb 62%,#fff4f5 100%);
+  }
+  .task-card::before{position:absolute;top:0;bottom:0;left:0;width:5px;background:linear-gradient(#c63149,#ef7465);content:""}
+  .task-card>header{align-self:start}
+  .task-card dl{grid-template-columns:repeat(2,minmax(120px,1fr));align-self:stretch;align-content:center;background:#fff}
+  .task-card .task-completion-report{align-self:stretch;align-content:center;background:rgba(255,247,248,.78)}
+  .task-card>footer{align-self:center;justify-content:flex-end;white-space:nowrap}
+}

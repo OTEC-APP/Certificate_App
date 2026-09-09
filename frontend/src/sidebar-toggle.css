@@ -1,0 +1,180 @@
+@media (min-width: 1001px) {
+  .er-side {
+    transition: width .22s ease, padding .22s ease;
+  }
+  .sidebar-collapsed .er-side {
+    width: 70px;
+    padding: 16px 12px;
+  }
+  .exact-react.sidebar-collapsed > main {
+    margin-left: 70px;
+  }
+  .sidebar-collapse {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(167, 180, 207, .28);
+    border-radius: 8px;
+    background: #1d2232;
+    color: #c7ccda;
+    cursor: pointer;
+  }
+  .sidebar-collapse:hover {
+    background: #30374c;
+    color: #fff;
+  }
+  .sidebar-collapsed .er-brand {
+    justify-content: center;
+    padding: 18px 0 20px;
+  }
+  .sidebar-collapsed .er-brand > div:last-child, .sidebar-collapsed .er-side label, .sidebar-collapsed .er-side nav em, .sidebar-collapsed .er-user-fixed > div {
+    display: none;
+  }
+  .sidebar-collapsed .o2k {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    font-size: 11px;
+  }
+  .sidebar-collapsed .er-nav-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .sidebar-collapsed .er-nav-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .sidebar-collapsed .er-side nav {
+    margin: 0 0 8px;
+  }
+  .sidebar-collapsed .er-side nav a {
+    justify-content: center;
+    min-height: 40px;
+    padding: 8px;
+    margin: 2px 0;
+    font-size: 0;
+    gap: 0;
+    border-radius: 8px;
+    position: relative;
+  }
+  .sidebar-collapsed .er-side nav a i {
+    width: auto;
+    font-size: 18px;
+  }
+  .sidebar-collapsed .er-side nav a.active {
+    box-shadow: none;
+  }
+  .sidebar-collapsed .er-side nav a::after, .sidebar-collapsed .sidebar-logout::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 40;
+    width: max-content;
+    max-width: 180px;
+    padding: 6px 9px;
+    border: 1px solid rgba(34, 211, 238, .28);
+    border-radius: 7px;
+    background: #121a31;
+    color: #e8f7ff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
+    font: 500 12px Inter, sans-serif;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .15s ease;
+  }
+  .sidebar-collapsed .er-side nav a:hover::after, .sidebar-collapsed .er-side nav a:focus-visible::after, .sidebar-collapsed .sidebar-logout:hover::after, .sidebar-collapsed .sidebar-logout:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+  }
+  .sidebar-collapsed .er-user-fixed {
+    justify-content: center;
+    padding: 13px 0 18px;
+  }
+  .sidebar-collapsed .er-user-fixed > span {
+    width: 34px;
+    height: 34px;
+  }
+  .sidebar-collapsed .er-foot {
+    margin-top: auto;
+    padding: 12px 0 0;
+  }
+  .sidebar-collapsed .appearance {
+    display: none;
+  }
+  .sidebar-collapsed .sidebar-actions {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 0 10px;
+  }
+  .sidebar-collapsed .sidebar-logout {
+    position: relative;
+    flex: 0 0 40px;
+    width: 40px;
+    min-height: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #aeb6c7;
+  }
+  .sidebar-collapsed .sidebar-logout:hover {
+    background: #2c3143;
+    color: #c9c2ff;
+  }
+  .sidebar-collapsed .sidebar-logout span {
+    display: none;
+  }
+  .sidebar-collapsed .sidebar-collapse {
+    display: grid;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    color: #67e8f9;
+    border-color: rgba(34, 211, 238, .34);
+  }
+}
+@media (max-width: 1000px) {
+  .sidebar-collapse {
+    display: none;
+  }
+}
+.sidebar-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  margin: 0 14px 10px;
+}
+.sidebar-logout {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border: 1px solid rgba(167, 180, 207, .28);
+  border-radius: 8px;
+  background: #1d2232;
+  color: #c7ccda;
+  font: 600 12px Inter, sans-serif;
+  cursor: pointer;
+}
+.sidebar-logout i {
+  font-size: 18px;
+  line-height: 1;
+}
+.sidebar-logout:hover {
+  background: #30374c;
+  color: #fff;
+}
+.sidebar-collapse {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+}

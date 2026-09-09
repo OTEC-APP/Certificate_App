@@ -1,0 +1,32 @@
+/* Keep the app background continuous and scroll the workspace, not the browser page. */
+html, body, #root {
+  min-height: 100%;
+  margin: 0;
+}
+body:has(.exact-react[data-theme="dark"]) {
+  background: #0e1015;
+}
+.exact-react > main {
+  min-height: 100dvh;
+  background: var(--canvas);
+}
+@media (min-width: 1001px) {
+  body:has(.exact-react) {
+    overflow: hidden;
+  }
+  .exact-react > main {
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: #687080 transparent;
+  }
+  .er-top {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .er-view {
+    min-height: calc(100dvh - 75px);
+  }
+}

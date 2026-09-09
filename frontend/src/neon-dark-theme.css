@@ -1,0 +1,153 @@
+/* Shared neon palette for every page when the user selects Dark mode. */
+.exact-react[data-theme="dark"] {
+  --canvas: #080d1c;
+  --panel: #10182d;
+  --line: rgba(67, 191, 255, .22);
+  --line2: rgba(125, 153, 211, .16);
+  --text: #eef8ff;
+  --dim: #a5b9d7;
+  background: radial-gradient(circle at 88% 0%, rgba(71, 54, 167, .16), transparent 30%), #080d1c;
+}
+.exact-react[data-theme="dark"] > main, .exact-react[data-theme="dark"] .er-view {
+  background: transparent;
+}
+.exact-react[data-theme="dark"] .er-top {
+  background: rgba(13, 20, 40, .94);
+  border-color: rgba(34, 211, 238, .25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+}
+.exact-react[data-theme="dark"] .er-side {
+  background: linear-gradient(180deg, #111426 0%, #0b1020 100%);
+  border-right: 1px solid rgba(34, 211, 238, .16);
+}
+.exact-react[data-theme="dark"] .er-side nav a:hover, .exact-react[data-theme="dark"] .er-side nav a.active {
+  background: linear-gradient(90deg, rgba(34, 211, 238, .16), rgba(139, 92, 246, .2));
+  box-shadow: inset 2px 0 #22d3ee;
+}
+.exact-react[data-theme="dark"] .er-side nav a.active i {
+  color: #22d3ee !important;
+}
+.exact-react[data-theme="dark"] .appearance {
+  background: #161d35;
+}
+.exact-react[data-theme="dark"] .appearance .active {
+  background: linear-gradient(135deg, #253456, #302457);
+}
+.exact-react[data-theme="dark"] .er-card, .exact-react[data-theme="dark"] .er-kpis > button, .exact-react[data-theme="dark"] .record-counts article, .exact-react[data-theme="dark"] .record-list, .exact-react[data-theme="dark"] .settings-card {
+  background: linear-gradient(145deg, rgba(20, 29, 52, .98), rgba(10, 15, 31, .98));
+  border-color: rgba(34, 211, 238, .25);
+  box-shadow: inset 0 1px 0 rgba(125, 211, 252, .08), 0 0 20px rgba(34, 211, 238, .05);
+}
+.exact-react[data-theme="dark"] .er-card.dark, .exact-react[data-theme="dark"] .er-kpis > button.hero {
+  background: linear-gradient(135deg, #211344, #101b3f 58%, #09263b);
+  border-color: rgba(139, 92, 246, .55);
+  box-shadow: 0 0 22px rgba(139, 92, 246, .18), inset 0 1px 0 rgba(244, 114, 182, .18);
+}
+.exact-react[data-theme="dark"] .er-card > header, .exact-react[data-theme="dark"] .er-table td, .exact-react[data-theme="dark"] .leader, .exact-react[data-theme="dark"] .renewal-list > button, .exact-react[data-theme="dark"] .renewal-list > div, .exact-react[data-theme="dark"] .record-list article, .exact-react[data-theme="dark"] .settings-row {
+  border-color: rgba(125, 153, 211, .16);
+}
+.exact-react[data-theme="dark"] .er-card h3, .exact-react[data-theme="dark"] .er-table td, .exact-react[data-theme="dark"] .er-table td b, .exact-react[data-theme="dark"] .settings-row b, .exact-react[data-theme="dark"] .record-profile h2, .exact-react[data-theme="dark"] .record-list b, .exact-react[data-theme="dark"] .record-counts b {
+  color: #f5fbff;
+}
+.exact-react[data-theme="dark"] .er-table th {
+  background: rgba(22, 31, 55, .9);
+  color: #b9c9e5;
+}
+.exact-react[data-theme="dark"] .er-table label, .exact-react[data-theme="dark"] .partner p small, .exact-react[data-theme="dark"] .category-chips > span {
+  background: #252e49;
+  border-color: rgba(125, 153, 211, .2);
+  color: #e7f5ff;
+}
+.exact-react[data-theme="dark"] .er-filter {
+  background: linear-gradient(90deg, rgba(34, 211, 238, .16), rgba(139, 92, 246, .16));
+  border-color: #22d3ee;
+  color: #e8f7ff;
+}
+.exact-react[data-theme="dark"] .er-filter button, .exact-react[data-theme="dark"] .card-action, .exact-react[data-theme="dark"] .record-back {
+  color: #67e8f9;
+}
+.exact-react[data-theme="dark"] .settings-segment, .exact-react[data-theme="dark"] .outline-action, .exact-react[data-theme="dark"] .integration select, .exact-react[data-theme="dark"] .er-top input, .exact-react[data-theme="dark"] .er-modal input, .exact-react[data-theme="dark"] .er-modal select {
+  background: #151d34;
+  border-color: rgba(125, 153, 211, .28);
+  color: #eef8ff;
+}
+.exact-react[data-theme="dark"] .settings-segment button.active, .exact-react[data-theme="dark"] .er-add, .exact-react[data-theme="dark"] .er-modal footer .save {
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  border-color: transparent;
+  box-shadow: 0 0 14px rgba(34, 211, 238, .2);
+}
+.exact-react[data-theme="dark"] .er-note {
+  background: rgba(13, 32, 58, .9);
+  color: #bae6fd;
+  border-color: rgba(34, 211, 238, .38);
+}
+.exact-react[data-theme="dark"] .hbars > div > b, .exact-react[data-theme="dark"] .partner > div > i, .exact-react[data-theme="dark"] .compliance-track {
+  background: #25304a;
+}
+.exact-react[data-theme="dark"] .hbars > div > b > i, .exact-react[data-theme="dark"] .partner > div > i > b.green, .exact-react[data-theme="dark"] .compliance-track em.green {
+  background: linear-gradient(90deg, #22d3ee, #8b5cf6);
+  box-shadow: 0 0 10px rgba(34, 211, 238, .55);
+}
+.exact-react[data-theme="dark"] .years i {
+  box-shadow: 0 0 16px rgba(139, 92, 246, .55);
+}
+.exact-react[data-theme="dark"] .leader:hover, .exact-react[data-theme="dark"] .renewal-list > button:hover {
+  background: rgba(34, 211, 238, .08);
+}
+.exact-react[data-theme="dark"] .record-list aside .expiry {
+  color: #fb7185;
+}
+
+/* Native date controls otherwise retain the browser's black calendar glyph. */
+.exact-react[data-theme="dark"] input[type="date"] {
+  color-scheme: dark;
+}
+
+.exact-react[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.8);
+  opacity: .95;
+  cursor: pointer;
+}
+
+/* Add-certificate dialog: keep every native control readable in Chromium/Edge. */
+.exact-react[data-theme="dark"] .er-modal {
+  background: linear-gradient(145deg, #121d37, #0d162c);
+  border: 1px solid rgba(91, 211, 255, .32);
+}
+
+.exact-react[data-theme="dark"] .er-modal header button {
+  color: #eef8ff;
+}
+
+.exact-react[data-theme="dark"] .er-modal p,
+.exact-react[data-theme="dark"] .er-modal input::placeholder {
+  color: #aebfda;
+  opacity: 1;
+}
+
+.exact-react[data-theme="dark"] .er-modal input,
+.exact-react[data-theme="dark"] .er-modal select {
+  background-color: #17213d;
+  border-color: rgba(125, 183, 255, .4);
+  color: #f5fbff;
+  color-scheme: dark;
+}
+
+.exact-react[data-theme="dark"] .er-modal input:focus,
+.exact-react[data-theme="dark"] .er-modal select:focus {
+  border-color: #4de5ff;
+  box-shadow: 0 0 0 3px rgba(77, 229, 255, .16);
+}
+
+/* The browser icon can remain black even with color-scheme. Draw a visible icon instead. */
+.exact-react[data-theme="dark"] .er-modal input[type="date"] {
+  padding-right: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%23d9f7ff' stroke-width='1.8' viewBox='0 0 24 24'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+}
+
+.exact-react[data-theme="dark"] .er-modal input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+}

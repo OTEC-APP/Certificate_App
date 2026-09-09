@@ -1,0 +1,56 @@
+.export-reports-hero{padding:16px 22px}.export-reports-hero h1{font-size:24px;margin:5px 0 4px}
+.export-reports-page{display:grid;gap:18px}.export-reports-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:26px 28px;border-radius:18px;color:#fff;background:linear-gradient(120deg,#b92943 0%,#db4e5d 54%,#f28679 100%);box-shadow:0 14px 34px rgba(183,42,66,.17)}.export-reports-hero>div:first-child{max-width:720px}.export-reports-hero span,.export-filter-card header span,.export-fields-card header span,.export-preview-card header span{font-size:10px;font-weight:800;letter-spacing:.14em}.export-reports-hero h1{margin:5px 0 6px;font-size:27px}.export-reports-hero p{margin:0;color:rgba(255,255,255,.86);font-size:13px;line-height:1.5}.export-result-count{display:grid;grid-template-columns:auto auto;align-items:center;column-gap:10px;min-width:150px;padding:15px 18px;border:1px solid rgba(255,255,255,.35);border-radius:14px;background:rgba(255,255,255,.14)}.export-result-count i{grid-row:1/3;font-size:25px}.export-result-count b{font-size:24px;line-height:1}.export-result-count small{font-size:10px;color:rgba(255,255,255,.8)}
+.exact-react .export-reports-page { gap:12px; }
+.exact-react .export-reports-page .export-reports-hero { min-height:0;padding:15px 20px;border-radius:14px;box-shadow:0 8px 20px rgba(183,42,66,.12); }
+.exact-react .export-reports-page .export-reports-hero h1 { margin:3px 0;font-size:22px; }
+.exact-react .export-reports-page .export-reports-hero {
+  border:1px solid #edcbd1;
+  color:#4b2730;
+  background:linear-gradient(120deg,#fffafa,#ffe9eb 60%,#fff4f1);
+}
+.exact-react .export-reports-hero span { color:#bd3349; }
+.exact-react .export-reports-hero h1 { color:#4b2730; }
+.exact-react .export-reports-hero p,
+.exact-react .export-result-count small { color:#72555c; }
+.exact-react .export-result-count {
+  border-color:#edcbd1;
+  color:#bd3349;
+  background:#fff0f1;
+}
+.exact-react .export-reports-page .export-reports-hero p { font-size:11px;line-height:1.35; }
+.exact-react .export-reports-page .export-result-count { min-width:130px;padding:10px 12px;border-radius:10px; }
+.exact-react .export-reports-page .export-result-count i { font-size:20px; }
+.exact-react .export-reports-page .export-result-count b { font-size:20px; }
+.exact-react .export-reports-page .export-builder-grid { gap:12px; }
+.exact-react .export-reports-page .export-filter-card,
+.exact-react .export-reports-page .export-fields-card,
+.exact-react .export-reports-page .export-preview-card { border-radius:12px; }
+.exact-react .export-reports-page .export-filter-card>header,
+.exact-react .export-reports-page .export-fields-card>header,
+.exact-react .export-reports-page .export-preview-card>header { gap:10px;padding:12px 15px; }
+.exact-react .export-reports-page .export-filter-card h2,
+.exact-react .export-reports-page .export-fields-card h2,
+.exact-react .export-reports-page .export-preview-card h2 { font-size:16px; }
+.exact-react .export-reports-page :is(.export-filter-card, .export-fields-card, .export-preview-card) > header > div:first-child { display:grid;gap:7px; }
+.exact-react .export-reports-page :is(.export-filter-card, .export-fields-card, .export-preview-card) > header h2 { margin:0; }
+.exact-react .export-reports-page .export-filter-fields { gap:10px;padding:14px 15px; }
+.exact-react .export-reports-page .export-filter-fields label { gap:5px;font-size:10px; }
+.exact-react .export-reports-page .export-filter-fields .compact-select-trigger { min-height:36px;padding:7px 10px;border-radius:8px;font-size:11px; }
+.exact-react .export-reports-page .export-field-options { gap:7px;padding:14px 15px; }
+.exact-react .export-reports-page .export-field-options label { min-height:32px;padding:0 8px;border-radius:8px;font-size:11px; }
+.exact-react .export-reports-page .export-preview-card .export-download { height:38px;min-width:135px;padding:0 12px;border-radius:8px;font-size:11px; }
+
+@media(max-width:700px) {
+	.exact-react .export-reports-page .export-reports-hero { padding:14px 15px; }
+	.exact-react .export-reports-page .export-reports-hero h1 { font-size:20px; }
+	.exact-react .export-reports-page .export-filter-fields,
+	.exact-react .export-reports-page .export-field-options { padding:12px; }
+}
+.export-builder-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:18px}.export-filter-card,.export-fields-card,.export-preview-card{padding:0;overflow:visible}.export-filter-card>header,.export-fields-card>header,.export-preview-card>header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 20px;border-bottom:1px solid #f0dfe2}.export-filter-card header span,.export-fields-card header span,.export-preview-card header span{color:#c4364c}.export-filter-card h2,.export-fields-card h2,.export-preview-card h2{margin:2px 0 0;color:#4b2730;font-size:18px}.export-filter-card header button,.export-fields-card header button{border:0;background:transparent;color:#bd3349;font-size:11px;font-weight:800;cursor:pointer}.export-filter-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;padding:20px}.export-filter-fields label{display:grid;gap:7px;min-width:0;color:#72555c;font-size:11px;font-weight:700}.export-filter-fields select,.export-filter-fields input[type=date]{width:100%;min-width:0;height:42px;padding:0 12px;border:1px solid #e7d8db;border-radius:9px;color:#402a30;background:#fff;font:inherit;box-sizing:border-box}.export-filter-fields .compact-select{min-width:0}.export-date-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.export-field-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:20px}.export-field-options label{display:flex;align-items:center;gap:8px;min-height:38px;padding:0 10px;border:1px solid #eadde0;border-radius:9px;color:#72555c;background:#fff;cursor:pointer;font-size:12px;font-weight:650}.export-field-options label.selected{border-color:#e9a9b2;color:#9f3041;background:#fff4f5}.export-field-options input{position:absolute;opacity:0;pointer-events:none}.export-field-options i{color:#d34458}
+.export-preview-card>header{align-items:center}.export-preview-card header p{margin:4px 0 0;color:#8b7479;font-size:11px}.export-preview-card .export-download{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:150px;height:44px;padding:0 17px;border:0;border-radius:10px;color:#fff;background:linear-gradient(115deg,#bd2942,#ef7465);font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(189,41,66,.18)}.export-preview-card .export-download:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}.export-preview-table{margin:0}.export-preview-table th,.export-preview-table td{white-space:nowrap}.export-preview-note{margin:0;padding:12px 18px;color:#80656b;background:#fff9f9;font-size:11px;text-align:center}.export-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:150px;color:#80656b;text-align:center}.export-empty i{font-size:24px;color:#d34458}.export-empty span{font-size:11px}.export-empty.error{color:#b22d41}.export-spin{animation:export-spin .9s linear infinite}@keyframes export-spin{to{transform:rotate(360deg)}}
+@media(max-width:1050px){.export-builder-grid{grid-template-columns:1fr}.export-field-options{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:700px){.export-reports-page{gap:12px}.export-reports-hero{align-items:flex-start;padding:20px;flex-direction:column}.export-reports-hero h1{font-size:23px}.export-result-count{width:100%;box-sizing:border-box}.export-filter-fields,.export-date-row{grid-template-columns:1fr}.export-date-row{grid-column:auto}.export-field-options{grid-template-columns:repeat(2,minmax(0,1fr))}.export-preview-card>header{align-items:stretch;flex-direction:column}.export-preview-card .export-download{width:100%}}@media(max-width:420px){.export-filter-card>header,.export-fields-card>header,.export-preview-card>header{padding:15px}.export-filter-fields,.export-field-options{padding:15px}.export-field-options{grid-template-columns:1fr}}
+.export-actions{display:flex;align-items:center;gap:10px}.export-format{display:flex;padding:4px;border:1px solid #eadde0;border-radius:10px;background:#fff7f8}.export-format button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 11px;border:0;border-radius:7px;color:#80656b;background:transparent;font-size:11px;font-weight:800;cursor:pointer}.export-format button.active{color:#fff;background:#bd3349;box-shadow:0 3px 8px rgba(189,51,73,.18)}
+@media(max-width:700px){.export-actions{align-items:stretch;flex-direction:column}.export-format{display:grid;grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.exact-react .export-reports-page .export-preview-card .export-download{min-height:50px;height:50px;padding:0 18px;border-radius:10px;font-size:13px}}
+.exact-react .export-builder-grid{position:relative;overflow:visible}.exact-react .export-filter-card,.exact-react .export-fields-card{position:relative;overflow:visible}.exact-react .export-filter-card{z-index:30}.exact-react .export-fields-card{z-index:20}.exact-react .export-preview-card{position:relative;z-index:1}.exact-react .export-filter-fields,.exact-react .export-filter-fields label{overflow:visible}.exact-react .export-filter-fields .compact-select:has(.compact-select-menu){z-index:200}

@@ -1,0 +1,21 @@
+.completion-chart-toggle { display:flex; gap:3px; padding:3px; border-radius:8px; background:#f0f1f6; }
+.completion-chart-toggle button { padding:5px 10px; border:0; border-radius:6px; background:transparent; color:#697086; font-size:10px; font-weight:700; }
+.completion-chart-toggle button.active { background:#5147e5; color:#fff; box-shadow:0 2px 6px rgba(79,70,229,.2); }
+.er-card:has(.completion-chart-toggle) { align-self:stretch; display:flex; flex-direction:column; height:100%; }
+.er-card:has(.completion-chart-toggle) .years { flex:1; height:auto; min-height:190px; padding-bottom:12px; }
+.er-card:has(.completion-chart-toggle) .years > div > i { justify-content:center; min-height:4px; }
+.years.month-view { gap:6px; padding-right:14px; padding-left:14px; }
+.years.month-view > div { min-width:0; }
+.years.month-view > div > i { width:24px; }
+.years.month-view > div > b { font-size:8px; }
+.exact-react[data-theme='dark'] .completion-chart-toggle { background:#252c40; }
+.exact-react[data-theme='dark'] .completion-chart-toggle button { color:#aeb5ca; }
+.exact-react[data-theme='dark'] .completion-chart-toggle button.active { color:#fff; }
+
+/* Keep live category counts readable when a category only has one record. */
+.prototype-channels .chan .bar { min-height:32px; padding-top:6px; }
+.prototype-channels .chan .bar b { line-height:18px; flex:0 0 auto; }
+
+.cts section .cts-filter-tile { cursor:pointer; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+.cts section .cts-filter-tile:hover { transform:translateY(-2px); border-color:#7c74f080; background:#7c74f01a; }
+.cts section .cts-filter-tile:focus-visible { outline:2px solid #aaa5ff; outline-offset:3px; }
