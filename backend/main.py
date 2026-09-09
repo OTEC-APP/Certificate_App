@@ -97,7 +97,7 @@ async def realtime_updates(websocket: WebSocket):
         realtime_connections.disconnect(websocket)
 
 db = get_firestore_client()
-BRAND_LOGO_PATH = Path(__file__).resolve().parent.parent / "frontend" / "Images" / "new o2k logo final 1.png"
+BRAND_LOGO_PATH = Path(__file__).resolve().parent / "Images" / "o2k-logo.png"
 demo_certificates: list[dict] = []
 demo_notification_reads: dict[str, set[str]] = {}
 demo_monthly_top_five_periods: set[str] = set()
