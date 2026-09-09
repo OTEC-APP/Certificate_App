@@ -59,18 +59,25 @@ gcloud run deploy otec-api \
   --set-secrets AZURE_CLIENT_SECRET=AZURE_CLIENT_SECRET:latest,AZURE_SSO_CLIENT_SECRET=AZURE_SSO_CLIENT_SECRET:latest
 ```
 
-4. After Cloud Run returns the API URL, build and deploy the frontend from `frontend/`. The API URL is compiled into the React bundle:
+4. After Cloud Run returns the API URL, build and deploy the frontend from the repository root. The API URL is compiled into the React bundle:
 
 ```bash
-gcloud builds submit --config=../deploy/cloudbuild.frontend.yaml \
-  --substitutions=_IMAGE=REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/otec-web,_API_URL=https://API_URL/api
-gcloud run deploy otec-web \
-  --image REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/otec-web \
-  --region REGION \
-  --allow-unauthenticated
+gcloud builds submit --config=deploy/cloudbuild.frontend.yaml \
+  --substitutions=_IMAGE=REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/otec-web,_API_URL=https://API_URL/api,_REGION=REGION,_SERVICE=otec-web
 ```
 
-5. Set `CERTTRACK_APP_URL`, `FRONTEND_URL`, and `ALLOWED_ORIGINS` on `otec-api` to the final frontend URL. Add every required Azure variable, with secret values sourced from Secret Manager, then redeploy the API.
+5. Set `CERTTRACK_APP_URL`, `FRONTEND_URL`, and `ALLOWED_ORIGINS` on `otec-api` to the final frontend URL. Set `AZURE_SSO_REDIRECT_URI` to `https://YOUR_CLOUD_RUN_API_URL/auth/callback`, register that exact URI in the Microsoft Entra app registration, then add the remaining Azure values (with secrets sourced from Secret Manager) and redeploy the API.
+
+## Firebase Hosting frontend deployment
+
+Firebase Hosting deploys the React frontend only; keep the FastAPI API on Cloud Run. Before deploying, set `REACT_APP_API_URL=https://YOUR_CLOUD_RUN_API_URL/api` in `frontend/.env.production` and replace `YOUR_FIREBASE_PROJECT_ID` in `.firebaserc`. Then run from the repository root:
+
+```bash
+npx firebase-tools login
+npx firebase-tools deploy --only hosting
+```
+
+The Hosting predeploy step builds `frontend/` automatically. After deployment, update the Cloud Run API's `CERTTRACK_APP_URL`, `FRONTEND_URL`, and `ALLOWED_ORIGINS` values to the Firebase Hosting URL, then redeploy the API.
 
 ## API
 
