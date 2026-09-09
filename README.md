@@ -55,7 +55,7 @@ gcloud run deploy otec-api \
   --image REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/otec-api \
   --region REGION \
   --service-account otec-runtime@PROJECT_ID.iam.gserviceaccount.com \
-  --set-env-vars FIREBASE_STORAGE_BUCKET=PROJECT_ID.appspot.com \
+  --set-env-vars FIREBASE_STORAGE_BUCKET=PROJECT_ID.appspot.com,FIRESTORE_DATABASE_ID='(default)' \
   --set-secrets AZURE_CLIENT_SECRET=AZURE_CLIENT_SECRET:latest,AZURE_SSO_CLIENT_SECRET=AZURE_SSO_CLIENT_SECRET:latest
 ```
 

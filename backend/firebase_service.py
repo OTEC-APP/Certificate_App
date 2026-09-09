@@ -37,7 +37,9 @@ def init_firebase():
         credential = credentials.Certificate(str(key_path)) if key_path.exists() else credentials.ApplicationDefault()
         firebase_admin.initialize_app(credential, options=options)
 
-    return firestore.client()
+    # Cloud Firestore uses "(default)" unless a named production database is configured.
+    database_id = os.getenv("FIRESTORE_DATABASE_ID", "(default)").strip() or "(default)"
+    return firestore.client(database_id=database_id)
 
 
 def get_firestore_client():
