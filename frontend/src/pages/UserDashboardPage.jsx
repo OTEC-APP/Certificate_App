@@ -67,6 +67,8 @@ export default function UserDashboardPage({
 }) {
   const location = useLocation()
   const isProfileRoute = location.pathname.split('/')[1] === 'my-profile'
+  const isRenewalsRoute = location.pathname.split('/')[1] === 'upcoming-renewals'
+  const isProjectManager = user?.role === 'project_manager'
   const isAdminProfile = isProfileRoute && user.role === 'admin'
   const [certificates, setCertificates] = useState([])
   const [loading, setLoading] = useState(true)
@@ -188,16 +190,20 @@ export default function UserDashboardPage({
   )
   const yearRows = useMemo(() => {
     const currentYear = new Date().getFullYear()
+    const joiningYear = new Date(`${String(user?.dateOfJoining || '').slice(0, 10)}T00:00:00`).getFullYear()
+    const firstYear = Number.isFinite(joiningYear)
+      ? Math.max(currentYear - 4, joiningYear)
+      : currentYear - 4
     const counts = approvedCertificates.reduce((total, certificate) => {
       const year = new Date(`${certificate.issued_date}T00:00:00`).getFullYear()
       total[year] = (total[year] || 0) + 1
       return total
     }, {})
-    return Array.from({ length: 5 }, (_, index) => {
-      const year = currentYear - 4 + index
+    return Array.from({ length: currentYear - firstYear + 1 }, (_, index) => {
+      const year = firstYear + index
       return [year, counts[year] || 0]
     })
-  }, [approvedCertificates])
+  }, [approvedCertificates, user?.dateOfJoining])
 
   const deleteCertificate = async (certificate) => {
     const confirmed = await confirmDelete({
@@ -225,18 +231,20 @@ export default function UserDashboardPage({
   const greetingDate = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long',
   }).format(new Date())
+  const dashboardName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'User'
 
   return (
     <section className="user-dashboard">
-      {!isProfileRoute && (
-        <section className="dashboard-greeting" aria-label={`${greeting}, ${user?.firstName || 'User'}`}>
+      {!isProfileRoute && !isRenewalsRoute && (
+        <section className="dashboard-greeting" aria-label={`${greeting}, ${dashboardName}`}>
           <div>
             <span><i className="bi bi-grid-1x2" aria-hidden="true" /> CERTIFICATION DASHBOARD</span>
-            <h2>{greeting}, {user?.firstName || 'User'}. 
+            <h2>{greeting}, {dashboardName}
               {/* <small>Here is the latest certification and compliance overview.</small>     */}
-              </h2>
+            </h2>
             <p className="user-greeting-details">
-              <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: {user?.role === 'admin' ? 'Administrator' : 'User'}</strong>
+              {isProjectManager && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Project Manager</strong>}
+              <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
               <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Not assigned'}</strong>
             </p>
           </div>
@@ -453,14 +461,12 @@ function YearChart({ rows }) {
           <p>Your recorded completion history.</p>
         </div>
       </header>
-      <div className="user-year-bars">
+      <div className="years user-completion-years">
         {rows.map(([year, count]) => (
           <div key={year}>
-            <span>{count || ''}</span>
-            <i>
-              <b style={{ height: `${(count / max) * 100}%` }} />
-            </i>
-            <small>{year}</small>
+            <i style={{ height: `${count ? Math.max(8, (count / max) * 100) : 3}%` }}>{count}</i>
+            <b>{year}</b>
+            <small>{year === new Date().getFullYear() ? 'YTD' : ''}</small>
           </div>
         ))}
       </div>

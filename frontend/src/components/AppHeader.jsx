@@ -77,7 +77,7 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
   // Keep a back control available on mobile dashboard views as well. It is
   // visually hidden on desktop where Dashboard is the home destination.
   const showBack = true
-  const isUser = user?.role === 'user'
+  const isUser = ['user', 'project_manager'].includes(user?.role)
   const isPersonalWorkspace = isUser || ['my-profile', 'my-certificates', 'upcoming-renewals'].includes(key)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const notificationRef = useRef(null)

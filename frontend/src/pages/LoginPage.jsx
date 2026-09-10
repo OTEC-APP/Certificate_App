@@ -155,7 +155,7 @@ export default function LoginPage({ onLogin }) {
           </div>
           <small>Track. Renew. Keep learning </small>
         </aside>
- 
+
         <section className="login-panel">
           <div className="login-mobile-brand" aria-label="OTEC Certificate Management">
             <img src="/o2k-mobile-logo.png" alt="OTEC" />
@@ -285,7 +285,5 @@ export default function LoginPage({ onLogin }) {
     </main>
   )
 }
- 
- 
  
  

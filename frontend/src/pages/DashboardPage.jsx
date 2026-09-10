@@ -175,14 +175,16 @@ export default function DashboardPage({
   const greetingDate = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long',
   }).format(new Date())
+  const dashboardName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Administrator'
  
   return <>
-    <section className="dashboard-greeting" aria-label={`${greeting}, ${user?.firstName || 'Administrator'}`}>
+    <section className="dashboard-greeting" aria-label={`${greeting}, ${dashboardName}`}>
       <div>
         <span><i className="bi bi-grid-1x2" aria-hidden="true" /> CERTIFICATION DASHBOARD</span>
-        <h2>{greeting}, {user?.firstName || 'Administrator'}.</h2>
+        <h2>{greeting}, {dashboardName}</h2>
         <p className="dashboard-greeting-details">
-          <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: {user?.role === 'admin' ? 'Administrator' : 'User'}</strong>
+          <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Administrator</strong>
+          <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
           <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Administration'}</strong>
         </p>
       </div>
@@ -210,7 +212,7 @@ export default function DashboardPage({
       <Card dark clickable onAction={() => goTo('completions?credential=CTS')} title="CTS holders" hint="AVIXA CERTIFIED"><div className="cts"><div><b>{ctsSummary.total}</b><span>Certified {ctsSummary.total === 1 ? 'Professional' : 'Professionals'}</span></div><section>{ctsSummary.types.map((type) => <p className="cts-filter-tile" role="button" tabIndex="0" key={type.name} onClick={(event) => { event.stopPropagation();goTo(`completions?credentialType=${encodeURIComponent(type.name)}`) }}><b>{type.count}</b>{type.name}{type.name === 'CTS-D' ? ' · Design' : type.name === 'CTS-I' ? ' · Install' : ''}</p>)}</section><footer>{ctsSummary.holders.slice(0,6).map((holder,i) => { const holderInitials=String(holder.name||'Unknown').split(/\s+/).filter(Boolean).map((part)=>part[0]).join('').slice(0,2).toUpperCase();return <i key={`${holder.name}-${i}`} className={`face f${i}`}>{holderInitials}</i> })}<small>{ctsSummary.total ? `View all ${ctsSummary.total} CTS holders →` : 'No active CTS holders'}</small></footer></div></Card>
     </div>
     <div className="er-grid lead-grid">
-      <Card title={`${leaderboardLabel} Top 5 certified holders`} hint={leaderboardToggle} action="View all" onAction={() => openEmployees({ type: 'employee_ids', value: allRankedEmployees.map((employee) => employee.profile_id || employee.employee_id).filter(Boolean), ranked: true, rankingPeriod: leaderboardPeriod, rankCounts: Object.fromEntries(allRankedEmployees.map((employee) => [employee.profile_id || employee.employee_id, employee.count])), label: `${leaderboardLabel} certified holder ranking` })}><div className="leaderboard-list">{leaderboard.length ? leaderboard.map((employee,i) => <button className="leader" onClick={() => goTo(`completions?employee=${encodeURIComponent(employee.name)}`)} key={employee.name}><em className={`r${i+1}`} aria-label={`Rank ${i + 1}`}>{rankMedals[i] || i + 1}</em><i className="face" style={{background:employee.colour}}>{employee.initials}</i><span><b>{employee.name}</b><small>{leaderboardMeta(employee)}</small></span><strong>{employee.count}<small>certs</small></strong></button>) : <p className="user-empty">No validated certificates were completed for this period.</p>}</div></Card>
+      <Card title={`${leaderboardLabel} Top 5 certified holders`} hint={leaderboardToggle} action="View all" onAction={() => openEmployees({ type: 'employee_ids', value: allRankedEmployees.map((employee) => employee.profile_id || employee.employee_id).filter(Boolean), ranked: true, rankingPeriod: leaderboardPeriod, rankCounts: Object.fromEntries(allRankedEmployees.map((employee) => [employee.profile_id || employee.employee_id, employee.count])), label: `${leaderboardLabel} certified holder ranking` })}><div className="leaderboard-list">{leaderboard.length ? leaderboard.map((employee,i) => { const employeeId = employee.profile_id || employee.employee_id; return <button className="leader" onClick={() => employeeId ? goTo(`employees/${employeeId}`) : goTo(`completions?employee=${encodeURIComponent(employee.name)}`)} key={employeeId || employee.name}><em className={`r${i+1}`} aria-label={`Rank ${i + 1}`}>{rankMedals[i] || i + 1}</em><i className="face" style={{background:employee.colour}}>{employee.initials}</i><span><b>{employee.name}</b><small>{leaderboardMeta(employee)}</small></span><strong>{employee.count}<small>certs</small></strong></button> }) : <p className="user-empty">No validated certificates were completed for this period.</p>}</div></Card>
       <Card title={`Certifications completed by ${chartPeriod}`} hint={chartToggle}><div className={`years ${chartPeriod === 'month' ? 'month-view' : ''}`}>{chartRows.map(([label,num],index) => <div className="completion-bar-link" key={label} role="button" tabIndex="0" onClick={() => goTo(chartPeriod === 'year' ? `completions?year=${label}` : `completions?year=${selectedMonthYear}&month=${index+1}`)}><i style={{height:`${num ? Math.max(8,num/chartMax*100) : 3}%`}}>{num}</i><b>{label}</b><small>{chartPeriod === 'year' && label === String(currentYear) ? 'YTD' : ''}</small></div>)}</div></Card>
     </div>
    

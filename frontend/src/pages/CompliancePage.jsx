@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import Pagination from '../components/Pagination'
 const apiUrl = process.env.REACT_APP_API_URL
  
 const fetchWithTimeout = (url, options = {}) => {
@@ -48,6 +49,10 @@ function Progress({ completed, required }) {
  
 export default function CompliancePage({ goTo, notify, viewToggle, query = '' }) {
   const [vendors, setVendors] = useState([])
+  const [totalVendors, setTotalVendors] = useState(0)
+  const [summary, setSummary] = useState({ achieved: 0, total_completed: 0, total_required: 0 })
+  const [page, setPage] = useState(1)
+  const pageSize = 6
   const [searchParams, setSearchParams] = useSearchParams()
   const openOemView = (parameters) => {
     const next = new URLSearchParams(searchParams)
@@ -64,15 +69,30 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
  
   const loadCompliance = async () => {
     try {
-      const response = await fetchWithTimeout(`${apiUrl}/partner-compliance`, { cache: 'no-store' })
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+        search: query.trim(),
+        vendor: vendorName,
+      })
+      const response = await fetchWithTimeout(`${apiUrl}/partner-compliance?${params}`, { cache: 'no-store' })
       const result = await response.json()
       if (response.ok) {
         setVendors(result.vendors || [])
+        setTotalVendors(result.total ?? (result.vendors || []).length)
+        setSummary(result.summary || { achieved: 0, total_completed: 0, total_required: 0 })
       } else if (response.status === 404) {
         const certificatesResponse = await fetchWithTimeout(`${apiUrl}/certificates?page=1&page_size=100`, { cache: 'no-store' })
         const certificatesResult = await certificatesResponse.json()
         if (!certificatesResponse.ok) throw new Error(certificatesResult.detail || 'Unable to load certificates')
-        setVendors(complianceFromCertificates(certificatesResult.items || []))
+        const fallbackVendors = complianceFromCertificates(certificatesResult.items || [])
+        setVendors(fallbackVendors)
+        setTotalVendors(fallbackVendors.length)
+        setSummary({
+          achieved: fallbackVendors.filter((item) => item.completed >= item.required).length,
+          total_completed: fallbackVendors.reduce((total, item) => total + item.completed, 0),
+          total_required: fallbackVendors.reduce((total, item) => total + item.required, 0),
+        })
       } else {
         throw new Error(result.detail || 'Unable to load partner compliance')
       }
@@ -82,7 +102,8 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
     } finally { setLoading(false) }
   }
  
-  useEffect(() => { loadCompliance() }, [])
+  useEffect(() => { loadCompliance() }, [page, query, vendorName])
+  useEffect(() => { setPage(1) }, [query])
  
   const saveRequirement = async (vendor, required) => {
     const key = vendor
@@ -109,9 +130,9 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
   const visibleVendors = vendors.filter((item) => !search || [item.name, ...item.certifications.flatMap((cert) => [cert.name, ...cert.holders.flatMap((holder) => [holder.name, holder.email, holder.certificate_number])])].join(' ').toLowerCase().includes(search))
   const visibleCertifications = vendor?.certifications.filter((item) => !search || [item.name, ...item.holders.flatMap((holder) => [holder.name, holder.email, holder.certificate_number])].join(' ').toLowerCase().includes(search)) || []
   const visibleHolders = certification?.holders.filter((holder) => !search || Object.values(holder).join(' ').toLowerCase().includes(search)) || []
-  const AchievedCount = vendors.filter((item) => item.completed >= item.required).length
-  const totalCompleted = vendors.reduce((total, item) => total + item.completed, 0)
-  const totalRequired = vendors.reduce((total, item) => total + item.required, 0)
+  const AchievedCount = summary.achieved
+  const totalCompleted = summary.total_completed
+  const totalRequired = summary.total_required
   const coverage = totalRequired ? Math.min(100, Math.round((totalCompleted / totalRequired) * 100)) : 100
  
   if (vendor && certification) return <section className="compliance-view">
@@ -139,13 +160,13 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
     })}</div>
   </section>
  
-  return vendors.length ? <section className="compliance-overview">
+  return (vendors.length || totalVendors) ? <section className="compliance-overview">
     <div className="compliance-pulse">
       <div className="compliance-pulse-copy"><span>PARTNER READINESS</span><h2>OEM overview</h2><p><b>{coverage}% compliance coverage</b> calculated from validated employee certifications.</p></div>
       <div className="compliance-pulse-stats">
-        <div><b>{vendors.length}</b><small>OEMs tracked</small></div>
+        <div><b>{totalVendors}</b><small>OEMs tracked</small></div>
         <div><b>{AchievedCount}</b><small>Achieved</small></div>
-        <div className={vendors.length - AchievedCount ? 'attention' : ''}><b>{vendors.length - AchievedCount}</b><small>At risk</small></div>
+        <div className={totalVendors - AchievedCount ? 'attention' : ''}><b>{totalVendors - AchievedCount}</b><small>At risk</small></div>
       </div>
     </div>
     {viewToggle}
@@ -155,7 +176,8 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
       <label>Required employees for this OEM</label><input name="required" type="number" min="0" max="999" defaultValue={item.required} /><button disabled={saving === item.name}>{saving === item.name ? 'Saving…' : 'Save'}</button>
     </form>
     </section>)}</div>
-  </section> : <p className="user-empty">No validated certificates are available for compliance.</p>
+    <Pagination page={page} totalItems={totalVendors} pageSize={pageSize} onPageChange={setPage} label="OEMs" />
+    </section> : <p className="user-empty">No validated certificates are available for compliance.</p>
 }
  
  

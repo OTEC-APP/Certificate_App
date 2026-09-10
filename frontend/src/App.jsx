@@ -133,7 +133,7 @@ const normaliseUser = (savedUser) => {
   const role = String(savedUser.role || '')
     .trim()
     .toLowerCase()
-  if (!['admin', 'user'].includes(role)) return null
+  if (!['admin', 'project_manager', 'user'].includes(role)) return null
 
   return { ...savedUser, role }
 }
@@ -412,7 +412,7 @@ function Shell({ onLogout, user }) {
 
 const RoutedDashboard = () => {
   const context = useOutletContext()
-  return context.user.role === 'user' ? (
+  return ['user', 'project_manager'].includes(context.user.role) ? (
     <UserDashboardPage {...context} initialTab="overview" />
   ) : (
     <DashboardPage {...context} />
@@ -461,9 +461,17 @@ const AdminOnly = ({ children }) => {
   const { user } = useOutletContext()
   return user.role === 'admin' ? children : <Navigate to="/dashboard" replace />
 }
+const AdminOrProjectManager = ({ children }) => {
+  const { user } = useOutletContext()
+  return ['admin', 'project_manager'].includes(user.role) ? children : <Navigate to="/dashboard" replace />
+}
 const UserOnly = ({ children }) => {
   const { user } = useOutletContext()
   return user.role === 'user' ? children : <Navigate to="/dashboard" replace />
+}
+const UserOrProjectManager = ({ children }) => {
+  const { user } = useOutletContext()
+  return ['user', 'project_manager'].includes(user.role) ? children : <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -660,10 +668,10 @@ export default function App() {
           <Route path="dashboard" element={<RoutedDashboard />} />
           <Route path="my-profile" element={<RoutedMyProfile />} />
           <Route path="completions" element={<AdminOnly><CompletionRecordsPage /></AdminOnly>} />
-          <Route path="exports" element={<AdminOnly><RoutedExportReports /></AdminOnly>} />
+          <Route path="exports" element={<AdminOrProjectManager><RoutedExportReports /></AdminOrProjectManager>} />
           <Route path="task-assignments" element={<AdminOnly><RoutedCertificationTasks /></AdminOnly>} />
           <Route path="task-assignments/:taskId/completed-users" element={<AdminOnly><RoutedCompletedTaskUsers /></AdminOnly>} />
-          <Route path="certification-tasks" element={<UserOnly><RoutedCertificationTasks /></UserOnly>} />
+          <Route path="certification-tasks" element={<UserOrProjectManager><RoutedCertificationTasks /></UserOrProjectManager>} />
           <Route
             path="my-certificates"
             element={<RoutedUserCertificates />}
@@ -675,18 +683,18 @@ export default function App() {
           <Route
             path="employees"
             element={
-              <AdminOnly>
+              <AdminOrProjectManager>
                 <RoutedEmployees />
-              </AdminOnly>
+              </AdminOrProjectManager>
             }
           />
           {/* Project staffing is temporarily disabled. */}
           <Route
             path="employees/:employeeId"
             element={
-              <AdminOnly>
+              <AdminOrProjectManager>
                 <RoutedEmployeeRecord />
-              </AdminOnly>
+              </AdminOrProjectManager>
             }
           />
           <Route
