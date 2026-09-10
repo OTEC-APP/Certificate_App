@@ -12,12 +12,13 @@ const apiUrl = process.env.REACT_APP_API_URL
 
 const fieldOptions = [
   ['employee', 'Employee'],
-  ['location', 'Location'],
+  ['employeeId', 'Employee ID'],
   ['department', 'Department'],
-  ['tenure', 'Tenure'],
-  ['certification', 'Certification'],
   ['oem', 'OEM'],
+  ['certification', 'Certification'],
   ['category', 'Category'],
+  ['location', 'Location'],
+  ['dateOfJoining', 'Date of joining'],
   ['validity', 'Validity'],
   ['certificateNumber', 'Certificate no.'],
   ['completed', 'Completed date'],
@@ -25,6 +26,8 @@ const fieldOptions = [
   ['daysRemaining', 'Days remaining'],
   ['ruPoints', 'RU points'],
 ]
+
+const defaultFields = ['employee', 'employeeId', 'department', 'oem', 'certification', 'category']
 
 const initialFilters = { employee: '', location: '', department: '', tenure: '', oem: '', category: '', certification: '', validity: '' }
 const tenureOptions = ['Under 2 yrs', '2–4 years', '4–6 years', '6-10 years', '10-15 years', '15-20 years', '20+ years']
@@ -104,8 +107,10 @@ const valuesFor = (certificate) => {
     : validity
   return {
     employee: certificate.recipient_name || 'Not recorded',
+    employeeId: certificate.employeeId || certificate.employee_id || 'Not recorded',
     location: certificate.location || 'Not assigned',
     department: certificate.department || 'Not assigned',
+    dateOfJoining: formatDate(certificate.dateOfJoining),
     tenure: tenureFor(certificate.dateOfJoining),
     certification: certificate.course_name || 'Untitled certification',
     oem: certificate.vendor_name || 'Not recorded',
@@ -136,7 +141,7 @@ export default function ExportReportsPage() {
   const [exporting, setExporting] = useState(false)
   const [format, setFormat] = useState('pdf')
   const [filters, setFilters] = useState(initialFilters)
-  const [fields, setFields] = useState(fieldOptions.map(([key]) => key))
+  const [fields, setFields] = useState(defaultFields)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
@@ -262,7 +267,7 @@ export default function ExportReportsPage() {
         filters.category,
         filters.validity,
       ].filter(Boolean).join(' · ') || 'All active certification records'
-      const header = { title: 'Certification export report', subtitle: summary }
+      const header = { title: 'Certification Records Report', subtitle: summary }
       drawPdfHeader(document, logo, header)
       autoTable(document, {
         startY: 34,

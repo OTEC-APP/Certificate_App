@@ -65,7 +65,7 @@ class AccessUserFields(BaseModel):
     location: str = Field(min_length=1, max_length=100)
     department: str = Field(min_length=1, max_length=100)
     reportingManager: str = Field(min_length=1, max_length=160)
-    role: Literal["user", "admin"]
+    role: Literal["user", "admin", "project_manager"]
  
  
 class AccessUserCreate(AccessUserFields):
@@ -183,7 +183,7 @@ def frontend_login_redirect(**parameters: str) -> str:
 def invitation_email_html(user: dict) -> str:
     """Build the branded Microsoft SSO invitation sent to a newly onboarded user."""
     name = escape(f"{user['firstName']} {user['lastName']}".strip())
-    role = "Administrator" if user["role"] == "admin" else "User"
+    role = "Administrator" if user["role"] == "admin" else "Project Manager" if user["role"] == "project_manager" else "User"
     sign_in_url = frontend_login_redirect(email=user["employeeEmail"])
 
     return f"""
@@ -195,21 +195,21 @@ def invitation_email_html(user: dict) -> str:
 
         <div style="overflow:hidden;border:1px solid #efd7dc;border-radius:18px;background:#fff;box-shadow:0 14px 38px rgba(91,32,44,.10)">
 
-          <div style="padding:24px 28px;background:linear-gradient(115deg,#fbe9ec,#f6cbd1)">
+          <div style="padding:22px 28px 18px;background:linear-gradient(115deg,#fbe9ec,#f6cbd1);text-align:center">
             <img src="cid:o2k-logo"
                  alt="O2K"
-                 style="display:block;width:72px;height:auto;margin-bottom:14px">
+                 style="display:block;width:72px;height:auto;margin:0 auto 12px">
 
-            <div style="font-size:12px;font-weight:700;letter-spacing:.12em;color:#bd2942">
+            <div style="font-size:15px;font-weight:700;letter-spacing:.08em;color:#bd2942;line-height:1.25">
               OTEC CERTIFICATE MANAGEMENT
             </div>
 
-            <h1 style="margin:9px 0 0;font-size:25px;color:#45252c">
+            <h1 style="margin:6px 0 0;font-size:25px;line-height:1.2;color:#45252c;text-align:left">
               You&rsquo;re Invited!
             </h1>
           </div>
 
-          <div style="padding:26px 28px">
+          <div style="padding:18px 28px 26px">
 
             <p style="margin:0 0 14px">
               Hello <strong>{name}</strong>,
@@ -270,10 +270,12 @@ def invitation_email_html(user: dict) -> str:
 
             </table>
 
-            <a href="{escape(sign_in_url, quote=True)}"
-               style="display:inline-block;padding:12px 20px;border-radius:9px;background:#bd2942;color:#fff;text-decoration:none;font-weight:700">
-              Sign in with Microsoft
-            </a>
+            <div style="text-align:center">
+              <a href="{escape(sign_in_url, quote=True)}"
+                 style="display:inline-block;padding:12px 20px;border-radius:9px;background:#bd2942;color:#fff;text-decoration:none;font-weight:700">
+                Sign in with Microsoft
+              </a>
+            </div>
 
             <p style="margin:22px 0 0;color:#80656b;font-size:12px;line-height:1.5">
               If you were not expecting this invitation, please contact your OTEC administrator.
@@ -288,7 +290,7 @@ def invitation_email_html(user: dict) -> str:
     """
 
 def send_user_invitation(user: dict) -> bool:
-    logo_path = Path(__file__).resolve().parent / "Images" / "o2k-logo.png"
+    logo_path = Path(__file__).resolve().parent / "images" / "o2k-logo.png"
     return send_email(
         [user["employeeEmail"]],
         "You're invited to OTEC Certificate Management",
@@ -851,7 +853,7 @@ def upload_bulk_users(file: UploadFile = File(...)):
         if row["department"].lower() not in departments: errors.append("Department is not in Manage options")
         if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
         if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
-        if row["role"].lower() not in {"user", "admin"}: errors.append("Role must be user or admin")
+        if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
         if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be DD.MM.YYYY or YYYY-MM-DD")
         email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
         if email in existing_emails: errors.append("Employee email already exists")
@@ -936,7 +938,7 @@ def validate_bulk_row(row_data):
     if row["department"].lower() not in departments: errors.append("Department is not in Manage options")
     if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
     if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
-    if row["role"].lower() not in {"user", "admin"}: errors.append("Role must be user or admin")
+    if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
     if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be DD.MM.YYYY or YYYY-MM-DD")
     email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
     if email in existing_emails: errors.append("Employee email already exists")
@@ -1030,6 +1032,20 @@ def update_user(user_id: str, payload: AccessUserUpdate):
  
     existing_data = existing.to_dict()
     user_data = payload.model_dump(mode="json", exclude_none=True)
+    is_demoting_last_admin = (
+        str(existing_data.get("role") or "").casefold() == "admin"
+        and str(user_data.get("role") or "").casefold() != "admin"
+    )
+    if is_demoting_last_admin:
+        has_another_admin = any(
+            snapshot.id != user_id and str(snapshot.to_dict().get("role") or "").casefold() == "admin"
+            for snapshot in all_user_snapshots()
+        )
+        if not has_another_admin:
+            raise HTTPException(
+                status_code=409,
+                detail="Assign another user as Admin before changing the final administrator's role.",
+            )
     user = {
         **user_data,
         "dateOfJoining": user_data.get("dateOfJoining", existing_data.get("dateOfJoining")),
@@ -1055,6 +1071,16 @@ def delete_user(user_id: str):
     if not existing.exists:
         raise HTTPException(status_code=404, detail="User not found")
     user = existing.to_dict()
+    if str(user.get("role") or "").casefold() == "admin":
+        has_another_admin = any(
+            snapshot.id != user_id and str(snapshot.to_dict().get("role") or "").casefold() == "admin"
+            for snapshot in all_user_snapshots()
+        )
+        if not has_another_admin:
+            raise HTTPException(
+                status_code=409,
+                detail="Assign another user as Admin before deleting the final administrator.",
+            )
     left_at = datetime.now(INDIA_TIMEZONE)
     email = str(user.get("employeeEmail", "")).strip().lower()
     db = get_firestore_client()

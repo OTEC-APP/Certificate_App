@@ -23,6 +23,14 @@ const userWorkspace = [
   ['upcoming-renewals', 'bi-bell', 'Alerts & renewals', 'Renewal reminders'],
 ]
 
+const projectManagerWorkspace = [
+  ['dashboard', 'bi-grid-1x2', 'Dashboard', 'My overview'],
+  ['certification-tasks', 'bi-list-check', 'Course list', 'Assigned courses'],
+  ['upcoming-renewals', 'bi-bell', 'Alerts & renewals', 'Renewal reminders'],
+  ['employees', 'bi-people', 'Employee details', 'All employee records'],
+  ['exports', 'bi-file-earmark-arrow-down', 'Generate Report', 'Export employee reports'],
+]
+
 export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCount = 0 }) {
   const navigationRef = useRef(null)
 
@@ -34,7 +42,7 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
   const links = (items) =>
     items.map(([path, icon, label, description, children]) => (
       <div key={path} className="sidebar-nav-item">
-      <NavLink to={`/${path}`} onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip={`${label} · ${description}`} aria-label={`${label}: ${description}`}>
+      <NavLink to={`/${path}`} onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip={description} title={description} aria-label={`${label}: ${description}`}>
         <i className={`bi ${icon}`} />
         {label}
         {(path === 'alerts' || path === 'upcoming-renewals') && alertCount > 0 && <em aria-label={`${alertCount} alerts and renewals`}>{alertCount > 99 ? '99+' : alertCount}</em>}
@@ -65,8 +73,8 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
 
       <div className="er-nav-scroll" ref={navigationRef}>
         <label>WORKSPACE</label>
-        <nav>{links(user?.role === 'user' ? userWorkspace : workspace)}</nav>
-        {user?.role !== 'user' && (
+        <nav>{links(user?.role === 'project_manager' ? projectManagerWorkspace : user?.role === 'user' ? userWorkspace : workspace)}</nav>
+        {user?.role === 'admin' && (
           <>
             <label>MANAGE</label>
             <nav>{links(manage)}</nav>
@@ -76,11 +84,11 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
       </div>
 
       <div className="sidebar-account">
-        <NavLink className="er-user er-user-fixed sidebar-profile-link" to="/my-profile" onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip="My profile" aria-label="My profile">
+        <NavLink className="er-user er-user-fixed sidebar-profile-link" to="/my-profile" onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip="My profile" title="My profile">
           <span>{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || 'U'}</span>
           <div>
             <b>{user ? `${user.firstName} ${user.lastName}` : 'Signed-in user'}</b>
-            <small>{user?.role === 'admin' ? 'Administrator' : 'User'}</small>
+            <small>{user?.role === 'admin' ? 'Administrator' : user?.role === 'project_manager' ? 'Project Manager' : 'User'}</small>
           </div>
         </NavLink>
         <div className="sidebar-actions">
@@ -89,6 +97,7 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
             onClick={onLogout}
             aria-label="Logout"
             data-tooltip="Logout"
+            title="Logout"
           >
             <i className="bi bi-box-arrow-right" />
             <span>Logout</span>

@@ -194,7 +194,7 @@ export default function LiveEmployeeRecordPage({ query = '', realtimeVersion }) 
           <div className="record-profile-copy">
             <h2>{employee.name}</h2>
             <p>
-              <span className="record-profile-role"><i className="bi bi-person-badge" /> Role: {employee.role === 'admin' ? 'Administrator' : 'User'}</span>
+              <span className="record-profile-role"><i className="bi bi-person-badge" /> Role: {employee.role === 'admin' ? 'Administrator' : employee.role === 'project_manager' ? 'Project Manager' : 'User'}</span>
               <span><i className="bi bi-person-badge" /> ID: {employee.employeeId || 'Not assigned'}</span>
               <span><i className="bi bi-calendar3" /> Joined: {joiningDateLabel(employee.dateOfJoining)}</span>
               <span><i className="bi bi-geo-alt" /> {employee.location}</span>

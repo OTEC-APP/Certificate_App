@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Pagination from '../components/Pagination'
-import { confirmDelete } from '../dialogs'
+import { confirmDelete, showResultAlert } from '../dialogs'
 import DatePicker from '../components/DatePicker'
  
 const apiUrl = process.env.REACT_APP_API_URL
@@ -128,6 +128,7 @@ function UserForm({ user, locations, departments, onSave, onClose }) {
             <select name="role" value={form.role} onChange={change} required>
               <option value="">Select role</option>
               <option value="user">User</option>
+              <option value="project_manager">Project Manager</option>
               <option value="admin">Admin</option>
             </select>
           </label>
@@ -704,7 +705,11 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
         }),
       )
       const result = await response.json()
-      if (!response.ok) throw new Error(result.detail || 'Unable to save user')
+      if (!response.ok) {
+        const error = new Error(apiErrorMessage(result.detail, 'Unable to save user'))
+        error.status = response.status
+        throw error
+      }
       const { invitation_sent: invitationSent, ...savedUser } = result
       setUsers((items) =>
         isCreate
@@ -720,6 +725,14 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       setEditing(null)
       return
     } catch (error) {
+      if (error.status === 409) {
+        await showResultAlert({
+          title: 'Administrator change blocked',
+          message: error.message,
+          success: false,
+        })
+        return
+      }
       notify(error.message || 'Unable to save user')
       return
     }
@@ -765,7 +778,9 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       )
       if (!response.ok) {
         const result = await response.json()
-        throw new Error(result.detail || 'Unable to delete user')
+        const error = new Error(apiErrorMessage(result.detail, 'Unable to delete user'))
+        error.status = response.status
+        throw error
       }
       setUsers((items) => items.filter((item) => item.id !== user.id))
       notify(`${user.firstName} ${user.lastName} marked as left; records retained for 30 days`)
@@ -773,6 +788,14 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       await reloadUsers()
       return
     } catch (error) {
+      if (error.status === 409) {
+        await showResultAlert({
+          title: 'Administrator change blocked',
+          message: error.message,
+          success: false,
+        })
+        return
+      }
       notify(error.message || 'Unable to delete user')
       return
     }

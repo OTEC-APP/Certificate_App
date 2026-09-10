@@ -47,7 +47,7 @@ configured_origins = {
     if origin.strip()
 }
 allowed_origins = sorted(
-    configured_origins | {"http://localhost:3000", "https://certificate-app-820419599404.asia-south1.run.app"}
+    configured_origins | {"http://localhost:3000", "http://127.0.0.1:3000"}
 )
 
 
@@ -97,7 +97,7 @@ async def realtime_updates(websocket: WebSocket):
         realtime_connections.disconnect(websocket)
 
 db = get_firestore_client()
-BRAND_LOGO_PATH = Path(__file__).resolve().parent / "Images" / "o2k-logo.png"
+BRAND_LOGO_PATH = Path(__file__).resolve().parent / "images" / "o2k-logo.png"
 demo_certificates: list[dict] = []
 demo_notification_reads: dict[str, set[str]] = {}
 demo_monthly_top_five_periods: set[str] = set()
@@ -915,7 +915,7 @@ def monthly_top_five_recipients() -> list[str]:
             str(snapshot.to_dict().get("employeeEmail") or "").strip().lower()
             for snapshot in db.collection("users").stream()
             if str(snapshot.to_dict().get("employeeEmail") or "").strip()
-            and str(snapshot.to_dict().get("role") or "").lower() in {"admin", "user"}
+            and str(snapshot.to_dict().get("role") or "").lower() in {"admin", "project_manager", "user"}
         })
     except Exception:
         return []
@@ -1405,7 +1405,7 @@ def monthly_rankings(email: str = Query(""), include_all: bool = Query(False)):
         try:
             for snapshot in db.collection("users").stream():
                 user = snapshot.to_dict()
-                if str(user.get("role") or "user").casefold() not in {"admin", "user"}:
+                if str(user.get("role") or "user").casefold() not in {"admin", "project_manager", "user"}:
                     continue
                 employee_email = str(user.get("employeeEmail") or "").strip().casefold()
                 if not employee_email:
@@ -1782,7 +1782,7 @@ def list_employees(
             "activeCertificateCount": len(issued),
             "last_seen_at": access_user.get("last_seen_at"),
             "last_certificate_at": latest_certificate_at(certificates),
-            "status": "Active" if access_user.get("role") in {"admin", "user"} else "Inactive",
+            "status": "Active" if access_user.get("role") in {"admin", "project_manager", "user"} else "Inactive",
         })
  
     term = search.strip().lower()
@@ -1870,7 +1870,13 @@ def employee_profile(employee_id: str):
 
  
 @app.get("/api/partner-compliance")
-def partner_compliance(response: Response):
+def partner_compliance(
+    response: Response,
+    search: str = Query(""),
+    vendor_filter_value: str = Query("", alias="vendor"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(6, ge=1, le=100),
+):
     """Group active certificate holders by OEM and certification."""
     response.headers["Cache-Control"] = "no-store"
     requirements = {}
@@ -1913,13 +1919,13 @@ def partner_compliance(response: Response):
         }
  
     vendors = []
-    for vendor, courses in sorted(grouped.items(), key=lambda item: str(item[0] or "Not recorded").lower()):
+    for vendor_name, courses in sorted(grouped.items(), key=lambda item: str(item[0] or "Not recorded").lower()):
         certifications = []
         vendor_holders = set()
         for course, holders_by_key in sorted(courses.items(), key=lambda item: item[0].lower()):
             holders = sorted(holders_by_key.values(), key=lambda holder: holder["name"].lower())
             vendor_holders.update(holders_by_key)
-            requirement_key = compliance_requirement_id(vendor, course)
+            requirement_key = compliance_requirement_id(vendor_name, course)
             certifications.append({
                 "name": course,
                 "holders": holders,
@@ -1927,12 +1933,52 @@ def partner_compliance(response: Response):
                 "required": int(requirements.get(requirement_key, 1)),
             })
         vendors.append({
-            "name": vendor,
+            "name": vendor_name,
             "completed": len(vendor_holders),
-            "required": int(requirements.get(compliance_requirement_id(vendor, "__vendor__"), 1)),
+            "required": int(requirements.get(compliance_requirement_id(vendor_name, "__vendor__"), 1)),
             "certifications": certifications,
         })
-    return {"vendors": vendors}
+    vendor_filter = vendor_filter_value.strip().casefold()
+    if vendor_filter:
+        vendors = [item for item in vendors if item["name"].casefold() == vendor_filter]
+
+    term = search.strip().casefold()
+    if term:
+        vendors = [
+            vendor
+            for vendor in vendors
+            if term in " ".join(
+                [vendor["name"]]
+                + [
+                    " ".join(
+                        [certification["name"]]
+                        + [
+                            " ".join(str(holder.get(field, "")) for field in ("name", "email", "certificate_number"))
+                            for holder in certification["holders"]
+                        ]
+                    )
+                    for certification in vendor["certifications"]
+                ]
+            ).casefold()
+        ]
+
+    total = len(vendors)
+    start = (page - 1) * page_size
+    page_vendors = vendors[start : start + page_size]
+    achieved = sum(vendor["completed"] >= vendor["required"] for vendor in vendors)
+    total_completed = sum(vendor["completed"] for vendor in vendors)
+    total_required = sum(vendor["required"] for vendor in vendors)
+    return {
+        "vendors": page_vendors,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "summary": {
+            "achieved": achieved,
+            "total_completed": total_completed,
+            "total_required": total_required,
+        },
+    }
  
  
  
@@ -2341,7 +2387,7 @@ if __name__ == "__main__":
     import uvicorn
 
     api_host = os.getenv("API_HOST", "0.0.0.0").strip() or "0.0.0.0"
-    api_port = int(os.getenv("API_PORT", "5003"))
+    api_port = int(os.getenv("API_PORT", "5000"))
 
     # Avoid Uvicorn's WinError 10048 when this API is already running. This is
     # common during local development when a terminal or IDE task owns port 5000.

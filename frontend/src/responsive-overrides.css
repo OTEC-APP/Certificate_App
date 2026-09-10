@@ -3,7 +3,7 @@
 html, body, #root { width:100%;min-width:0;max-width:100%; }
 body { margin:0;overflow-x:hidden; }
 .exact-react,.exact-react > main,.er-view,.er-card { min-width:0;max-width:100%; }
- 
+
 /* Keep shared cards compact while allowing their content to define height. */
 .exact-react .er-grid { gap:16px; }
 .exact-react .er-card { border-radius:14px; }
@@ -50,7 +50,7 @@ body { margin:0;overflow-x:hidden; }
 .exact-react img,.exact-react video,.exact-react canvas,.exact-react svg { max-width:100%; }
 .exact-react input,.exact-react select,.exact-react textarea,.exact-react button { max-width:100%; }
 .compact-select { position:relative;display:block;width:100%; }
- 
+
 /* Keep the page-size selector on the right of every desktop pagination bar. */
 @media (min-width:701px) {
   .exact-react .app-pagination { grid-template-columns:1fr auto 1fr; }
@@ -72,7 +72,7 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .compact-select-menu button[aria-selected='true'] { background:#ededed;color:#222;font-weight:700; }
 .exact-react .compact-select-native { color:#222!important; }
 .exact-react .er-table tbody tr:hover td { color:#1f1f1f!important;background:#f5f5f5!important; }
- 
+
 /* Shared filter treatment: every certificate filter uses the same roomy,
    wrap-safe layout as Completion Records. */
 .exact-react .completion-filter-popup,
@@ -124,7 +124,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .compact-select-menu { max-height:min(248px,34dvh); }
   .exact-react .compact-select-menu button { min-height:38px;padding:10px 12px;font-size:13px; }
 }
- 
+
 /* Keep a compact, themed scrollbar on the completion chart. */
 .exact-react .er-card:has(.completion-chart-controls) .years {
   scrollbar-width:thin;
@@ -196,7 +196,7 @@ body { margin:0;overflow-x:hidden; }
 .global-table-scroll,.access-table-card,.completion-records-card,.pending-certificates-card {
   max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;
 }
- 
+
 /* Bulk upload table: render as a normal table that scrolls horizontally when
    it is wider than the card, so columns stay aligned at every width. */
 .bulk-upload-card .bulk-ready-table {
@@ -213,7 +213,7 @@ body { margin:0;overflow-x:hidden; }
   justify-content:center;
   white-space:nowrap;
 }
- 
+
 /* Keep sidebar counters inside and vertically centred on their navigation row. */
 .exact-react .er-side nav a {
   position:relative;
@@ -240,7 +240,7 @@ body { margin:0;overflow-x:hidden; }
 @media(min-width:1001px) {
   .exact-react.sidebar-collapsed .er-side nav a > em { display:none; }
 }
- 
+
 /* Archived employee profile: aligned facts and certificate metadata. */
 .exact-react .departed-profile-dialog {
   width:min(1160px,calc(100vw - 40px));
@@ -270,14 +270,14 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .departed-certificate-list dl > div,.exact-react .departed-certificate-list dt,
 .exact-react .departed-certificate-list dd { min-width:0;max-width:100%;overflow-wrap:anywhere; }
 .exact-react .departed-certificate-list dl > div:nth-child(3) dd { white-space:normal; }
- 
+
 @media(max-width:900px) {
   .exact-react .departed-profile-dialog { width:calc(100vw - 24px);height:calc(100dvh - 24px);max-height:calc(100dvh - 24px); }
   .exact-react .departed-profile-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .exact-react .departed-profile-facts > span { min-height:96px; }
   .exact-react .departed-certificate-list > article { grid-template-columns:minmax(0,1fr);gap:16px; }
 }
- 
+
 @media(max-width:1200px) {
   .exact-react .er-view { padding-inline:24px; }
   .exact-react .er-top .er-search { display:flex;flex:0 1 300px;min-width:190px; }
@@ -286,7 +286,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .settings-exact { grid-template-columns:minmax(0,1fr); }
   .exact-react .user-chart-grid { grid-template-columns:minmax(0,1fr); }
 }
- 
+
 @media(max-width:1000px) {
   .exact-react > main { width:100%;margin-left:0!important; }
   .exact-react .er-top { width:auto;max-width:none;margin:10px 12px 0;flex-wrap:wrap; }
@@ -297,7 +297,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .compliance-grid,.exact-react .oem-settings-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .exact-react .staff-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
- 
+
 @media(max-width:700px) {
   .exact-react .er-top { height:auto!important;min-height:110px;margin:0;border-radius:0;gap:8px;padding:9px 10px;align-content:flex-start; }
   .exact-react .er-top .top-brand { display:none; }
@@ -371,7 +371,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .departed-certificate-list dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .exact-react .departed-certificate-list dt { min-height:0; }
 }
- 
+
 @media(max-width:700px) {
   .exact-react .catalog-details-overlay {
     align-items:flex-end;
@@ -467,7 +467,7 @@ body { margin:0;overflow-x:hidden; }
     text-transform:uppercase;
   }
 }
- 
+
 @media(max-width:520px) {
   .exact-react .er-top {
     --mobile-header-control:clamp(36px,10vw,40px);
@@ -569,14 +569,14 @@ body { margin:0;overflow-x:hidden; }
     white-space:normal;
   }
 }
- 
+
 /* Compact shared workspace banner used by both administrator and user views. */
 .exact-react .er-top {
   height:58px;
   gap:10px;
   padding:7px 14px 7px 16px;
 }
- 
+
 .exact-react .mobile-menu-button,
 .exact-react .top-notification-button {
   flex-basis:36px;
@@ -586,12 +586,12 @@ body { margin:0;overflow-x:hidden; }
   border-radius:10px;
   font-size:18px;
 }
- 
+
 .exact-react .top-brand { gap:7px;padding-right:14px; }
 .exact-react .top-brand img { width:34px;height:34px; }
 .exact-react .top-brand b { font-size:15px; }
 .exact-react .top-brand small { font-size:9px; }
- 
+
 .exact-react .er-top .er-search { min-width:0; }
 .exact-react .er-search input {
   width:clamp(190px,23vw,280px);
@@ -601,7 +601,7 @@ body { margin:0;overflow-x:hidden; }
   font-size:12px;
 }
 .exact-react .er-search i { left:13px;top:10px;font-size:13px; }
- 
+
 .exact-react .er-top > .er-add,
 .exact-react .global-back-button {
   min-height:36px;
@@ -610,7 +610,7 @@ body { margin:0;overflow-x:hidden; }
   border-radius:10px;
   font-size:12px;
 }
- 
+
 @media(max-width:1000px) {
   .exact-react .er-top {
     height:auto;
@@ -621,7 +621,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .er-top .er-search { flex:1 1 220px; }
   .exact-react .er-search input { width:100%; }
 }
- 
+
 @media(max-width:700px) {
   .exact-react .er-top {
     min-height:96px!important;
@@ -649,7 +649,7 @@ body { margin:0;overflow-x:hidden; }
     max-height:calc(100dvh - 62px);
   }
 }
- 
+
 @media(max-width:480px) {
   .exact-react .er-kpis,.exact-react .user-kpis { grid-template-columns:minmax(0,1fr); }
   .exact-react .er-card { border-radius:14px; }
@@ -668,17 +668,17 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .departed-profile-dialog { width:calc(100vw - 12px);height:calc(100dvh - 12px);max-height:calc(100dvh - 12px); }
   .exact-react .departed-certificates > header { align-items:flex-start;flex-direction:column;min-height:0; }
 }
- 
+
 @media(max-height:600px) and (orientation:landscape) {
   .exact-react .er-side { overflow-y:auto; }
   .exact-react .er-overlay { align-items:flex-start; }
   .exact-react .er-modal { max-height:calc(100dvh - 12px); }
   .login-page { align-items:flex-start; }
 }
- 
+
 .exact-react .completion-records-card { overflow:visible; }
 .exact-react .completion-records-card .global-table-scroll { overflow-x:auto; }
- 
+
 /* Global dense workspace treatment: reduce dead space without sacrificing mobile flow. */
 .exact-react .er-view { padding:22px 28px 38px; }
 .exact-react .er-grid,
@@ -702,11 +702,11 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .staff-list-title { padding:10px;gap:9px; }
 .exact-react .er-table th { padding:7px 11px;font-size:10px; }
 .exact-react .er-table td { padding:10px 11px;font-size:11px; }
- 
+
 @media(max-width:1000px) {
   .exact-react .er-view { padding:18px 18px 32px; }
 }
- 
+
 @media(max-width:700px) {
   .exact-react .er-view { padding:13px 11px 28px; }
   .exact-react .er-grid,
@@ -721,7 +721,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .user-kpis > article { min-height:88px;padding:10px 11px;border-radius:11px; }
   .exact-react .er-kpis > button > b { font-size:24px; }
 }
- 
+
 /* Override fixed dashboard heights so compact sizing is visible everywhere. */
 .exact-react .er-view:has(> .er-kpis) .top-grid > .er-card,
 .exact-react .admin-dashboard-page .top-grid > .er-card {
@@ -743,7 +743,7 @@ body { margin:0;overflow-x:hidden; }
 }
 .exact-react .er-view:has(> .er-kpis) .leaderboard-list .leader { padding-block:8px; }
 .exact-react .admin-dashboard-page .er-grid { gap:14px; }
- 
+
 @media(max-width:1100px) {
   .exact-react .er-view:has(> .er-kpis) .lead-grid > .er-card,
   .exact-react .admin-dashboard-page .lead-grid > .er-card {
@@ -751,13 +751,13 @@ body { margin:0;overflow-x:hidden; }
     min-height:285px!important;
   }
 }
- 
+
 /* Preserve the larger hero-row cards on the user dashboard. */
 .exact-react .er-view:has(> .er-kpis) .top-grid > .er-card {
   height:315px!important;
   min-height:315px!important;
 }
- 
+
 @media(max-width:1100px) {
   .exact-react .er-view:has(> .er-kpis) .top-grid > .er-card,
   .exact-react .admin-dashboard-page .top-grid > .er-card {
@@ -765,7 +765,7 @@ body { margin:0;overflow-x:hidden; }
     min-height:0!important;
   }
 }
- 
+
 /* Compact pending and completed certification task cards. */
 .exact-react .task-card {
   gap:8px;
@@ -786,7 +786,7 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .task-card > footer { gap:7px; }
 .exact-react .task-card > footer a,
 .exact-react .task-card > footer button { min-height:30px;padding:0 9px;font-size:10px; }
- 
+
 /* Compact the admin certification-details assignment card. */
 .exact-react .task-assignment-form { position:relative;z-index:40;overflow:visible; }
 .exact-react .task-assignment-form .task-form-fields,.exact-react .task-assignment-form .task-form-fields label { overflow:visible; }
@@ -808,7 +808,7 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .task-edit,.exact-react .task-delete { display:grid;place-items:center;width:32px;height:32px;border:1px solid #efd4d8;border-radius:8px;background:#fff;color:#bd3349;cursor:pointer; }
 .exact-react .task-edit:hover { border-color:#e3a2ad;background:#fff0f2; }
 .exact-react .task-edit-cancel { border:1px solid #edc5cc!important;background:#fff!important;color:#bd3349!important; }
- 
+
 /* Course list filter panel follows the shared record-filter pattern. */
 .exact-react .task-course-filter-panel { position:relative;z-index:60;border:1px solid #ead9dc;border-radius:12px;background:#fff;overflow:visible; }
 .exact-react .task-course-filter-panel .task-course-filters,.exact-react .task-course-filter-panel .task-course-filters label { overflow:visible; }
@@ -838,7 +838,7 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .task-course-filters .compact-select-trigger { min-height:38px;padding:8px 10px;border-radius:8px;font-size:11px; }
 .exact-react .task-course-clear { display:inline-flex;height:38px;align-items:center;justify-content:center;gap:5px;padding:0 10px;border:1px solid #edc5cc;border-radius:8px;background:#fff7f8;color:#bd3349;font-size:10px;font-weight:800;cursor:pointer; }
 .exact-react .task-course-clear:hover { background:#ffecef; }
- 
+
 /* Keep short user courses from stretching across an otherwise empty row. */
 .exact-react .user-courses-page .task-card-grid {
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -854,11 +854,11 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .user-courses-page .task-card > header { align-self:auto; }
 .exact-react .user-courses-page .task-card dl { align-self:auto; }
 .exact-react .user-courses-page .task-card > footer { align-self:auto;justify-content:flex-start;white-space:normal; }
- 
+
 @media(max-width:1050px) {
   .exact-react .user-courses-page .task-card-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
- 
+
 @media(max-width:700px) {
   .exact-react .task-form-fields { grid-template-columns:minmax(0,1fr);gap:8px;padding:12px; }
   .exact-react .task-team-picker { padding:0 12px 12px; }
@@ -868,7 +868,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .task-course-clear { width:100%; }
   .exact-react .user-courses-page .task-card-grid { grid-template-columns:minmax(0,1fr); }
 }
- 
+
 @media(max-width:700px) {
   .exact-react .task-card { gap:8px;padding:11px; }
   .exact-react .task-card > header > i { width:30px;height:30px; }
@@ -878,7 +878,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .task-card > footer a,
   .exact-react .task-card > footer button { width:100%;min-height:32px; }
 }
- 
+
 /* User identity stays in the navigation and wraps on narrow screens. */
 .exact-react .er-top.user-topbar { height:auto;min-height:64px;flex-wrap:wrap; }
 .exact-react .user-topbar .top-brand { margin-right:auto!important; }
@@ -899,7 +899,7 @@ body { margin:0;overflow-x:hidden; }
 @media(max-width:480px) {
   .exact-react .user-kpis { grid-template-columns:minmax(0,1fr); }
 }
- 
+
 /* Keep OEM Overview visibly nested beneath Course list. */
 .exact-react .er-side .sidebar-nav-item { min-width:0; }
 .exact-react .er-side .sidebar-subnav {
@@ -908,7 +908,7 @@ body { margin:0;overflow-x:hidden; }
   border-left:1px solid #edc5cc;
 }
 .exact-react .er-side .sidebar-subnav a { min-height:40px;padding:9px 10px;font-size:12px; }
- 
+
 /* Stack the user greeting details and keep header actions at the right edge. */
 .exact-react .user-dashboard .dashboard-greeting > div {
   display:flex;
@@ -923,7 +923,8 @@ body { margin:0;overflow-x:hidden; }
   margin:0;
   overflow-wrap:anywhere;
 }
-.exact-react .user-topbar .top-notification { margin-left:auto; }
+.exact-react .user-topbar .er-search { margin-left:auto; }
+.exact-react .user-topbar .top-notification { margin-left:0; }
 .exact-react .user-topbar > .er-add,
 .exact-react .user-topbar > .global-back-button { flex-shrink:0;white-space:nowrap; }
 .exact-react .dashboard-back-button { display:none; }
@@ -933,7 +934,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .user-topbar > .er-add i { margin:0;font-size:18px; }
   .exact-react .user-topbar > .global-back-button span { display:none; }
 }
- 
+
 /* Match page introductions to the Report Builder; dashboard headers are excluded. */
 .exact-react :is(.page-content-heading, .task-page-hero, .activity-history-hero,
 .completion-records-hero, .compliance-credential-hero, .compliance-pulse,
@@ -986,7 +987,7 @@ body { margin:0;overflow-x:hidden; }
   .record-profile, .admin-profile-banner, .completed-users-summary > header,
   .export-reports-page .export-reports-hero) :is(h1, h2) { font-size:20px; }
 }
- 
+
 /* Use more of the workspace for page content. */
 .exact-react .er-view { padding:12px 18px 22px; }
 .exact-react .page-content-heading { margin-bottom:10px; }
@@ -1011,7 +1012,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .er-view { padding:10px 11px 18px; }
   .exact-react :is(.alerts-view-toggle, .compliance-view-toggle) button { min-height:40px; }
 }
- 
+
 /* Compact spacing between page toolbars and their records. */
 .exact-react .er-view { padding:8px 12px 18px; }
 .exact-react :is(.access-management, .settings-exact, .alerts-page-stack,
@@ -1024,7 +1025,7 @@ body { margin:0;overflow-x:hidden; }
   padding:8px 10px;
 }
 .exact-react .access-table-card { padding-top:0; }
- 
+
 /* The page title already identifies these lists; start with the records. */
 .exact-react .activity-history-card > header:not(:has(.new-employee-period)),
 .exact-react .alerts-page-stack .pending-certificate-reviews > header,
@@ -1039,7 +1040,7 @@ body { margin:0;overflow-x:hidden; }
 @media(max-width:700px) {
   .exact-react .er-view { padding:8px 10px 16px; }
 }
- 
+
 /* Final handset pass: preserve readable controls and prevent shared admin/user
    components from creating horizontal page overflow. */
 @media(max-width:700px) {
@@ -1073,7 +1074,7 @@ body { margin:0;overflow-x:hidden; }
   .export-reports-hero, .record-profile) > * { min-width:0; }
   .exact-react .app-pagination { max-width:100%;overflow-x:auto; }
 }
- 
+
 @media(max-width:480px) {
   .exact-react .er-kpis,.exact-react .user-kpis { grid-template-columns:minmax(0,1fr); }
   .exact-react :is(.profile-certificate-tabs, .activity-history-tabs,
@@ -1081,7 +1082,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .export-actions > * { flex-basis:100%; }
   .exact-react .er-card > header .card-action { width:100%;min-height:38px; }
 }
- 
+
 /* The phone leaderboard keeps every rank, identity detail, and count readable. */
 @media(max-width:700px) {
   .exact-react .er-view:has(> .dashboard-greeting) .lead-grid > .er-card {
@@ -1140,7 +1141,7 @@ body { margin:0;overflow-x:hidden; }
     font-size:8px;
   }
 }
- 
+
 /* Alerts are a frequent mobile workflow: retain both tabs on one compact row
    and give each renewal enough space for its certificate, owner and deadline. */
 @media(max-width:480px) {
@@ -1166,7 +1167,7 @@ body { margin:0;overflow-x:hidden; }
   .exact-react .live-renewal-card .renewal-list.all > div small { margin-top:3px;font-size:10px;line-height:1.3;white-space:normal; }
   .exact-react .live-renewal-card .renewal-list.all > div em { min-width:46px;padding:6px 5px;font-size:10px;line-height:1.15;white-space:normal;text-align:center; }
 }
- 
+
 /* Bulk upload is a short confirmation dialog, so it should remain centred on
    a handset instead of using the bottom-sheet treatment for long forms. */
 @media(max-width:700px) {
@@ -1176,7 +1177,7 @@ body { margin:0;overflow-x:hidden; }
     padding:12px;
   }
 }
- 
+
 /* Shared dashboard/list typography: legacy renewal rows used larger spacing
    than the rest of the Poppins-based workspace. */
 .exact-react .renewal-list > :is(button, div) { gap:12px;padding:13px 18px; }
@@ -1190,7 +1191,7 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .user-renewals article > div b { font-size:13px;line-height:1.35; }
 .exact-react .user-renewals article > div small { font-size:11px;line-height:1.35; }
 .exact-react .user-renewals article > em { font-size:11px; }
- 
+
 /* Login is outside the authenticated .exact-react shell. These rules belong
    in the final stylesheet because the theme imports otherwise re-add mobile
    padding and expose its pink page background at either side of the form. */
@@ -1223,7 +1224,7 @@ body { margin:0;overflow-x:hidden; }
       max(20px, env(safe-area-inset-left));
   }
   main.login-page .login-panel::before { display:none; }
- 
+
   main.login-page .login-mobile-brand {
     display:flex;
     width:76px;
@@ -1245,7 +1246,24 @@ body { margin:0;overflow-x:hidden; }
     object-fit:contain;
     background:transparent;
   }
-  main.login-page .login-panel-head b { display:none; }
+main.login-page .login-panel-head b { display:none; }
 }
- 
- 
+
+/* OEM overview: compact, course-list-sized cards make better use of wide screens. */
+.exact-react .compliance-overview > .compliance-grid {
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:14px;
+}
+.exact-react .compliance-overview .compliance-card-link > header { padding:12px 15px; }
+.exact-react .compliance-overview .compliance-card-link > b { padding:11px 15px 7px; font-size:24px; }
+.exact-react .compliance-overview .compliance-card-link > p { margin:8px 15px 6px; font-size:12px; }
+.exact-react .compliance-overview .compliance-card-link .compliance-track { margin-inline:15px; }
+.exact-react .compliance-overview .requirement-editor { gap:8px; padding:9px 15px; }
+
+@media (max-width:1360px) {
+  .exact-react .compliance-overview > .compliance-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width:701px) and (max-width:1000px) {
+  .exact-react .compliance-overview > .compliance-grid { grid-template-columns:repeat(2, minmax(0, 1fr))!important; }
+}

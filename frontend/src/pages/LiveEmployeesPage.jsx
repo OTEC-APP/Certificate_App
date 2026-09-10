@@ -123,7 +123,6 @@ export default function LiveEmployeesPage({ query, filter, goTo, realtimeVersion
                 <th>{isRankedDrilldown ? rankingCountLabel : 'Certs'}</th>
                 <th>Last seen</th>
                 <th>Last certificate</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -162,9 +161,6 @@ export default function LiveEmployeesPage({ query, filter, goTo, realtimeVersion
                   <td className="count">{isRankedDrilldown ? (filter?.rankCounts?.[employee.id] ?? 0) : employee.certificateCount}</td>
                   <td>{lastSeenLabel(employee.last_seen_at)}</td>
                   <td>{lastCertificateLabel(employee.last_certificate_at)}</td>
-                  <td>
-                    <strong className="active">● {employee.status}</strong>
-                  </td>
                 </tr>
               ))}
             </tbody>
