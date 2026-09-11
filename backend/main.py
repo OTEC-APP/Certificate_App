@@ -16,7 +16,7 @@ from threading import Lock
 import fitz
 from PIL import Image, ImageOps
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile, Response, WebSocket, WebSocketDisconnect
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile, Response, WebSocket, WebSocketDisconnect
  
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -97,7 +97,7 @@ async def realtime_updates(websocket: WebSocket):
         realtime_connections.disconnect(websocket)
 
 db = get_firestore_client()
-BRAND_LOGO_PATH = Path(__file__).resolve().parent / "images" / "o2k-logo.png"
+BRAND_LOGO_PATH = Path(__file__).resolve().parent / "Images" / "o2k-logo.png"
 demo_certificates: list[dict] = []
 demo_notification_reads: dict[str, set[str]] = {}
 demo_monthly_top_five_periods: set[str] = set()
@@ -1254,6 +1254,17 @@ def dashboard(response: Response, year: str = Query("")):
         access_users = [{"id": snapshot.id, **snapshot.to_dict()} for snapshot in db.collection("users").stream()] if db else []
     except Exception:
         access_users = []
+    joining_years = []
+    for user in access_users:
+        joining_date = user.get("dateOfJoining")
+        if not joining_date:
+            continue
+        try:
+            joined = joining_date if isinstance(joining_date, (date, datetime)) else datetime.fromisoformat(str(joining_date).replace("Z", "+00:00"))
+            joining_years.append((joined.date() if isinstance(joined, datetime) else joined).year)
+        except (TypeError, ValueError):
+            continue
+    earliest_employee_joining_year = min(joining_years) if joining_years else None
     stored_workforce = aggregate_count(db.collection("users")) if db else None
     workforce = stored_workforce if stored_workforce is not None else (len(access_users) if access_users else len({item.get("email") for item in issued if item.get("email")}))
     employee_ids = {
@@ -1358,6 +1369,7 @@ def dashboard(response: Response, year: str = Query("")):
         "overall_ranked_employees": [leaderboard_entry(name, count) for name, count in overall_ranked_employees],
         "monthly_top_period": current_month_key,
         "years": [{"year": year, "count": count} for year, count in sorted(years.items())],
+        "earliest_employee_joining_year": earliest_employee_joining_year,
         "selected_year": selected_year,
         "months": [{"month": month, "count": months.get(f"{month:02d}", 0)} for month in range(1, 13)],
         "locations": [
@@ -2311,8 +2323,8 @@ def get_verification_image(certificate_id: str):
  
 
 @app.get("/api/certificates/{certificate_id}/verification-file")
-def get_verification_file(certificate_id: str):
-    """Create a temporary link so an administrator can preview uploaded evidence."""
+def get_verification_file(certificate_id: str, request: Request):
+    """Return an API preview link without requiring a Storage signed URL."""
     certificate = next((item for item in get_all() if item.get("id") == certificate_id), None)
     if not certificate:
         raise HTTPException(status_code=404, detail="Certificate not found")
@@ -2326,12 +2338,19 @@ def get_verification_file(certificate_id: str):
         blob = bucket.blob(file_path)
         if not blob.exists():
             raise HTTPException(status_code=404, detail="The uploaded verification file no longer exists")
-        preview_url = blob.generate_signed_url(version="v4", expiration=timedelta(minutes=15), method="GET")
-        return {"url": preview_url, "expires_in_minutes": 15}
+        # Cloud Run's default credentials contain an access token but no private
+        # key, so they cannot generate a Cloud Storage signed URL.  Stream the
+        # private object through the already-authorized API endpoint instead.
+        preview_url = request.url_for(
+            "get_verification_image", certificate_id=certificate_id
+        )
+        # Retain the previous response shape for clients that display this field.
+        # The API URL itself is not time-limited; access is controlled by the API.
+        return {"url": str(preview_url), "expires_in_minutes": 15}
     except HTTPException:
         raise
     except Exception as error:
-        raise HTTPException(status_code=503, detail=f"Unable to create a verification-file preview: {error}") from error
+        raise HTTPException(status_code=503, detail="Verification file is unavailable") from error
 
 
 @app.patch("/api/certificates/{certificate_id}/status")

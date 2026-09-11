@@ -290,7 +290,7 @@ def invitation_email_html(user: dict) -> str:
     """
 
 def send_user_invitation(user: dict) -> bool:
-    logo_path = Path(__file__).resolve().parent / "images" / "o2k-logo.png"
+    logo_path = Path(__file__).resolve().parent / "Images" / "o2k-logo.png"
     return send_email(
         [user["employeeEmail"]],
         "You're invited to OTEC Certificate Management",
