@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 export const pageMeta = {
   'my-profile': ['My profile', 'Your certification records and renewal overview'],
+  'my-course-list': ['My course list', 'Certification tasks assigned to you'],
   'my-certificates': ['My certificates', 'Your completed certification records'],
   'upcoming-renewals': ['Alerts & renewals', 'Certificates that need your attention soon'],
   dashboard: ['Certification Dashboard', 'Company-wide overview · updated a few minutes ago'],
@@ -36,12 +37,14 @@ const searchPlaceholders = {
   'activity-history': 'Search activity history records',
   settings: 'Search categories or OEMs',
   'my-profile': 'Search my certification profile',
+  'my-course-list': 'Search my assigned courses',
   'my-certificates': 'Search my certificates or OEMs',
   'upcoming-renewals': 'Search my upcoming renewals',
 }
 
 export const pageIcons = {
   'my-profile': 'bi-person-badge',
+  'my-course-list': 'bi-list-check',
   dashboard: 'bi-grid-1x2',
   'my-certificates': 'bi-patch-check',
   'upcoming-renewals': 'bi-alarm',
@@ -154,6 +157,15 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
           </section>
         )}
       </div>
+      <button
+        className="global-profile-button"
+        type="button"
+        onClick={() => navigate('/my-profile')}
+        aria-label="Open my profile"
+        title="My profile"
+      >
+        <span aria-hidden="true">{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U'}</span>
+      </button>
       <button className="er-add" onClick={onAdd} aria-label={isPersonalWorkspace ? 'Add my certificate' : 'Add certification'}>
         <i className="bi bi-plus-lg" /> {isPersonalWorkspace ? 'Add my certificate' : 'Add certification'}
       </button>

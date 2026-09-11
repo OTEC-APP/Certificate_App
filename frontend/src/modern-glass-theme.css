@@ -1060,7 +1060,8 @@ body { margin:0;background:#edf2f8;color:var(--modern-text); }
   border-radius:15px;
   background:rgba(255,255,255,.1);
   color:#fff;
-  font-size:19px;
+  font:800 13px/1 Inter,sans-serif;
+  letter-spacing:.03em;
   cursor:pointer;
 }
 .approval-details-grid {
@@ -2425,6 +2426,25 @@ body { margin:0;background:#edf2f8;color:var(--modern-text); }
   cursor:pointer;
   transition:background .15s ease,border-color .15s ease,transform .15s ease;
 }
+.global-profile-button {
+  display:inline-flex;
+  flex:0 0 42px;
+  align-items:center;
+  justify-content:center;
+  width:42px;
+  height:42px;
+  padding:0;
+  border:1px solid #efcbd1;
+  border-radius:50%;
+  color:#c9344b;
+  background:#fffafa;
+  font:800 13px/1 Inter,sans-serif;
+  letter-spacing:.03em;
+  cursor:pointer;
+  transition:background .15s ease,border-color .15s ease,transform .15s ease;
+}
+.global-profile-button:hover { border-color:#e99aa6;background:#fff0f2;transform:translateY(-1px); }
+.global-profile-button:focus-visible { outline:3px solid rgba(216,68,87,.18);outline-offset:2px; }
 .global-back-button:hover {
   border-color:#e99aa6;
   background:#fff0f2;

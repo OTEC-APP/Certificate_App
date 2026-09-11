@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 const apiUrl = process.env.REACT_APP_API_URL
 import { mergeComplianceVendors } from '../utils/complianceVendors'
 import { renewalTimeLabel } from '../utils/renewalTime'
@@ -45,6 +45,7 @@ export default function DashboardPage({
   const [liveDashboard, setLiveDashboard] = useState(null)
   const [partnerCompliance, setPartnerCompliance] = useState([])
   const [savedCategories, setSavedCategories] = useState([])
+  const completionChartRef = useRef(null)
  
    useEffect(() => {
     let active = true
@@ -96,13 +97,20 @@ export default function DashboardPage({
  
   const currentYear = new Date().getFullYear()
   const savedYears = new Map((liveDashboard?.years || []).map(item => [String(item.year), Number(item.count) || 0]))
-  // Keep the original six-year overview even when some years have no records.
-  // If certificates go further back, include every intervening year so it can be
-  // reached by horizontal scrolling rather than disappearing from the chart.
+  const earliestJoiningYear = Number(liveDashboard?.earliest_employee_joining_year)
   const earliestSavedYear = Math.min(...Array.from(savedYears.keys()).map(Number).filter(Number.isFinite), currentYear)
-  const firstChartYear = Math.min(earliestSavedYear, currentYear - 5)
+  // Include company history from the earliest employee DOJ. On load, the chart
+  // scrolls to the latest years; earlier years remain available by swiping.
+  const firstChartYear = Number.isFinite(earliestJoiningYear) && earliestJoiningYear <= currentYear
+    ? earliestJoiningYear
+    : Math.min(earliestSavedYear, currentYear - 5)
   const availableYears = Array.from({ length: currentYear - firstChartYear + 1 }, (_, index) => String(firstChartYear + index))
   const yearChart = availableYears.map(year => [year, savedYears.get(year) || 0])
+  useEffect(() => {
+    if (chartPeriod !== 'year') return
+    const chart = completionChartRef.current
+    if (chart) chart.scrollLeft = chart.scrollWidth
+  }, [chartPeriod, availableYears.length])
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const monthChart = (liveDashboard?.months || monthNames.map((_, index) => ({ month: index + 1, count: 0 }))).map((item, index) => [monthNames[index], item.count])
   const categoryCounts = new Map((liveDashboard?.categories || []).map(item => [item.name, Number(item.count) || 0]))
@@ -213,7 +221,7 @@ export default function DashboardPage({
     </div>
     <div className="er-grid lead-grid">
       <Card title={`${leaderboardLabel} Top 5 certified holders`} hint={leaderboardToggle} action="View all" onAction={() => openEmployees({ type: 'employee_ids', value: allRankedEmployees.map((employee) => employee.profile_id || employee.employee_id).filter(Boolean), ranked: true, rankingPeriod: leaderboardPeriod, rankCounts: Object.fromEntries(allRankedEmployees.map((employee) => [employee.profile_id || employee.employee_id, employee.count])), label: `${leaderboardLabel} certified holder ranking` })}><div className="leaderboard-list">{leaderboard.length ? leaderboard.map((employee,i) => { const employeeId = employee.profile_id || employee.employee_id; return <button className="leader" onClick={() => employeeId ? goTo(`employees/${employeeId}`) : goTo(`completions?employee=${encodeURIComponent(employee.name)}`)} key={employeeId || employee.name}><em className={`r${i+1}`} aria-label={`Rank ${i + 1}`}>{rankMedals[i] || i + 1}</em><i className="face" style={{background:employee.colour}}>{employee.initials}</i><span><b>{employee.name}</b><small>{leaderboardMeta(employee)}</small></span><strong>{employee.count}<small>certs</small></strong></button> }) : <p className="user-empty">No validated certificates were completed for this period.</p>}</div></Card>
-      <Card title={`Certifications completed by ${chartPeriod}`} hint={chartToggle}><div className={`years ${chartPeriod === 'month' ? 'month-view' : ''}`}>{chartRows.map(([label,num],index) => <div className="completion-bar-link" key={label} role="button" tabIndex="0" onClick={() => goTo(chartPeriod === 'year' ? `completions?year=${label}` : `completions?year=${selectedMonthYear}&month=${index+1}`)}><i style={{height:`${num ? Math.max(8,num/chartMax*100) : 3}%`}}>{num}</i><b>{label}</b><small>{chartPeriod === 'year' && label === String(currentYear) ? 'YTD' : ''}</small></div>)}</div></Card>
+      <Card title={`Certifications completed by ${chartPeriod}`} hint={chartToggle}><div ref={completionChartRef} className={`years ${chartPeriod === 'month' ? 'month-view' : ''}`}>{chartRows.map(([label,num],index) => <div className="completion-bar-link" key={label} role="button" tabIndex="0" onClick={() => goTo(chartPeriod === 'year' ? `completions?year=${label}` : `completions?year=${selectedMonthYear}&month=${index+1}`)}><i style={{height:`${num ? Math.max(8,num/chartMax*100) : 3}%`}}>{num}</i><b>{label}</b><small>{chartPeriod === 'year' && label === String(currentYear) ? 'YTD' : ''}</small></div>)}</div></Card>
     </div>
    
     
