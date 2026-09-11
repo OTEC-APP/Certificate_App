@@ -51,6 +51,7 @@ export default function CompletedTaskUsersPage() {
     </section>
     <section className="er-card completed-users-list">
       <header><div><span>EMPLOYEE RECORDS</span><h2>Employees who completed this task</h2></div><b>{completedUsers.length} users</b></header>
+      <p style={{ margin: '0 20px 10px', color: '#765b62', fontSize: 12 }}><span style={{ color: '#c63149', fontWeight: 900 }} aria-hidden="true">* </span>Indicates an employee for whom this course is mandatory based on their department.</p>
       {employeeTable}
     </section>
   </section>

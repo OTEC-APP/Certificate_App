@@ -5,6 +5,7 @@ const workspace = [
   ['dashboard', 'bi-grid-1x2', 'Dashboard', 'Certification overview'],
   ['employees', 'bi-people', 'Employee details', 'Employee records'],
   ['task-assignments', 'bi-journal-bookmark', 'Course list', 'Courses and catalog'],
+  ['my-course-list', 'bi-list-check', 'My course list', 'My assigned courses'],
   ['alerts', 'bi-bell', 'Alert & Renewal', 'Approvals and renewals'],
   ['exports', 'bi-file-earmark-arrow-down', 'Generate Report', 'Export reports'],
   // Project staffing is temporarily disabled.

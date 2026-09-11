@@ -159,6 +159,7 @@ export default function LoginPage({ onLogin }) {
         <section className="login-panel">
           <div className="login-mobile-brand" aria-label="OTEC Certificate Management">
             <img src="/o2k-mobile-logo.png" alt="OTEC" />
+            <span>OTEC Certificate Management</span>
           </div>
           <header className="login-panel-head">
             <b>OTEC</b>

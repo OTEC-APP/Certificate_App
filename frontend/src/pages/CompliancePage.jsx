@@ -52,7 +52,7 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
   const [totalVendors, setTotalVendors] = useState(0)
   const [summary, setSummary] = useState({ achieved: 0, total_completed: 0, total_required: 0 })
   const [page, setPage] = useState(1)
-  const pageSize = 6
+  const [pageSize, setPageSize] = useState(10)
   const [searchParams, setSearchParams] = useSearchParams()
   const openOemView = (parameters) => {
     const next = new URLSearchParams(searchParams)
@@ -102,7 +102,7 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
     } finally { setLoading(false) }
   }
  
-  useEffect(() => { loadCompliance() }, [page, query, vendorName])
+  useEffect(() => { loadCompliance() }, [page, pageSize, query, vendorName])
   useEffect(() => { setPage(1) }, [query])
  
   const saveRequirement = async (vendor, required) => {
@@ -176,7 +176,7 @@ export default function CompliancePage({ goTo, notify, viewToggle, query = '' })
       <label>Required employees for this OEM</label><input name="required" type="number" min="0" max="999" defaultValue={item.required} /><button disabled={saving === item.name}>{saving === item.name ? 'Saving…' : 'Save'}</button>
     </form>
     </section>)}</div>
-    <Pagination page={page} totalItems={totalVendors} pageSize={pageSize} onPageChange={setPage} label="OEMs" />
+    <Pagination page={page} totalItems={totalVendors} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} label="OEMs" />
     </section> : <p className="user-empty">No validated certificates are available for compliance.</p>
 }
  

@@ -191,9 +191,9 @@ export default function UserDashboardPage({
   const yearRows = useMemo(() => {
     const currentYear = new Date().getFullYear()
     const joiningYear = new Date(`${String(user?.dateOfJoining || '').slice(0, 10)}T00:00:00`).getFullYear()
-    const firstYear = Number.isFinite(joiningYear)
-      ? Math.max(currentYear - 4, joiningYear)
-      : currentYear - 4
+    const firstYear = Number.isFinite(joiningYear) && joiningYear <= currentYear
+      ? joiningYear
+      : currentYear - 5
     const counts = approvedCertificates.reduce((total, certificate) => {
       const year = new Date(`${certificate.issued_date}T00:00:00`).getFullYear()
       total[year] = (total[year] || 0) + 1
@@ -278,6 +278,9 @@ export default function UserDashboardPage({
           >
             <i className="bi bi-clock-history" aria-hidden="true" /> Upcoming renewals
             {renewals.length > 0 && <span>{renewals.length}</span>}
+          </button>
+          <button type="button" onClick={() => goTo('my-course-list')}>
+            <i className="bi bi-list-check" aria-hidden="true" /> My course list
           </button>
         </nav>
       )}
@@ -461,7 +464,7 @@ function YearChart({ rows }) {
           <p>Your recorded completion history.</p>
         </div>
       </header>
-      <div className="years user-completion-years">
+      <div className="years user-completion-years" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
         {rows.map(([year, count]) => (
           <div key={year}>
             <i style={{ height: `${count ? Math.max(8, (count / max) * 100) : 3}%` }}>{count}</i>
@@ -558,7 +561,7 @@ function RenewalList({ renewals, onAdd }) {
         <i className="bi bi-shield-check" />
         <b>No upcoming renewals</b>
         <p>Your active certificates do not expire in the next 90 days.</p>
-        <button className="outline-action" onClick={onAdd}>
+        <button className="outline-action" style={{ margin: '14px 0 22px' }} onClick={onAdd}>
           Add certificate
         </button>
       </div>

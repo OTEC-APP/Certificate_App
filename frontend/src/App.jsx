@@ -423,6 +423,7 @@ const RoutedUserCertificates = () => (
 )
 const RoutedMyProfile = () => <UserDashboardPage {...useOutletContext()} initialTab="certificates" />
 const RoutedUserRenewals = () => <UserDashboardPage {...useOutletContext()} initialTab="renewals" />
+const RoutedMyCourseList = () => <CertificationTasksPage {...useOutletContext()} personalMode />
 const RoutedEmployees = () => <LiveEmployeesPage {...useOutletContext()} />
 const RoutedExportReports = () => <ExportReportsPage />
 const RoutedCertificationTasks = () => {
@@ -667,6 +668,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<RoutedDashboard />} />
           <Route path="my-profile" element={<RoutedMyProfile />} />
+          <Route path="my-course-list" element={<AdminOnly><RoutedMyCourseList /></AdminOnly>} />
           <Route path="completions" element={<AdminOnly><CompletionRecordsPage /></AdminOnly>} />
           <Route path="exports" element={<AdminOrProjectManager><RoutedExportReports /></AdminOrProjectManager>} />
           <Route path="task-assignments" element={<AdminOnly><RoutedCertificationTasks /></AdminOnly>} />

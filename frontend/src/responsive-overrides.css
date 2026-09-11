@@ -1227,24 +1227,29 @@ body { margin:0;overflow-x:hidden; }
 
   main.login-page .login-mobile-brand {
     display:flex;
-    width:76px;
-    height:58px;
-    margin:0 0 18px;
+    width:100%;
+    height:auto;
+    margin:0 0 24px;
     align-items:center;
     justify-content:center;
-    border:1px solid #f0d1d5;
-    border-radius:14px;
-    background:#fff;
-    box-shadow:0 8px 18px rgba(166,43,62,.1);
+    flex-direction:column;
+    gap:7px;
   }
   main.login-page .login-mobile-brand img {
     display:block;
-    width:70px;
-    height:52px;
+    width:86px;
+    height:64px;
     padding:0;
     border-radius:0;
     object-fit:contain;
     background:transparent;
+  }
+  main.login-page .login-mobile-brand span {
+    color:#7d6970;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
   }
 main.login-page .login-panel-head b { display:none; }
 }
