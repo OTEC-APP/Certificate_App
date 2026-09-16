@@ -6,6 +6,7 @@ const apiUrl = process.env.REACT_APP_API_URL
 import CatalogCertificateDetailsModal from '../components/CatalogCertificateDetailsModal'
 import CompactSelect from '../components/CompactSelect'
 import { categoryBadgeStyle } from '../utils/categoryPalette'
+import { loadCompanyLogo, drawPdfHeader } from '../utils/pdfBranding'
  
  
 const validityLabel = (row) => {
@@ -114,25 +115,22 @@ export default function LiveCatalogPage({ runWithLoader, notify, viewToggle, que
       const remainingPages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => exportPage(index + 2)))
       const exportRows = [firstPage, ...remainingPages].flatMap((result) => result.items || [])
       const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true })
-      document.setTextColor(75, 39, 48)
-      document.setFontSize(18)
-      document.text('Certification Catalog', 14, 17)
-      document.setFontSize(9)
-      document.setTextColor(125, 83, 92)
+      const logoData = await loadCompanyLogo()
       const appliedFilters = [
         debouncedSearch && `Search: ${debouncedSearch}`,
         vendor && `OEM: ${vendor}`,
         category && `Category: ${category}`,
       ].filter(Boolean)
-      document.text(appliedFilters.length ? appliedFilters.join('  |  ') : 'All certification types', 14, 23)
+      drawPdfHeader(document, logoData, { title: 'Certification Catalog', subtitle: appliedFilters.length ? appliedFilters.join('  |  ') : 'All certification types' })
       autoTable(document, {
-        startY: 29,
+        startY: 33,
         head: [['Certification', 'OEM', 'Category', 'Holders']],
         body: exportRows.map((row) => [row.name, row.vendor, row.category, row.holders]),
         theme: 'grid',
         headStyles: { fillColor: [189, 41, 66], textColor: 255, fontSize: 9 },
         styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [75, 39, 48], overflow: 'linebreak' },
         columnStyles: { 0: { cellWidth: 95 }, 1: { cellWidth: 60 }, 2: { cellWidth: 45 }, 3: { cellWidth: 35 }, 4: { cellWidth: 25, halign: 'center' } },
+        willDrawPage: (data) => { if (data.pageNumber > 1) drawPdfHeader(document, logoData, { title: 'Certification Catalog', subtitle: appliedFilters.length ? appliedFilters.join('  |  ') : 'All certification types' }) },
       })
       const pages = document.getNumberOfPages()
       for (let pdfPage = 1; pdfPage <= pages; pdfPage += 1) {

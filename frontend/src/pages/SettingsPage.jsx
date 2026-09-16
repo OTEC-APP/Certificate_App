@@ -211,7 +211,7 @@ export default function SettingsPage({ theme, setTheme, notify, query = '', real
           <div className="settings-row new-category">
             <div>
               <b>Add a category</b>
-              <small>e.g. Lighting, Streaming, Fire &amp; Safety</small>
+              <small>e.g. Lighting, Streaming</small>
             </div>
             <button className="outline-action" onClick={addCategory}>
               <i className="bi bi-plus-lg" /> New category

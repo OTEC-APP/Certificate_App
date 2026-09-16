@@ -45,7 +45,6 @@ export default function DashboardPage({
   const [liveDashboard, setLiveDashboard] = useState(null)
   const [partnerCompliance, setPartnerCompliance] = useState([])
   const [savedCategories, setSavedCategories] = useState([])
-  const completionChartRef = useRef(null)
  
    useEffect(() => {
     let active = true
@@ -106,13 +105,11 @@ export default function DashboardPage({
     : Math.min(earliestSavedYear, currentYear - 5)
   const availableYears = Array.from({ length: currentYear - firstChartYear + 1 }, (_, index) => String(firstChartYear + index))
   const yearChart = availableYears.map(year => [year, savedYears.get(year) || 0])
-  useEffect(() => {
-    if (chartPeriod !== 'year') return
-    const chart = completionChartRef.current
-    if (chart) chart.scrollLeft = chart.scrollWidth
-  }, [chartPeriod, availableYears.length])
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const monthChart = (liveDashboard?.months || monthNames.map((_, index) => ({ month: index + 1, count: 0 }))).map((item, index) => [monthNames[index], item.count])
+  // The API normally returns all twelve months, but map by the supplied month
+  // number so an incomplete or differently ordered response cannot shift points.
+  const monthCounts = new Map((liveDashboard?.months || []).map((item) => [Number(item.month), Number(item.count) || 0]))
+  const monthChart = monthNames.map((name, index) => [name, monthCounts.get(index + 1) || 0])
   const categoryCounts = new Map((liveDashboard?.categories || []).map(item => [item.name, Number(item.count) || 0]))
   const configuredCategoryNames = new Set(savedCategories.map(item => item.name))
   const categoryRows = [
@@ -159,7 +156,6 @@ export default function DashboardPage({
   const tenureRows = (liveDashboard?.tenure || []).map(item => [item.name, Number(item.count) || 0, Number(item.people) || 0])
   const ctsSummary = liveDashboard?.cts_summary || { total: 0, types: [], holders: [] }
   const chartRows = chartPeriod === 'year' ? yearChart : monthChart
-  const chartMax = Math.max(...chartRows.map(([, count]) => count), 1)
   const chartToggle = <div className="completion-chart-controls"><div className="completion-chart-toggle"><button type="button" className={chartPeriod === 'month' ? 'active' : ''} onClick={() => setChartPeriod('month')}>Month</button><button type="button" className={chartPeriod === 'year' ? 'active' : ''} onClick={() => setChartPeriod('year')}>Year</button></div>{chartPeriod === 'month' && <label className="completion-year-select">Year<select value={selectedMonthYear} onChange={(event) => setSelectedMonthYear(event.target.value)} aria-label="Choose a year for monthly completions">{availableYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label>}</div>
   const renewalRows = (liveDashboard?.upcoming || []).filter((renewal) => {
     const days = Number(renewal.days_remaining)
@@ -221,7 +217,20 @@ export default function DashboardPage({
     </div>
     <div className="er-grid lead-grid">
       <Card title={`${leaderboardLabel} Top 5 certified holders`} hint={leaderboardToggle} action="View all" onAction={() => openEmployees({ type: 'employee_ids', value: allRankedEmployees.map((employee) => employee.profile_id || employee.employee_id).filter(Boolean), ranked: true, rankingPeriod: leaderboardPeriod, rankCounts: Object.fromEntries(allRankedEmployees.map((employee) => [employee.profile_id || employee.employee_id, employee.count])), label: `${leaderboardLabel} certified holder ranking` })}><div className="leaderboard-list">{leaderboard.length ? leaderboard.map((employee,i) => { const employeeId = employee.profile_id || employee.employee_id; return <button className="leader" onClick={() => employeeId ? goTo(`employees/${employeeId}`) : goTo(`completions?employee=${encodeURIComponent(employee.name)}`)} key={employeeId || employee.name}><em className={`r${i+1}`} aria-label={`Rank ${i + 1}`}>{rankMedals[i] || i + 1}</em><i className="face" style={{background:employee.colour}}>{employee.initials}</i><span><b>{employee.name}</b><small>{leaderboardMeta(employee)}</small></span><strong>{employee.count}<small>certs</small></strong></button> }) : <p className="user-empty">No validated certificates were completed for this period.</p>}</div></Card>
-      <Card title={`Certifications completed by ${chartPeriod}`} hint={chartToggle}><div ref={completionChartRef} className={`years ${chartPeriod === 'month' ? 'month-view' : ''}`}>{chartRows.map(([label,num],index) => <div className="completion-bar-link" key={label} role="button" tabIndex="0" onClick={() => goTo(chartPeriod === 'year' ? `completions?year=${label}` : `completions?year=${selectedMonthYear}&month=${index+1}`)}><i style={{height:`${num ? Math.max(8,num/chartMax*100) : 3}%`}}>{num}</i><b>{label}</b><small>{chartPeriod === 'year' && label === String(currentYear) ? 'YTD' : ''}</small></div>)}</div></Card>
+       <Card title={`Certifications completed by ${chartPeriod}`} hint={chartToggle}>
+  <CompletionLineChart 
+    data={chartRows} 
+    currentYear={currentYear}
+    chartPeriod={chartPeriod}
+    selectedMonthYear={selectedMonthYear}
+    onPointClick={(label, index) => {
+      goTo(chartPeriod === 'year' 
+        ? `completions?year=${label}` 
+        : `completions?year=${selectedMonthYear}&month=${index + 1}`
+      );
+    }} 
+  />
+</Card>
     </div>
    
     
@@ -236,3 +245,222 @@ export default function DashboardPage({
 }
  
  
+// Add this helper component at the top of DashboardPage.jsx
+// const CompletionLineChart = ({ data, max, onPointClick, currentYear, chartPeriod, selectedMonthYear }) => {
+//   const [hoveredIndex, setHoveredIndex] = useState(null);
+  
+//   const width = 800;
+//   const height = 300;
+//   const padding = { top: 20, right: 30, bottom: 40, left: 40 };
+//   const graphWidth = width - padding.left - padding.right;
+//   const graphHeight = height - padding.top - padding.bottom;
+  
+//   // Calculate Y-axis scale (round up to nearest even number for clean grid lines)
+//   const yMax = Math.ceil(max / 2) * 2 || 2;
+//   const yStep = graphHeight / yMax;
+  
+//   // Calculate X-axis step
+//   const xStep = data.length > 1 ? graphWidth / (data.length - 1) : graphWidth;
+  
+//   // Generate points
+//   const points = data.map(([label, count], i) => {
+//     const x = padding.left + (data.length > 1 ? i * xStep : graphWidth / 2);
+//     const y = height - padding.bottom - (count * yStep);
+//     return { x, y, label, count, index: i };
+//   });
+  
+//   // Build SVG paths
+//   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+//   const areaPath = `${linePath} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`;
+  
+//   // Y-axis grid lines
+//   const gridLines = Array.from({ length: 5 }, (_, i) => {
+//     const val = Math.round(yMax * (4 - i) / 4);
+//     const y = padding.top + (i * (graphHeight / 4));
+//     return { val, y };
+//   });
+
+//   return (
+//     <div className="line-chart-wrapper">
+//       <svg className="line-chart-svg" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
+//         <defs>
+//           <linearGradient id="lineChartGradient" x1="0" y1="0" x2="0" y2="1">
+//             <stop offset="0%" stopColor="#d84457" stopOpacity="0.3" />
+//             <stop offset="100%" stopColor="#d84457" stopOpacity="0" />
+//           </linearGradient>
+//         </defs>
+        
+//         {/* Grid lines and Y-axis labels */}
+//         {gridLines.map(({ val, y }) => (
+//           <g key={val}>
+//             <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} className="line-chart-grid-line" />
+//             <text x={padding.left - 10} y={y + 4} textAnchor="end" className="line-chart-axis-label">{val}</text>
+//           </g>
+//         ))}
+        
+//         {/* Area Fill */}
+//         <path d={areaPath} className="line-chart-area" />
+        
+//         {/* Line */}
+//         <path d={linePath} className="line-chart-path" />
+        
+//         {/* Data Points and X-axis labels */}
+//         {points.map((p) => (
+//           <g key={p.label}>
+//             <text x={p.x} y={height - 15} textAnchor="middle" className="line-chart-axis-label">{p.label}</text>
+//             <circle 
+//               cx={p.x} 
+//               cy={p.y} 
+//               r={hoveredIndex === p.index ? 7 : 4} 
+//               className="line-chart-dot"
+//               onMouseEnter={() => setHoveredIndex(p.index)}
+//               onMouseLeave={() => setHoveredIndex(null)}
+//               onClick={() => onPointClick(p.label, p.index)}
+//             />
+//           </g>
+//         ))}
+//       </svg>
+      
+//       {/* Custom Tooltip */}
+//       {hoveredIndex !== null && (
+//         <div 
+//           className="line-chart-tooltip"
+//           style={{ 
+//             left: `${(points[hoveredIndex].x / width) * 100}%`, 
+//             top: `${(points[hoveredIndex].y / height) * 100}%` 
+//           }}
+//         >
+//           {points[hoveredIndex].label} <br />
+//           {points[hoveredIndex].count}
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+
+
+// Replace the existing CompletionLineChart component with this updated version
+const CompletionLineChart = ({ data, onPointClick, chartPeriod }) => {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const scrollRef = useRef(null);
+  
+  // Dynamic width based on number of data points
+  const width = Math.max(720, data.length * 72);
+  // Keep the whole chart—including its X-axis—within the dashboard row.
+  const height = 240;
+  const padding = { top: 16, right: 30, bottom: 32, left: 10 };
+  const graphWidth = width - padding.left - padding.right;
+  const graphHeight = height - padding.top - padding.bottom;
+  
+  // Recalculate the scale from the rendered data. Four equal intervals keep
+  // every point visible as new certifications are added.
+  const dataMax = Math.max(0, ...data.map(([, count]) => Number(count) || 0));
+  const yMax = Math.max(4, Math.ceil(dataMax / 4) * 4);
+  const yStep = graphHeight / yMax;
+  const xStep = data.length > 1 ? graphWidth / (data.length - 1) : graphWidth;
+  
+  // Generate points
+  const points = data.map(([label, rawCount], i) => {
+    const count = Number(rawCount) || 0;
+    const x = padding.left + (data.length > 1 ? i * xStep : graphWidth / 2);
+    const y = height - padding.bottom - (count * yStep);
+    return { x, y, label, count, index: i };
+  });
+  
+  // Build paths
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const areaPath = points.length
+    ? `${linePath} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`
+    : '';
+  
+  // Grid lines (Y-axis values)
+  const gridLines = Array.from({ length: 5 }, (_, i) => {
+    const val = Math.round(yMax * (4 - i) / 4);
+    const y = padding.top + (i * (graphHeight / 4));
+    return { val, y };
+  });
+
+  // Auto-scroll only for the year view, where the full history may be wider
+  // than the card. The month view should always open at January.
+  useEffect(() => {
+    if (scrollRef.current && data.length) {
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollLeft = chartPeriod === 'year' ? scrollRef.current.scrollWidth : 0;
+          setScrollLeft(scrollRef.current.scrollLeft);
+        }
+      }, 50);
+    }
+  }, [chartPeriod, data.length, data[0]?.[0], data[data.length - 1]?.[0]]);
+
+  const hoveredPoint = hoveredIndex === null ? null : points[hoveredIndex];
+
+  return (
+    <div className="line-chart-layout">
+      {/* 1. Fixed Y-Axis Labels */}
+      <div className="line-chart-y-axis">
+        {gridLines.map(({ val }) => (
+          <span key={val}>{val}</span>
+        ))}
+      </div>
+
+      {/* 2. Scrollable Chart Area */}
+      <div
+        className="line-chart-scroll-container"
+        ref={scrollRef}
+        onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
+      >
+        <svg 
+          className="line-chart-svg" 
+          viewBox={`0 0 ${width} ${height}`} 
+          style={{ width: `${width}px`, height: `${height}px` }}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <defs>
+            <linearGradient id="lineChartGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#d84457" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#d84457" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          
+          {/* Grid lines (No Y-axis text here anymore) */}
+          {gridLines.map(({ y }) => (
+            <line key={y} x1={padding.left} y1={y} x2={width - padding.right} y2={y} className="line-chart-grid-line" />
+          ))}
+          
+          {/* Area & Line */}
+          <path d={areaPath} className="line-chart-area" />
+          <path d={linePath} className="line-chart-path" />
+          
+          {/* Data Points & X-Axis Labels */}
+          {points.map((p) => (
+            <g key={p.label}>
+              <text x={p.x} y={height - 15} textAnchor="middle" className="line-chart-axis-label">{p.label}</text>
+              <circle 
+                cx={p.x} 
+                cy={p.y} 
+                r={hoveredIndex === p.index ? 7 : 4} 
+                className="line-chart-dot"
+                onPointerEnter={() => setHoveredIndex(p.index)}
+                onPointerLeave={() => setHoveredIndex(null)}
+                onClick={() => onPointClick(p.label, p.index)}
+              />
+            </g>
+          ))}
+        </svg>
+        
+      </div>
+      {hoveredPoint && (
+        <div
+          className="line-chart-tooltip"
+          role="status"
+          style={{ left: `calc(40px + ${hoveredPoint.x - scrollLeft}px)`, top: `${hoveredPoint.y + 42}px` }}
+        >
+          <span>{hoveredPoint.label}</span>
+          <strong>{hoveredPoint.count} completed</strong>
+        </div>
+      )}
+    </div>
+  );
+};

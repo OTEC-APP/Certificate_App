@@ -3,15 +3,17 @@ import { useEffect, useRef, useState } from 'react'
 
 export const pageMeta = {
   'my-profile': ['My profile', 'Your certification records and renewal overview'],
-  'my-course-list': ['My course list', 'Certification tasks assigned to you'],
+  
   'my-certificates': ['My certificates', 'Your completed certification records'],
-  'upcoming-renewals': ['Alerts & renewals', 'Certificates that need your attention soon'],
-  dashboard: ['Certification Dashboard', 'Company-wide overview · updated a few minutes ago'],
+  // 'upcoming-renewals': ['Alerts & renewals', 'Certificates that need your attention soon'],
+  'upcoming-renewals': ['Upcoming renewals', 'Certificates that need your attention soon'],
+  dashboard: ['', ''],
   employees: ['Employees Details', 'click a row for the full record'],
   exports: ['Export reports', 'Filter and download certification data'],
   'task-assignments': ['', 'Publish certification learning tasks to employees'],
   'certification-tasks': ['Certification tasks', 'Mandatory and optional learning assigned to you'],
-  alerts: ['Alerts & renewals', 'Certifications expiring soon, sorted by urgency'],
+  // alerts: ['Alerts & renewals', 'Certifications expiring soon, sorted by urgency'],
+  alerts: ['Renewals', 'Certificates that need your attention soon'],
   compliance: ['OEM overview', 'OEM tier requirements vs. certified headcount'],
   catalog: ['Certification catalog', 'Every certification type recognised across the company'],
   'access-management': ['Access management', 'Create and manage employee access records'],
@@ -59,7 +61,7 @@ export const pageIcons = {
   'access-history': 'bi-clock-history',
   'certificate-activity': 'bi-activity',
   'activity-history': 'bi-clock-history',
-  settings: 'bi-sliders',
+  settings: 'bi-gear',
   'project-staffing': 'bi-diagram-3',
 }
 
@@ -160,7 +162,7 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
       <button
         className="global-profile-button"
         type="button"
-        onClick={() => navigate('/my-profile')}
+        onClick={() => navigate(user?.role === 'admin' ? '/my-profile' : '/dashboard')}
         aria-label="Open my profile"
         title="My profile"
       >

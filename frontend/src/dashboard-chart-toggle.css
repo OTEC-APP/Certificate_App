@@ -7,20 +7,183 @@
 .completion-year-select .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0; }
 .completion-year-select select { border:1px solid #dfe1ea; border-radius:6px; background:#fff; color:#343947; padding:4px 6px; font:inherit; cursor:pointer; }
 .er-card:has(.completion-chart-controls) { align-self:stretch; display:flex; flex-direction:column; height:100%; }
-.er-card:has(.completion-chart-controls) .years { flex:1; height:auto; min-height:190px; padding-bottom:12px; overflow-x:auto; overflow-y:hidden; overscroll-behavior-inline:contain; scrollbar-gutter:stable; }
+/* .er-card:has(.completion-chart-controls) .years { flex:1; height:auto; min-height:190px; padding-bottom:12px; overflow-x:auto; overflow-y:hidden; overscroll-behavior-inline:contain; scrollbar-gutter:stable; }
 .er-card:has(.completion-chart-controls) .years > div { flex:0 0 72px; }
 .er-card:has(.completion-chart-controls) .years > div > i { display:flex; align-items:flex-start; justify-content:center; min-height:28px; padding:6px 3px 0; }
 .years.month-view { gap:6px; padding-right:14px; padding-left:14px; }
 .years.month-view > div { min-width:72px; }
 .years.month-view > div > i { width:24px; }
 .years.month-view > div > b { font-size:8px; }
-.years:not(.month-view) > div { min-width:54px; }
+.years:not(.month-view) > div { min-width:54px; } */
 .prototype-channels .chan .bar { min-height:32px; padding-top:6px; }
 .prototype-channels .chan .bar b { line-height:18px; flex:0 0 auto; }
-.completion-bar-link { cursor:pointer; border-radius:8px; transition:background .16s ease,transform .16s ease; }
+/* .completion-bar-link { cursor:pointer; border-radius:8px; transition:background .16s ease,transform .16s ease; }
 .completion-bar-link:hover { background:#f4f3ff; transform:translateY(-2px); }
-.completion-bar-link:focus-visible { outline:2px solid #5147e5; outline-offset:3px; }
+.completion-bar-link:focus-visible { outline:2px solid #5147e5; outline-offset:3px; } */
+
+/* --- Line Chart Layout (Sticky Y-Axis + Scrolling X-Axis) --- */
+.line-chart-layout {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  position: relative;
+  min-width: 0;
+  padding-top: 42px; /* Space for the tooltip above the highest point. */
+  padding-bottom: 10px;
+}
+
+/* Fixed Y-Axis */
+.line-chart-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 40px;
+  height: 240px; /* Must match the SVG height. */
+  padding-top: 16px; /* Must match SVG padding.top. */
+  padding-bottom: 32px; /* Must match SVG padding.bottom. */
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.line-chart-y-axis span {
+  color: #697086;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: right;
+  padding-right: 10px;
+  line-height: 1;
+}
+
+/* Scrollable Chart Area */
+.line-chart-scroll-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: visible;
+  min-width: 0;
+  padding-bottom: 12px; /* Keeps the X-axis labels above the scrollbar. */
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+.line-chart-scroll-container::-webkit-scrollbar {
+  height: 8px;
+}
+.line-chart-scroll-container::-webkit-scrollbar-track {
+  background: #f8f9fc;
+  border-radius: 4px;
+}
+.line-chart-scroll-container::-webkit-scrollbar-thumb {
+  background: #d84457;
+  border-radius: 4px;
+}
+.line-chart-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #bd2942;
+}
+
+/* Dark mode scrollbar */
+.exact-react[data-theme='dark'] .line-chart-scroll-container::-webkit-scrollbar-track { background: #1c2333; }
+.exact-react[data-theme='dark'] .line-chart-scroll-container::-webkit-scrollbar-thumb { background: #9e3445; }
+
+/* SVG Styling */
+.line-chart-svg {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-width: none !important;
+  height: auto;
+  overflow: visible;
+}
+
+/* Grid and Axes */
+.line-chart-grid-line {
+  stroke: #e5e7ee;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.line-chart-axis-label {
+  fill: #697086;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+/* Line and Area */
+.line-chart-area {
+  fill: url(#lineChartGradient);
+}
+.line-chart-path {
+  fill: none;
+  stroke: #d84457;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Data Points */
+.line-chart-dot {
+  fill: #d84457;
+  stroke: #fff;
+  stroke-width: 2;
+  transition: r 0.2s ease, stroke-width 0.2s ease;
+  cursor: pointer;
+}
+.line-chart-dot:hover {
+  r: 7;
+  stroke-width: 3;
+}
+
+/* Custom Tooltip */
+.line-chart-tooltip {
+  position: absolute;
+  background: #5c1a2e;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  margin-top: -10px; /* Gap between dot and tooltip */
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(92, 26, 46, 0.3);
+  z-index: 10;
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+.line-chart-tooltip span { font-size: 10px; font-weight: 600; opacity: .82; }
+.line-chart-tooltip strong { font-size: 11px; }
+.line-chart-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px 5px 0;
+  border-style: solid;
+  border-color: #5c1a2e transparent transparent;
+}
+
+/* Dark Mode Overrides */
+.exact-react[data-theme='dark'] .line-chart-grid-line { stroke: #3b4358; }
+.exact-react[data-theme='dark'] .line-chart-axis-label { fill: #a5b9d7; }
+.exact-react[data-theme='dark'] .line-chart-dot { stroke: #1c2333; }
+.exact-react[data-theme='dark'] .line-chart-tooltip { background: #9e3445; }
+.exact-react[data-theme='dark'] .line-chart-tooltip::after { border-color: #9e3445 transparent transparent; }
+
+/* --- Dark Mode --- */
+.exact-react[data-theme='dark'] .line-chart-grid-line { stroke: #3b4358; }
+.exact-react[data-theme='dark'] .line-chart-axis-label { fill: #a5b9d7; }
+.exact-react[data-theme='dark'] .line-chart-dot { stroke: #1c2333; }
+.exact-react[data-theme='dark'] .line-chart-tooltip { background: #9e3445; }
+.exact-react[data-theme='dark'] .line-chart-tooltip::after { border-color: #9e3445 transparent transparent; }
+
+
+
 .exact-react[data-theme='dark'] .completion-chart-toggle { background:#252c40; }
 .exact-react[data-theme='dark'] .completion-chart-toggle button { color:#aeb5ca; }
 .exact-react[data-theme='dark'] .completion-chart-toggle button.active { color:#fff; }
 .exact-react[data-theme='dark'] .completion-year-select select { background:#252c40; border-color:#3b4358; color:#eef1ff; }
+
+
+
