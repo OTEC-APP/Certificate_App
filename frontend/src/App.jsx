@@ -421,7 +421,8 @@ const RoutedDashboard = () => {
 const RoutedUserCertificates = () => (
   <UserDashboardPage {...useOutletContext()} initialTab="certificates" />
 )
-const RoutedMyProfile = () => <UserDashboardPage {...useOutletContext()} initialTab="certificates" />
+// const RoutedMyProfile = () => <UserDashboardPage {...useOutletContext()} initialTab="certificates" />
+const RoutedMyProfile = () => <UserDashboardPage {...useOutletContext()} initialTab="overview" />
 const RoutedUserRenewals = () => <UserDashboardPage {...useOutletContext()} initialTab="renewals" />
 const RoutedMyCourseList = () => <CertificationTasksPage {...useOutletContext()} personalMode />
 const RoutedEmployees = () => <LiveEmployeesPage {...useOutletContext()} />

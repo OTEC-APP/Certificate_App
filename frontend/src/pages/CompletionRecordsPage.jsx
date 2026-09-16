@@ -7,6 +7,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { renewalTimeLabel } from '../utils/renewalTime'
 import { categoryBadgeStyle } from '../utils/categoryPalette'
+import { loadCompanyLogo, drawPdfHeader } from '../utils/pdfBranding'
  
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
  
@@ -119,16 +120,12 @@ export default function CompletionRecordsPage() {
   const selectedCredential = credentialType || credential
   const period = selectedCredential ? `${selectedCredential} holders` : employee || category || (month ? `${monthNames[month - 1]} ${year}` : year)
   const description = selectedCredential ? `Validated certificates matching the ${selectedCredential} credential.` : employee ? `Validated certificates for ${employee}.` : category ? `Validated certificates recorded in the ${category} category.` : `Validated certificates completed during the selected ${month ? 'month' : 'year'}.`
-  const exportRecordsPdf = () => {
+  const exportRecordsPdf = async () => {
     if (!filteredRecords.length) return
     setExporting(true)
     try {
       const document = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true })
-      document.setTextColor(75, 39, 48)
-      document.setFontSize(18)
-      document.text('Certificate Completion Records', 14, 17)
-      document.setFontSize(9)
-      document.setTextColor(125, 83, 92)
+      const logoData = await loadCompanyLogo()
       const appliedFilters = [
         filters.employee && `Employee: ${filters.employee}`,
         filters.oem && `OEM: ${filters.oem}`,
@@ -136,9 +133,9 @@ export default function CompletionRecordsPage() {
         filters.certificateNumber && `Certificate number: ${filters.certificateNumber}`,
         query && `Search: ${query}`,
       ].filter(Boolean)
-      document.text(appliedFilters.length ? appliedFilters.join('  |  ') : 'All validated certificates', 14, 23)
+      drawPdfHeader(document, logoData, { title: 'Certificate Completion Records', subtitle: appliedFilters.length ? appliedFilters.join('  |  ') : 'All validated certificates' })
       autoTable(document, {
-        startY: 29,
+        startY: 33,
         head: [['Certification', 'Employee', 'OEM', 'Category', 'Certificate no.', 'Completed', 'Validity', 'Expiry', 'RU points']],
         body: filteredRecords.map((item) => {
           const { expiry, validity } = certificateDates(item)
@@ -148,6 +145,7 @@ export default function CompletionRecordsPage() {
         theme: 'grid',
         headStyles: { fillColor: [189, 41, 66], textColor: 255, fontSize: 8 },
         styles: { fontSize: 7.5, cellPadding: 2, textColor: [75, 39, 48], overflow: 'linebreak' },
+        willDrawPage: (data) => { if (data.pageNumber > 1) drawPdfHeader(document, logoData, { title: 'Certificate Completion Records', subtitle: appliedFilters.length ? appliedFilters.join('  |  ') : 'All validated certificates' }) },
       })
       const pages = document.getNumberOfPages()
       for (let pdfPage = 1; pdfPage <= pages; pdfPage += 1) {

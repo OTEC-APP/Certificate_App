@@ -1272,3 +1272,214 @@ main.login-page .login-panel-head b { display:none; }
 @media (min-width:701px) and (max-width:1000px) {
   .exact-react .compliance-overview > .compliance-grid { grid-template-columns:repeat(2, minmax(0, 1fr))!important; }
 }
+
+
+
+/* Admin profile tab bar — mirrors the segmented toggle used elsewhere. */
+.exact-react .admin-tabs-toggle {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid #f0d9dd;
+  border-radius: 13px;
+  background: #fff8f8;
+}
+
+.exact-react .admin-tabs-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #755b62;
+  font: 700 13px Inter, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.exact-react .admin-tabs-toggle button.active {
+  color: #fff;
+  background: linear-gradient(135deg, #c92e47, #ed7064);
+  box-shadow: 0 5px 12px rgba(201, 46, 71, 0.2);
+}
+
+.exact-react .admin-tabs-toggle button span {
+  display: grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f9dce0;
+  color: #c52f48;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.exact-react .admin-tabs-toggle button.active span {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .exact-react .admin-tabs-toggle {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .exact-react .admin-tabs-toggle button {
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Phone layout fixes for the admin profile tabs and the course list.
+   These ensure the tabs collapse into a compact 2-column grid and the
+   course-table rows stay inside the viewport on narrow screens.
+   ------------------------------------------------------------------ */
+
+/* Admin profile tabs: wrap into two rows on phones instead of overflowing. */
+@media (max-width: 700px) {
+  .exact-react .admin-tabs-toggle {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+    gap: 4px;
+    padding: 4px;
+    overflow: visible;
+  }
+  .exact-react .admin-tabs-toggle button {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 6px 8px;
+    justify-content: flex-start;
+    font-size: 11px;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .exact-react .admin-tabs-toggle button i {
+    flex: 0 0 14px;
+    font-size: 13px;
+  }
+  .exact-react .admin-tabs-toggle button span {
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+}
+
+/* Course list summary tiles: single column of compact cards on phones. */
+@media (max-width: 700px) {
+  .exact-react .user-courses-page .task-summary-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .exact-react .user-courses-page .task-summary-cards article {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+  .exact-react .user-courses-page .task-summary-cards article > i {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+  .exact-react .user-courses-page .task-summary-cards b { font-size: 20px; }
+}
+
+/* Course list table: ensure every cell wraps instead of pushing the row wide. */
+@media (max-width: 700px) {
+  .exact-react .course-table-section { padding: 0; }
+  .exact-react .course-table-wrap { overflow-x: hidden; }
+  .exact-react .course-table {
+    width: 100%;
+    min-width: 0;
+  }
+  .exact-react .course-table,
+  .exact-react .course-table tbody,
+  .exact-react .course-table tr,
+  .exact-react .course-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .exact-react .course-table tr {
+    padding: 10px 12px;
+    border-top: 1px solid #f0e2e5;
+  }
+  .exact-react .course-table td {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 6px 10px;
+    padding: 4px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    font-size: 11px;
+  }
+  .exact-react .course-table td::before {
+    content: attr(data-label);
+    color: #937d83;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .exact-react .course-table td b,
+  .exact-react .course-table td span,
+  .exact-react .course-table td a,
+  .exact-react .course-table td button {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .exact-react .course-user-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+  .exact-react .course-user-actions a,
+  .exact-react .course-user-actions button {
+    width: 100%;
+    justify-content: center;
+    min-width: 0 !important;
+  }
+}
+
+/* Status toggle above the course table also wraps on phones. */
+@media (max-width: 700px) {
+  .exact-react .course-table-section > header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .exact-react .course-table-section > header > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .exact-react .course-table-section .completion-chart-toggle {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .exact-react .course-table-section .completion-chart-toggle button {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}

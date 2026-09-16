@@ -267,7 +267,7 @@ export default function ExportReportsPage() {
         filters.category,
         filters.validity,
       ].filter(Boolean).join(' · ') || 'All active certification records'
-      const header = { title: 'Certification Records Report', subtitle: summary }
+      const header = { title: 'Certification export report', subtitle: summary }
       drawPdfHeader(document, logo, header)
       autoTable(document, {
         startY: 34,

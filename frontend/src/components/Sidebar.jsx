@@ -5,11 +5,11 @@ const workspace = [
   ['dashboard', 'bi-grid-1x2', 'Dashboard', 'Certification overview'],
   ['employees', 'bi-people', 'Employee details', 'Employee records'],
   ['task-assignments', 'bi-journal-bookmark', 'Course list', 'Courses and catalog'],
-  ['my-course-list', 'bi-list-check', 'My course list', 'My assigned courses'],
   ['alerts', 'bi-bell', 'Alert & Renewal', 'Approvals and renewals'],
   ['exports', 'bi-file-earmark-arrow-down', 'Generate Report', 'Export reports'],
   // Project staffing is temporarily disabled.
 ]
+ 
 
 
 const manage = [
@@ -21,14 +21,15 @@ const manage = [
 const userWorkspace = [
   ['dashboard', 'bi-grid-1x2', 'Dashboard', 'My overview'],
   ['certification-tasks', 'bi-list-check', 'Course list', 'Assigned courses'],
-  ['upcoming-renewals', 'bi-bell', 'Alerts & renewals', 'Renewal reminders'],
+  // ['upcoming-renewals', 'bi-bell', 'Alerts & renewals', 'Renewal reminders'],
+  ['upcoming-renewals', 'bi-bell', 'Upcoming renewals', 'Renewal reminders'],
 ]
 
 const projectManagerWorkspace = [
   ['dashboard', 'bi-grid-1x2', 'Dashboard', 'My overview'],
-  ['certification-tasks', 'bi-list-check', 'Course list', 'Assigned courses'],
-  ['upcoming-renewals', 'bi-bell', 'Alerts & renewals', 'Renewal reminders'],
   ['employees', 'bi-people', 'Employee details', 'All employee records'],
+  ['certification-tasks', 'bi-list-check', 'Course list', 'Assigned courses'],
+  ['upcoming-renewals', 'bi-bell', 'Upcoming renewals', 'Renewal reminders'],
   ['exports', 'bi-file-earmark-arrow-down', 'Generate Report', 'Export employee reports'],
 ]
 
@@ -85,7 +86,7 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
       </div>
 
       <div className="sidebar-account">
-        <NavLink className="er-user er-user-fixed sidebar-profile-link" to="/my-profile" onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip="My profile" title="My profile">
+        <NavLink className="er-user er-user-fixed sidebar-profile-link" to={user?.role === 'admin' ? '/my-profile' : '/dashboard'} onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip="My profile" title="My profile">
           <span>{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || 'U'}</span>
           <div>
             <b>{user ? `${user.firstName} ${user.lastName}` : 'Signed-in user'}</b>

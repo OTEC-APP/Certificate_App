@@ -13,18 +13,35 @@ export default function PageHeading({ user, filter }) {
   const isUserDashboard = user?.role === 'user' && key === 'dashboard'
   const isProfile = key === 'my-profile'
   const displayName = user?.firstName || user?.name?.split(' ')[0] || 'User'
-  const contextualTitle = key === 'employees'
-    ? filter?.label || (['tenure', 'location'].includes(filter?.type) ? `${filter.value} employees` : defaultTitle)
-    : key === 'alerts' && params.get('section') === 'renewals'
-      ? params.get('source') === 'expiring' ? 'Expiring in 90 days' : 'Upcoming renewals'
+  const isAdminAlerts = key === 'alerts' && user?.role === 'admin'
+const isUserRenewals = key === 'alerts' && params.get('section') === 'renewals'
+
+const contextualTitle = key === 'employees'
+  ? filter?.label || (['tenure', 'location'].includes(filter?.type) ? `${filter.value} employees` : defaultTitle)
+  : isAdminAlerts
+    ? 'Certificate approvals'
+    : isUserRenewals
+      ? (params.get('source') === 'expiring' ? 'Expiring in 90 days' : 'Renewals')
       : filter?.label || defaultTitle
   const title = isProfile ? `Hello, ${displayName}` : isUserDashboard ? 'My certification dashboard' : contextualTitle
   const subtitle = isUserDashboard
-    ? 'Your certificates, renewal alerts, and compliance tasks'
-    : isProfile
-      ? 'Keep your certification profile current and stay ahead of upcoming renewals.'
-    : defaultSubtitle
-  const eyebrow = isProfile ? 'Personal workspace' : key.replaceAll('-', ' ')
+  ? 'Your certificates, renewal alerts, and compliance tasks'
+  : isProfile
+    ? 'Keep your certification profile current and stay ahead of upcoming renewals.'
+    : isAdminAlerts
+      ? 'Certificates submitted by employees awaiting your review.'
+      : isUserRenewals
+        ? 'Certificates that need your attention soon'
+        : defaultSubtitle
+  // const eyebrow = isProfile ? 'Personal workspace' : key.replaceAll('-', ' ')
+  const eyebrowLabels = {
+  alerts: user?.role === 'admin' ? 'Approvals' : 'Upcoming renewals',
+  'my-certificates': 'My certificates',
+  'my-profile': 'Personal workspace',
+}
+const eyebrow = isProfile
+  ? 'Personal workspace'
+  : eyebrowLabels[key] || key.replaceAll('-', ' ')
   const roleLabel = user?.role === 'admin' ? 'Administrator' : 'User'
   const icon = isEmployeeRecord ? 'bi-person-vcard' : pageIcons[key] || 'bi-grid-1x2'
 
@@ -40,6 +57,8 @@ export default function PageHeading({ user, filter }) {
     'task-assignments',
     'certification-tasks',
     'my-profile',
+    'my-certificates',
+    'my-course-list',
   ])
   // User alerts already start with their Alerts / Renewals tabs and card heading.
   // Do not duplicate that introduction above the user workflow.
