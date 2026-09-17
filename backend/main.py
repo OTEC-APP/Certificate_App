@@ -1197,27 +1197,72 @@ def dashboard(response: Response, year: str = Query("")):
     # Current-month ranking uses only certificates whose entered completion
     # date falls in this calendar month and were validated by an administrator.
     current_month_key = date.today().strftime("%Y-%m")
-    monthly_employees = Counter(
-        item.get("recipient_name") or "Unknown"
-        for item in certificates
-        if item.get("status") == "issued" and str(item.get("issued_date") or "").startswith(current_month_key)
-    )
-    monthly_ranked_employees = sorted(
-        monthly_employees.items(), key=lambda item: (-item[1], item[0].casefold())
-    )
+ 
+    # Group the leaderboard by the certificate's stable email identity rather
+    # than by recipient_name. Renaming an employee in Access Management no
+    # longer splits them into two rows, and the current name / employee ID /
+    # department are always resolved from the live user directory.
+    try:
+        access_users = [{"id": snapshot.id, **snapshot.to_dict()} for snapshot in db.collection("users").stream()] if db else []
+    except Exception:
+        access_users = []
+    users_by_email = {
+        str(user.get("employeeEmail", "")).strip().casefold(): user
+        for user in access_users
+        if str(user.get("employeeEmail", "")).strip()
+    }
+ 
+    def leaderboard_identity(certificate: dict) -> str:
+        email = str(certificate.get("email") or "").strip().casefold()
+        if email:
+            return f"email:{email}"
+        name = str(certificate.get("recipient_name") or "").strip().casefold()
+        return f"name:{name}"
+ 
+    monthly_counts: Counter[str] = Counter()
+    overall_counts: Counter[str] = Counter()
+    identities: dict[str, dict] = {}
+ 
+    for item in certificates:
+        if item.get("status") != "issued":
+            continue
+        key = leaderboard_identity(item)
+        if key not in identities:
+            email = str(item.get("email") or "").strip().casefold()
+            user = users_by_email.get(email, {})
+            identities[key] = {
+                "name": (
+                    f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+                    or item.get("recipient_name")
+                    or "Unknown"
+                ),
+                "email": item.get("email") or "",
+                "profile_id": user.get("id"),
+                "employee_id": str(user.get("employeeId") or "Not assigned"),
+                "department": str(user.get("department") or "Not assigned"),
+            }
+        overall_counts[key] += 1
+        if str(item.get("issued_date") or "").startswith(current_month_key):
+            monthly_counts[key] += 1
+ 
+    def ranked_entries(counts: Counter[str]) -> list[tuple[str, int]]:
+        return sorted(
+            counts.items(),
+            key=lambda item: (
+                -item[1],
+                identities.get(item[0], {}).get("name", "").casefold(),
+            ),
+        )
+ 
+    monthly_ranked_employees = [
+        (identities[key]["name"], count) for key, count in ranked_entries(monthly_counts)
+    ]
+    overall_ranked_employees = [
+        (identities[key]["name"], count) for key, count in ranked_entries(overall_counts)
+    ]
     monthly_top_employees = monthly_ranked_employees[:5]
-    # Overall ranking retains every administrator-validated completion.  An
-    # older certificate still represents a completed achievement even when it
-    # has since expired, whereas the dashboard's active totals do not.
-    overall_employees = Counter(
-        item.get("recipient_name") or "Unknown"
-        for item in certificates
-        if item.get("status") == "issued"
-    )
-    overall_ranked_employees = sorted(
-        overall_employees.items(), key=lambda item: (-item[1], item[0].casefold())
-    )
     overall_top_employees = overall_ranked_employees[:5]
+ 
     categories = Counter(item.get("category") or "Other" for item in issued)
     vendors = Counter(item.get("vendor_name") or "Other" for item in issued)
     employees = Counter(item.get("recipient_name") or "Unknown" for item in issued)
@@ -1250,10 +1295,6 @@ def dashboard(response: Response, year: str = Query("")):
         cts_people[holder_key] = holder_name
         credential_type = cts_credential_type(item)
         cts_breakdown[credential_type].add(holder_key)
-    try:
-        access_users = [{"id": snapshot.id, **snapshot.to_dict()} for snapshot in db.collection("users").stream()] if db else []
-    except Exception:
-        access_users = []
     joining_years = []
     for user in access_users:
         joining_date = user.get("dateOfJoining")
@@ -1286,7 +1327,7 @@ def dashboard(response: Response, year: str = Query("")):
         for user in access_users
         if f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
     }
-
+ 
     def leaderboard_entry(name: str, count: int) -> dict:
         details = employee_details_by_name.get(name.casefold(), {})
         return {
@@ -1386,6 +1427,7 @@ def dashboard(response: Response, year: str = Query("")):
     }
  
  
+ 
 
 @app.get("/api/dashboard/counts")
 def dashboard_counts(year: str = Query("")):
@@ -1422,7 +1464,9 @@ def monthly_rankings(email: str = Query(""), include_all: bool = Query(False)):
                 employee_email = str(user.get("employeeEmail") or "").strip().casefold()
                 if not employee_email:
                     continue
-                names.setdefault(employee_email, f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or employee_email)
+                # names.setdefault(employee_email, f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or employee_email)
+                # employee_ids[employee_email] = snapshot.id
+                names[employee_email] = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or employee_email
                 employee_ids[employee_email] = snapshot.id
         except Exception:
             pass
@@ -1444,7 +1488,8 @@ def monthly_rankings(email: str = Query(""), include_all: bool = Query(False)):
             for index, (employee_email, name, count) in enumerate(ranked, 1)
         ] if include_all else [],
     }
-
+ 
+ 
 
 
 @app.get("/api/certificates")
