@@ -12,6 +12,9 @@ from difflib import SequenceMatcher
 from html import escape
 from pathlib import Path
 from threading import Lock
+from pathlib import Path
+from threading import Lock
+from zoneinfo import ZoneInfo
 
 import fitz
 from PIL import Image, ImageOps
@@ -51,16 +54,24 @@ allowed_origins = sorted(
 )
 
 
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     async def maintenance_scheduler():
+        # Run automated certificate and leaderboard emails at 10:00 AM IST,
+        # regardless of the cloud server's own time zone.
+        schedule_timezone = ZoneInfo(os.getenv("SCHEDULE_TIMEZONE", "Asia/Kolkata"))
         while True:
+            now = datetime.now(schedule_timezone)
+            next_run = now.replace(hour=10, minute=0, second=0, microsecond=0)
+            if now >= next_run:
+                next_run += timedelta(days=1)
+            await asyncio.sleep((next_run - now).total_seconds())
             await asyncio.to_thread(run_renewal_alerts)
             await asyncio.to_thread(send_monthly_top_five_greeting)
             await asyncio.to_thread(purge_expired_certificates)
             await asyncio.to_thread(purge_expired_departed_employee_data)
-            await asyncio.sleep(24 * 60 * 60)
-
+ 
     scheduler_task = asyncio.create_task(maintenance_scheduler())
     try:
         yield
@@ -716,20 +727,33 @@ def purge_expired_certificates() -> int:
     return removed
  
 
+
 def admin_email_addresses() -> list[str]:
-    configured_admins = [email.strip() for email in os.getenv("ADMIN_ALERT_EMAILS", "").split(",") if email.strip()]
+    def clean_email(value: object) -> str:
+        email = str(value or "").strip().lower()
+        # Do not let blank or malformed Firestore values reach Graph's
+        # toRecipients payload, where they cause the entire alert to fail.
+        return email if email.count("@") == 1 and all(part.strip() for part in email.split("@")) else ""
+ 
+    configured_admins = [
+        email for value in os.getenv("ADMIN_ALERT_EMAILS", "").split(",")
+        if (email := clean_email(value))
+    ]
     if not db:
-        return configured_admins
+        return sorted(set(configured_admins))
     try:
-        return sorted(set(configured_admins + [
-            str(snapshot.to_dict().get("employeeEmail", ""))
+        firestore_admins = [
+            email
             for snapshot in db.collection("users").stream()
-            if str(snapshot.to_dict().get("role", "")).lower() == "admin"
-        ]))
+            if str(snapshot.to_dict().get("role", "")).strip().lower() == "admin"
+            if (email := clean_email(snapshot.to_dict().get("employeeEmail")))
+        ]
+        return sorted(set(configured_admins + firestore_admins))
     except Exception:
         return configured_admins
-
-
+ 
+ 
+ 
 def employee_email_details(certificate: dict) -> dict:
     """Return the employee information to show in certificate notification emails."""
     details = {
@@ -2427,9 +2451,6 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
         f"{certificate.get('course_name', 'Certificate')} - {certificate.get('recipient_name', 'user')}",
     )
     background_tasks.add_task(send_review_alert, {**certificate, **updates}, payload.status, updates["reviewed_by"])
-    if payload.status == "issued":
-        # Send any reminder that is already due now; later stages use the daily scheduler.
-        background_tasks.add_task(run_renewal_alerts, {certificate_id})
     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
     return {"id": certificate_id, **updates}
  
