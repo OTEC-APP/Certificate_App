@@ -7,6 +7,11 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
+
+try:
+    from .firebase_service import get_firestore_client
+except ImportError:
+    from firebase_service import get_firestore_client
  
  
 def is_configured() -> bool:
@@ -14,6 +19,20 @@ def is_configured() -> bool:
         os.getenv(name)
         for name in ("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_SENDER_EMAIL")
     )
+
+
+def email_alerts_enabled() -> bool:
+    """Return the global delivery preference, defaulting to enabled."""
+    try:
+        db = get_firestore_client()
+        if not db:
+            return True
+        settings = db.collection("app_settings").document("email_alerts").get()
+        return True if not settings.exists else bool(settings.to_dict().get("enabled", True))
+    except Exception as error:
+        # A temporary settings lookup failure must not silently change delivery behavior.
+        print(f"Certificate email alert setting could not be read: {error}")
+        return True
  
  
 def _request_json(url: str, data: bytes, headers: dict[str, str]) -> dict:
@@ -23,8 +42,11 @@ def _request_json(url: str, data: bytes, headers: dict[str, str]) -> dict:
     return json.loads(body) if body else {}
  
  
-def send_email(recipients: list[str], subject: str, html: str, inline_logo_path: str | Path | None = None) -> bool:
-    """Send an HTML mail through Graph. Returns False when mail is unavailable."""
+def send_email(recipients: list[str], subject: str, html: str, inline_logo_path: str | Path | None = None, *, respect_alert_setting: bool = True) -> bool:
+    """Send an HTML mail through Graph. Manual sends may bypass automated-alert settings."""
+    if respect_alert_setting and not email_alerts_enabled():
+        print("Certificate email alert skipped: email alerts are disabled in Settings")
+        return False
     clean_recipients = sorted({email.strip().lower() for email in recipients if email and email.strip()})
     if not clean_recipients or not is_configured():
         reason = "no valid recipients" if not clean_recipients else "Azure mail configuration is incomplete"
@@ -79,4 +101,3 @@ def send_email(recipients: list[str], subject: str, html: str, inline_logo_path:
     except Exception as error:
         print(f"Certificate email alert could not be sent: {error}")
         return False
- 

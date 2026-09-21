@@ -110,6 +110,7 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
           body: JSON.stringify({
             recipient_name: employee.name,
             email: employee.email,
+            employee_profile_id: employee.id,
             course_name: certificateName,
             vendor_name: form.get('vendorName'),
             certificate_number: form.get('certificateNumber'),

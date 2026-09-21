@@ -138,6 +138,7 @@ export default function UserCertificateModal({
             body: JSON.stringify({
               recipient_name: `${user.firstName} ${user.lastName}`,
               email: user.employeeEmail,
+              employee_profile_id: user.id,
               course_name: name,
               vendor_name: form.get('vendorName'),
               category: form.get('category'),

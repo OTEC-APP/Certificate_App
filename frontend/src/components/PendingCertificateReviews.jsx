@@ -21,6 +21,8 @@ export default function PendingCertificateReviews({ user, notify, runWithLoader,
   const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(true)
   const [selectedCertificate, setSelectedCertificate] = useState(null)
+  const [editedCertificateName, setEditedCertificateName] = useState('')
+  const [savingCertificateName, setSavingCertificateName] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
   const [profileLoading, setProfileLoading] = useState(false)
   const visibleCertificates = certificates.filter((certificate) => !query.trim() || [certificate.recipient_name,
@@ -47,13 +49,54 @@ export default function PendingCertificateReviews({ user, notify, runWithLoader,
     loadPending()
   }, [page, pageSize, realtimeVersion])
  
+  const saveCertificateName = async (certificate, requestedName = editedCertificateName) => {
+    const courseName = requestedName.trim()
+    if (courseName.length < 2) {
+      notify('Certificate name must contain at least 2 characters')
+      return null
+    }
+    if (courseName === certificate.course_name) return certificate
+    setSavingCertificateName(true)
+    try {
+      const response = await runWithLoader('Saving certificate name', () =>
+        fetch(`${apiUrl}/certificates/${certificate.id}/approval-details`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ course_name: courseName }),
+        }),
+      )
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.detail || 'Unable to update the certificate name')
+      const updated = { ...certificate, ...result }
+      setCertificates((items) => items.map((item) => item.id === certificate.id ? updated : item))
+      setSelectedCertificate((item) => item?.id === certificate.id ? updated : item)
+      setEditedCertificateName(courseName)
+      notify('Certificate name updated')
+      return updated
+    } catch (error) {
+      notify(error.message || 'Unable to update the certificate name')
+      return null
+    } finally {
+      setSavingCertificateName(false)
+    }
+  }
+
   const review = async (certificate, approve) => {
-    const reviewResult = await confirmCertificateReview({ name: certificate.course_name, approve })
+    const requestedName = selectedCertificate?.id === certificate.id
+      ? editedCertificateName.trim()
+      : certificate.course_name
+    if (requestedName.length < 2) return notify('Certificate name must contain at least 2 characters')
+    const certificateForReview = { ...certificate, course_name: requestedName }
+    const reviewResult = await confirmCertificateReview({ name: certificateForReview.course_name, approve })
     if (!reviewResult) return
     showProcessingAlert(approve ? 'Approving certificate' : 'Rejecting certificate')
     try {
+      const reviewedCertificate = requestedName === certificate.course_name
+        ? certificate
+        : await saveCertificateName(certificate, requestedName)
+      if (!reviewedCertificate) throw new Error('Certificate name was not updated')
       const response = await runWithLoader(approve ? 'Approving certificate' : 'Rejecting certificate', () =>
-        fetch(`${apiUrl}/certificates/${certificate.id}/status`, {
+        fetch(`${apiUrl}/certificates/${reviewedCertificate.id}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -70,8 +113,8 @@ export default function PendingCertificateReviews({ user, notify, runWithLoader,
       await showResultAlert({
         title: approve ? 'Certificate validated successfully' : 'Certificate revoked successfully',
         message: approve
-          ? `${certificate.course_name} is now active for ${certificate.recipient_name}.`
-          : `${certificate.course_name} was removed from review requests and marked as revoked for ${certificate.recipient_name}.`,
+          ? `${reviewedCertificate.course_name} is now active for ${reviewedCertificate.recipient_name}.`
+          : `${reviewedCertificate.course_name} was removed from review requests and marked as revoked for ${reviewedCertificate.recipient_name}.`,
         success: true,
       })
       setSelectedCertificate(null)
@@ -89,6 +132,7 @@ export default function PendingCertificateReviews({ user, notify, runWithLoader,
  
   const openDetails = async (certificate) => {
     setSelectedCertificate(certificate)
+    setEditedCertificateName(certificate.course_name || '')
     setSelectedEmployee(null)
     setProfileLoading(true)
     try {
@@ -218,8 +262,28 @@ export default function PendingCertificateReviews({ user, notify, runWithLoader,
             <div><i className="bi bi-clock-history" /><span><small>Validity</small><b>{selectedCertificate.expires_on ? `Expires on ${formatDate(selectedCertificate.expires_on)}` : selectedCertificate.validity_years ? `${selectedCertificate.validity_years} ${Number(selectedCertificate.validity_years) === 1 ? 'year' : 'years'}` : 'Lifetime'}</b></span></div>
             <div><i className="bi bi-award" /><span><small>Total RU points</small><b>{selectedCertificate.total_ru_points ?? 0}</b></span></div>
           </div>
- 
- 
+
+          <section className="approval-certificate-name-edit" aria-label="Correct certificate name">
+            <div>
+              <small>CERTIFICATE NAME</small>
+              <label htmlFor="approval-certificate-name">Correct the name before approving if needed.</label>
+            </div>
+            <input
+              id="approval-certificate-name"
+              value={editedCertificateName}
+              onChange={(event) => setEditedCertificateName(event.target.value)}
+              maxLength="160"
+            />
+            <button
+              type="button"
+              onClick={() => saveCertificateName(selectedCertificate)}
+              disabled={savingCertificateName || editedCertificateName.trim() === selectedCertificate.course_name}
+            >
+              {savingCertificateName ? 'Saving…' : 'Save name'}
+            </button>
+          </section>
+
+
           <section className="approval-employee-profile" aria-label="Employee information">
             <div className="approval-profile-heading">
               <div>

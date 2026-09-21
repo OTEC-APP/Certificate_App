@@ -719,7 +719,6 @@ export default function UserDashboardPage({
   const location = useLocation()
   const isProfileRoute = location.pathname.split('/')[1] === 'my-profile'
   const isRenewalsRoute = location.pathname.split('/')[1] === 'upcoming-renewals'
-  const isProjectManager = user?.role === 'project_manager'
   const isAdminProfile = isProfileRoute && user.role === 'admin'
   const [certificates, setCertificates] = useState([])
   const [loading, setLoading] = useState(true)
@@ -906,7 +905,6 @@ export default function UserDashboardPage({
               {/* <small>Here is the latest certification and compliance overview.</small>     */}
             </h2>
             <p className="user-greeting-details">
-              {isProjectManager && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Project Manager</strong>}
               <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
               <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Not assigned'}</strong>
             </p>
@@ -922,8 +920,7 @@ export default function UserDashboardPage({
             <span><i className="bi bi-grid-1x2" aria-hidden="true" /> PERSONAL WORKSPACE</span>
             <h2>{dashboardName}'s Dashboard</h2>
             <p className="dashboard-greeting-details">
-              {isProjectManager && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Project Manager</strong>}
-              {!isProjectManager && user?.role === 'admin' && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Administrator</strong>}
+              {user?.role === 'admin' && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Administrator</strong>}
               <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
               <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Not assigned'}</strong>
             </p>
