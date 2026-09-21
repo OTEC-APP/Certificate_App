@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { confirmDelete, promptForName } from '../dialogs';
+import { confirmDelete, confirmEmailAlertsChange, promptForName } from '../dialogs';
 const apiUrl = process.env.REACT_APP_API_URL;
 
 const uniqueOems = (items) => Array.from(
@@ -13,6 +13,9 @@ export default function SettingsPage({ theme, setTheme, notify, query = '', real
   const [oems, setOems] = useState([]);
   const [loadingOems, setLoadingOems] = useState(true);
   const [openOemActions, setOpenOemActions] = useState(null);
+  const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
+  const [loadingEmailAlerts, setLoadingEmailAlerts] = useState(true);
+  const [savingEmailAlerts, setSavingEmailAlerts] = useState(false);
   const search = query.trim().toLowerCase();
   const visibleCategories = categories.filter(([name]) => !search || name.toLowerCase().includes(search));
   const visibleOems = oems.filter((oem) => !search || oem.name.toLowerCase().includes(search));
@@ -37,6 +40,17 @@ export default function SettingsPage({ theme, setTheme, notify, query = '', real
     };
     loadCategories();
     loadOems();
+    const loadEmailAlerts = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/settings/email-alerts`);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Unable to load email alert settings');
+        setEmailAlertsEnabled(Boolean(result.enabled));
+      } catch (error) {
+        notify(error.message || 'Unable to load email alert settings');
+      } finally { setLoadingEmailAlerts(false); }
+    };
+    loadEmailAlerts();
   }, []);
  
   useEffect(() => {
@@ -166,11 +180,57 @@ export default function SettingsPage({ theme, setTheme, notify, query = '', real
     notify(`Category “${name}” deleted`);
   };
 
+  const toggleEmailAlerts = async () => {
+    const nextEnabled = !emailAlertsEnabled;
+    if (!(await confirmEmailAlertsChange(nextEnabled))) return;
+    setSavingEmailAlerts(true);
+    try {
+      const response = await fetch(`${apiUrl}/settings/email-alerts`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: nextEnabled }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || 'Unable to update email alert settings');
+      setEmailAlertsEnabled(Boolean(result.enabled));
+      notify(nextEnabled ? 'Email alerts enabled' : 'Email alerts disabled');
+    } catch (error) { notify(error.message || 'Unable to update email alert settings'); }
+    finally { setSavingEmailAlerts(false); }
+  };
+
   return (
     <div className="settings-exact">
       <p className="settings-lead">
         Manage certification categories and application data.
       </p>
+
+      <section className="er-card settings-card email-alerts-card">
+        <header>
+          <div>
+            <h3>Email alerts</h3>
+            <p>Control all certificate-related email notifications from one place.</p>
+          </div>
+        </header>
+        <div className="settings-body email-alerts-body">
+          <div className={`email-alerts-control ${emailAlertsEnabled ? 'enabled' : 'disabled'}`}>
+            <div className="email-alerts-icon"><i className={`bi ${emailAlertsEnabled ? 'bi-envelope-check' : 'bi-envelope-slash'}`} /></div>
+            <div className="email-alerts-copy">
+              <b>Certificate email notifications</b>
+              <small>{emailAlertsEnabled ? 'Alerts are being sent for all email triggers.' : 'Alerts are paused for all email triggers.'}</small>
+            </div>
+            <button
+              type="button"
+              className="email-alerts-switch"
+              onClick={toggleEmailAlerts}
+              disabled={loadingEmailAlerts || savingEmailAlerts}
+              role="switch"
+              aria-checked={emailAlertsEnabled}
+              aria-label={`${emailAlertsEnabled ? 'Turn off' : 'Turn on'} email alerts`}
+            >
+              <span className="email-alerts-knob" aria-hidden="true" />
+              <b>{loadingEmailAlerts ? 'Loading' : emailAlertsEnabled ? 'On' : 'Off'}</b>
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="er-card settings-card">
         <header>

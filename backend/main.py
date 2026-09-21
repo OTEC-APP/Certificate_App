@@ -15,6 +15,7 @@ from threading import Lock
 from pathlib import Path
 from threading import Lock
 from zoneinfo import ZoneInfo
+INDIA_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 import fitz
 from PIL import Image, ImageOps
@@ -58,20 +59,19 @@ allowed_origins = sorted(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     async def maintenance_scheduler():
-        # Run automated certificate and leaderboard emails at 10:00 AM IST,
-        # regardless of the cloud server's own time zone.
         schedule_timezone = ZoneInfo(os.getenv("SCHEDULE_TIMEZONE", "Asia/Kolkata"))
         while True:
             now = datetime.now(schedule_timezone)
-            next_run = now.replace(hour=10, minute=0, second=0, microsecond=0)
+            next_run = now.replace(hour=22, minute=0, second=0, microsecond=0)  # ← updated
             if now >= next_run:
                 next_run += timedelta(days=1)
             await asyncio.sleep((next_run - now).total_seconds())
             await asyncio.to_thread(run_renewal_alerts)
-            await asyncio.to_thread(send_monthly_top_five_greeting)
+            await asyncio.to_thread(send_daily_certificate_review_digest)
             await asyncio.to_thread(purge_expired_certificates)
             await asyncio.to_thread(purge_expired_departed_employee_data)
- 
+
+
     scheduler_task = asyncio.create_task(maintenance_scheduler())
     try:
         yield
@@ -448,6 +448,9 @@ def avixa_course_suggestion(course_name: str, vendor_name: str, submitted_ru: fl
 class CertificateCreate(BaseModel):
     recipient_name: str = Field(min_length=2, max_length=100)
     email: str
+    # A certificate belongs to an Access Management profile.  Keep the ID so
+    # profile edits (including an email change) do not disconnect its records.
+    employee_profile_id: str | None = Field(default=None, max_length=200)
     course_name: str = Field(min_length=2, max_length=160)
     vendor_name: str = Field(min_length=2, max_length=100)
     category: str = Field(min_length=2, max_length=60)
@@ -467,6 +470,28 @@ class StatusUpdate(BaseModel):
     matched_course_name: str | None = Field(default=None, max_length=160)
     verified_cts_type: Literal["CTS", "CTS-D", "CTS-I"] | None = None
     verified_ru_points: float | None = Field(default=None, ge=0, le=9999)
+
+
+class CertificateApprovalDetailsUpdate(BaseModel):
+    course_name: str = Field(min_length=2, max_length=160)
+
+
+class TopHolderEmailRequest(BaseModel):
+    group_email: str = Field(min_length=3, max_length=254)
+    holder_emails: list[str] = Field(default_factory=list, max_length=5)
+    period: Literal["month", "overall"] = "month"
+    subject: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class CustomGroupEmailRequest(BaseModel):
+    group_email: str = Field(min_length=3, max_length=254)
+    subject: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class EmailAlertsSettings(BaseModel):
+    enabled: bool
 
 
 class CertificateUpdate(CertificateCreate):
@@ -964,7 +989,7 @@ def monthly_top_five_email_html(month: date, monthly_leaders: list[dict], overal
         f"<td style='padding:12px;border-bottom:1px solid #edf0f3'>{escape(leader['location'])}</td></tr>"
         for rank, leader in enumerate(leaders, start=1)
         )
- 
+
     def ranking_table(title: str, leaders: list[dict]) -> str:
         return f"""<h2 style='margin:26px 0 10px;color:#3c2730;font-size:18px'>{escape(title)}</h2>
           <table class='leaderboard-table' role='presentation' width='100%' cellpadding='0' cellspacing='0' style='border-collapse:separate;border-spacing:0;font-size:13px;border:1px solid #edf0f3;border-radius:10px;overflow:hidden'>
@@ -1065,6 +1090,199 @@ def send_monthly_top_five_greeting() -> None:
  
  
  
+def _digest_email_html(title: str, summary: str, section_title: str, body_html: str, action_path: str = "/dashboard") -> str:
+    """Match the branded O2K card used by certificate_email_html for digest emails."""
+    return f"""<!doctype html>
+    <html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
+    <style>
+      @media only screen and (max-width: 600px) {{
+        .email-shell {{ padding:20px 10px !important; }}
+        .email-card {{ padding:22px 14px !important; border-radius:8px !important; }}
+        .email-title {{ font-size:23px !important; }}
+        .details-box {{ padding:14px 10px !important; }}
+        .digest-table, .digest-table th, .digest-table td {{ font-size:12px !important; }}
+      }}
+    </style></head><body style='margin:0;padding:0'>
+    <div class='email-shell' style='margin:0;padding:32px 16px;background:#f1f3f6;font-family:Arial,sans-serif;color:#333'>
+      <div style='max-width:680px;margin:0 auto;text-align:center;padding:0 0 22px'>
+        <img src='cid:o2k-logo' alt='O2K' style='max-width:210px;max-height:72px;display:inline-block'>
+      </div>
+      <div class='email-card' style='max-width:620px;margin:0 auto;background:#fff;border-radius:14px;padding:36px;box-shadow:0 2px 12px rgba(0,0,0,.08)'>
+        <h1 class='email-title' style='margin:0 0 14px;color:#df2c35;font-size:27px'>{escape(title)}</h1>
+        <p style='margin:0 0 22px;font-size:16px;line-height:1.5'>{escape(summary)}</p>
+        <div class='details-box' style='border-left:5px solid #df2c35;background:#f8f9fb;padding:16px 18px'>
+          <h2 style='margin:0 0 12px;font-size:18px;color:#222'>{escape(section_title)}</h2>
+          {body_html}
+        </div>
+        <div style='text-align:center;padding:28px 0 8px'><a href='{escape(certtrack_url(action_path), quote=True)}' style='display:inline-block;background:#df2c35;color:#fff;text-decoration:none;border-radius:6px;padding:14px 28px;font-weight:700'>View CertTrack</a></div>
+      </div>
+      <p style='max-width:620px;margin:18px auto 0;text-align:center;color:#6b7280;font-size:12px'>This is an automated CertTrack notification.</p>
+    </div></body></html>"""
+
+
+def send_daily_certificate_review_digest() -> None:
+    """Daily digest:
+       - Admins: list of certificates still pending approval.
+       - Employees: today's approved count and rejected count with reasons.
+    """
+    today = datetime.now(INDIA_TIMEZONE).date()
+    history_key = f"certificate-review-digest-{today.isoformat()}"
+    history_ref = db.collection("scheduled_email_history").document(history_key) if db else None
+    if (history_ref and history_ref.get().exists) or (not db and history_key in demo_monthly_top_five_periods):
+        return
+
+    decisions, pending = [], []
+    for certificate in get_all():
+        if certificate.get("status") == "pending":
+            pending.append(certificate)
+            continue
+        try:
+            reviewed = datetime.fromisoformat(
+                str(certificate.get("reviewed_at") or "").replace("Z", "+00:00")
+            ).astimezone(INDIA_TIMEZONE)
+        except (TypeError, ValueError):
+            continue
+        if reviewed.date() == today and certificate.get("status") in {"issued", "revoked"}:
+            decisions.append(certificate)
+
+    # -------- Admin email: pending approvals only --------
+    if pending:
+        pending_rows = "".join(
+            "<tr>"
+            f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(i.get('recipient_name') or 'Employee'))}</td>"
+            f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(i.get('course_name') or 'Certificate'))}</td>"
+            f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(i.get('certificate_number') or 'Not recorded'))}</td>"
+            "</tr>"
+            for i in pending
+        )
+    else:
+        pending_rows = (
+            "<tr><td colspan='3' style='padding:11px 14px;color:#555'>"
+            "No certificates are pending review.</td></tr>"
+        )
+    admin_body = (
+        f"<h3 style='margin:0 0 10px;font-size:16px;color:#222'>Pending approvals: {len(pending)}</h3>"
+        "<table class='digest-table' role='presentation' width='100%' cellpadding='0' cellspacing='0' "
+        "style='width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px'>"
+        "<thead><tr style='background:#fff'>"
+        "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Employee</th>"
+        "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Certificate</th>"
+        "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Certificate no.</th>"
+        f"</tr></thead><tbody>{pending_rows}</tbody></table>"
+    )
+    decision_rows = "".join(
+        "<tr>"
+        f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(item.get('recipient_name') or 'Employee'))}</td>"
+        f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(item.get('course_name') or 'Certificate'))}</td>"
+        f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:{'#1a7f37' if item.get('status') == 'issued' else '#b42318'};font-weight:700'>{'Approved' if item.get('status') == 'issued' else 'Rejected'}</td>"
+        f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(item.get('review_remarks') or '—'))}</td>"
+        "</tr>"
+        for item in decisions
+    ) or "<tr><td colspan='4' style='padding:11px 14px;color:#555'>No certificates were completed today.</td></tr>"
+    completed_admin_body = (
+        f"<h3 style='margin:22px 0 10px;font-size:16px;color:#222'>Today's completed reviews: {len(decisions)}</h3>"
+        "<table class='digest-table' role='presentation' width='100%' cellpadding='0' cellspacing='0' style='width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px'>"
+        "<thead><tr style='background:#fff'><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Employee</th><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Certificate</th><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Status</th><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Reason</th>"
+        f"</tr></thead><tbody>{decision_rows}</tbody></table>"
+    )
+    if pending:
+        send_email(
+            admin_email_addresses(),
+            "Certificate approvals pending",
+            _digest_email_html(
+                "Certificate approvals pending",
+                f"There are {len(pending)} certificate approval request(s) waiting for review.",
+                "Pending approvals",
+                admin_body,
+                "/dashboard",
+            ),
+            BRAND_LOGO_PATH,
+        )
+    if decisions:
+        send_email(
+            admin_email_addresses(),
+            "Certificate review status update",
+            _digest_email_html(
+                "Certificate review status update",
+                f"{len(decisions)} certificate review(s) were completed today.",
+                "Completed reviews",
+                completed_admin_body,
+                "/dashboard",
+            ),
+            BRAND_LOGO_PATH,
+        )
+
+    # -------- Employee emails: today's decision summary --------
+    by_employee: dict[str, list[dict]] = {}
+    for item in decisions:
+        email = str(item.get("email") or "").strip().lower()
+        if email:
+            by_employee.setdefault(email, []).append(item)
+
+    for email, items in by_employee.items():
+        approved = [i for i in items if i.get("status") == "issued"]
+        rejected = [i for i in items if i.get("status") == "revoked"]
+
+        approved_rows = "".join(
+            "<tr>"
+            f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(i.get('course_name') or 'Certificate'))}</td>"
+            "<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#1a7f37;font-weight:700'>Approved</td>"
+            "</tr>"
+            for i in approved
+        ) or "<tr><td colspan='2' style='padding:11px 14px;color:#555'>None</td></tr>"
+
+        rejected_rows = "".join(
+            "<tr>"
+            f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(i.get('course_name') or 'Certificate'))}</td>"
+            "<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#b42318;font-weight:700'>Rejected</td>"
+            f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(i.get('review_remarks') or 'Not provided'))}</td>"
+            "</tr>"
+            for i in rejected
+        ) or "<tr><td colspan='3' style='padding:11px 14px;color:#555'>None</td></tr>"
+
+        employee_body = (
+            "<p style='margin:0 0 14px;font-size:14px;color:#222'>"
+            f"<strong style='color:#1a7f37'>{len(approved)} approved</strong> &nbsp;·&nbsp; "
+            f"<strong style='color:#b42318'>{len(rejected)} rejected</strong>"
+            "</p>"
+            "<h3 style='margin:8px 0 6px;font-size:15px;color:#222'>Approved</h3>"
+            "<table class='digest-table' role='presentation' width='100%' cellpadding='0' cellspacing='0' "
+            "style='width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px'>"
+            "<thead><tr>"
+            "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Certification</th>"
+            "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Status</th>"
+            f"</tr></thead><tbody>{approved_rows}</tbody></table>"
+            "<h3 style='margin:14px 0 6px;font-size:15px;color:#222'>Rejected</h3>"
+            "<table class='digest-table' role='presentation' width='100%' cellpadding='0' cellspacing='0' "
+            "style='width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px'>"
+            "<thead><tr>"
+            "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Certification</th>"
+            "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Status</th>"
+            "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Reason</th>"
+            f"</tr></thead><tbody>{rejected_rows}</tbody></table>"
+        )
+
+        send_email(
+            [email],
+            "Your certificate review update",
+            _digest_email_html(
+                "Certificate review update",
+                f"Today's review result for your submissions: {len(approved)} approved, {len(rejected)} rejected.",
+                "Today's decisions",
+                employee_body,
+                "/my-certificates",
+            ),
+            BRAND_LOGO_PATH,
+        )
+
+    if history_ref:
+        history_ref.set({
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "pending_count": len(pending),
+            "decision_count": len(decisions),
+        })
+    else:
+        demo_monthly_top_five_periods.add(history_key)
 
 def run_renewal_alerts(certificate_ids: set[str] | None = None) -> None:
     """Send each configured renewal reminder once, including expiry and post-expiry alerts."""
@@ -1134,6 +1352,38 @@ def compliance_vendor_name(value: str | None) -> str:
 @app.get("/api/health")
 def health():
     return {"status": "ok", "mode": "firebase" if db else "demo"}
+
+
+@app.get("/api/settings/email-alerts")
+def get_email_alerts_settings():
+    """Get the global email delivery switch. New installations start enabled."""
+    if not db:
+        return {"enabled": True}
+    try:
+        snapshot = db.collection("app_settings").document("email_alerts").get()
+        settings = snapshot.to_dict() if snapshot.exists else {}
+        return {"enabled": bool(settings.get("enabled", True))}
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="Unable to load email alert settings") from error
+
+
+@app.put("/api/settings/email-alerts")
+def update_email_alerts_settings(payload: EmailAlertsSettings):
+    """Persist the global email delivery switch used by every send_email trigger."""
+    if not db:
+        return {"enabled": payload.enabled}
+    try:
+        updated_at = datetime.now(timezone.utc).isoformat()
+        db.collection("app_settings").document("email_alerts").set({
+            "enabled": payload.enabled,
+            "updated_at": updated_at,
+        }, merge=True)
+        db.collection("app_settings").document("settings_last_updated").set({
+            "email_alerts": updated_at,
+        }, merge=True)
+        return {"enabled": payload.enabled}
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="Unable to update email alert settings") from error
 
 
 def notification_read_document_id(user_key: str) -> str:
@@ -1516,6 +1766,349 @@ def monthly_rankings(email: str = Query(""), include_all: bool = Query(False)):
  
 
 
+def current_top_certified_holders(period: str = "month") -> list[dict]:
+    """Build a live Top 5 with the current Access Management email addresses."""
+    month_key = date.today().strftime("%Y-%m")
+    counts: Counter[str] = Counter()
+    fallback_names: dict[str, str] = {}
+    for certificate in get_all():
+        if certificate.get("status") != "issued" or not certificate_is_current(certificate):
+            continue
+        if period == "month" and not str(certificate.get("issued_date") or "").startswith(month_key):
+            continue
+        email = str(certificate.get("email") or "").strip().casefold()
+        if not email:
+            continue
+        counts[email] += 1
+        fallback_names[email] = str(certificate.get("recipient_name") or "Employee").strip() or "Employee"
+    profiles = {}
+    if db:
+        try:
+            profiles = {
+                str(snapshot.to_dict().get("employeeEmail") or "").strip().casefold(): snapshot.to_dict()
+                for snapshot in db.collection("users").stream()
+            }
+        except Exception:
+            profiles = {}
+    ranked = sorted(counts, key=lambda email: (-counts[email], fallback_names[email].casefold()))[:5]
+    return [{
+        "rank": index,
+        "name": f"{profiles.get(email, {}).get('firstName', '')} {profiles.get(email, {}).get('lastName', '')}".strip() or fallback_names[email],
+        "email": str(profiles.get(email, {}).get("employeeEmail") or email).strip(),
+        "count": counts[email],
+        "employee_id": str(profiles.get(email, {}).get("employeeId") or "Not assigned"),
+        "department": str(profiles.get(email, {}).get("department") or "Not assigned"),
+    } for index, email in enumerate(ranked, 1)]
+
+
+@app.get("/api/top-certified-holders")
+def top_certified_holders(period: Literal["month", "overall"] = Query("month")):
+    return {"period": period, "holders": current_top_certified_holders(period)}
+
+
+
+
+@app.post("/api/top-certified-holders/email")
+def email_top_certified_holders(payload: TopHolderEmailRequest):
+    """Top Certified Holders email in the standard O2K format."""
+    group_email = payload.group_email.strip().lower()
+    if not group_email or group_email.count("@") != 1:
+        raise HTTPException(status_code=422, detail="Enter a valid group email address")
+
+    # ---- 1. Normalize whatever the frontend sends --------------------------------
+    # Each entry may be:
+    #   - "name@office-2000.com"            → use directly
+    #   - "Nandha Kumar"                    → resolve via live Top 5 by name
+    #   - { email: "...", name: "..." }     → use email, fall back to name
+    normalized: list[tuple[str, str]] = []  # list of (email_or_empty, name_or_empty)
+    for entry in payload.holder_emails:
+        if isinstance(entry, dict):
+            email_value = str(
+                entry.get("email")
+                or entry.get("employeeEmail")
+                or entry.get("mail")
+                or ""
+            ).strip().lower()
+            name_value = str(entry.get("name") or "").strip()
+            normalized.append((email_value, name_value))
+        else:
+            value = str(entry or "").strip()
+            if "@" in value:
+                normalized.append((value.lower(), ""))
+            else:
+                normalized.append(("", value))
+
+    # ---- 2. Build live Top 5 as the authoritative source ------------------------
+    live_top = current_top_certified_holders(payload.period)
+    live_by_email = {h["email"].strip().lower(): h for h in live_top if h.get("email")}
+    live_by_name = {h["name"].strip().casefold(): h for h in live_top if h.get("name")}
+
+    mentioned_holders: list[dict] = []
+    seen_emails: set[str] = set()
+
+    for email_value, name_value in normalized:
+        resolved_email = email_value
+        # If we only have a name, look it up in the live Top 5.
+        if not resolved_email and name_value:
+            match = live_by_name.get(name_value.casefold())
+            if match:
+                resolved_email = match["email"].strip().lower()
+
+        if not resolved_email or "@" not in resolved_email:
+            continue
+        if resolved_email in seen_emails:
+            continue
+        seen_emails.add(resolved_email)
+
+        # Prefer the live Top 5 profile so name / department are always correct.
+        live_entry = live_by_email.get(resolved_email, {})
+        mentioned_holders.append({
+            "email": resolved_email,
+            "name": live_entry.get("name") or name_value or resolved_email.split("@")[0].replace(".", " ").title(),
+            "department": live_entry.get("department") or "",
+        })
+
+    # ---- 3. If still empty, fall back to the live Top 5 --------------------------
+    if not mentioned_holders:
+        for holder in live_top:
+            email_value = str(holder.get("email") or "").strip().lower()
+            if not email_value or email_value in seen_emails:
+                continue
+            seen_emails.add(email_value)
+            mentioned_holders.append({
+                "email": email_value,
+                "name": holder.get("name") or email_value.split("@")[0].replace(".", " ").title(),
+                "department": holder.get("department") or "",
+            })
+
+    # ---- 4. Enrich with Access Management profile data ---------------------------
+    if db and mentioned_holders:
+        try:
+            wanted = {h["email"] for h in mentioned_holders}
+            profiles: dict[str, dict] = {}
+            for snapshot in db.collection("users").stream():
+                user = snapshot.to_dict() or {}
+                user_email = str(user.get("employeeEmail") or "").strip().lower()
+                if user_email not in wanted:
+                    continue
+                profiles[user_email] = {
+                    "name": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
+                    "department": str(user.get("department") or "").strip(),
+                }
+            for holder in mentioned_holders:
+                profile = profiles.get(holder["email"], {})
+                if profile.get("name"):
+                    holder["name"] = profile["name"]
+                if profile.get("department"):
+                    holder["department"] = profile["department"]
+        except Exception as error:
+            print(f"Holder profile lookup failed: {error}")
+
+    safe_subject = escape(payload.subject.strip())
+    safe_message = escape(payload.message.strip()).replace("\n", "<br>")
+    rank_colors = ["#c9a227", "#8a94a0", "#b07340", "#df2c35", "#df2c35"]
+
+    holder_rows_html = ""
+    for index, holder in enumerate(mentioned_holders):
+        display_name = holder["name"]
+        department = holder["department"]
+        rank_color = rank_colors[index] if index < len(rank_colors) else "#df2c35"
+        delay = 0.9 + index * 0.14
+        detail_line = escape(holder["email"])
+        if department:
+            detail_line += f" &nbsp;·&nbsp; {escape(department)}"
+
+        holder_rows_html += f"""
+<tr>
+<td style="padding:0 0 14px 0;
+           animation:thhRowPop .7s {delay:.2f}s cubic-bezier(.34,1.56,.64,1) both">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         bgcolor="#fafafa"
+         style="border-collapse:collapse;background-color:#fafafa;
+                border-left:4px solid {rank_color};
+                border-radius:8px">
+    <tr>
+      <td width="60" valign="middle" align="center" style="padding:14px 0 14px 12px">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+               bgcolor="{rank_color}"
+               style="border-collapse:collapse;background-color:{rank_color};
+                      border-radius:50%;
+                      animation:thhBadgePulse 2.6s {delay + 0.3:.2f}s ease-in-out infinite">
+          <tr>
+            <td width="32" height="32" align="center" valign="middle"
+                style="width:32px;height:32px;
+                       font:800 14px Arial,sans-serif;
+                       color:#ffffff;text-align:center;line-height:32px;
+                       border-radius:50%">
+              {index + 1}
+            </td>
+          </tr>
+        </table>
+      </td>
+      <td valign="middle" style="padding:14px 12px;word-break:break-word">
+        <div style="font:800 15px Arial,sans-serif;color:#1a1a1a;
+                    line-height:1.35;margin-bottom:3px">
+          {escape(display_name)}
+        </div>
+        <div style="font:400 12px Arial,sans-serif;color:#666666;
+                    line-height:1.5">
+          {detail_line}
+        </div>
+      </td>
+    </tr>
+  </table>
+</td>
+</tr>"""
+
+    # Empty-state fallback so the section never renders blank.
+    if not holder_rows_html:
+        holder_rows_html = """
+<tr>
+  <td style="padding:22px;text-align:center;color:#888;
+             font:400 13px Arial,sans-serif;background:#fafafa;border-radius:8px">
+    No certified holders to display for this period yet.
+  </td>
+</tr>"""
+
+    # ---- 5. The full email template (unchanged) ----------------------------------
+    html = f"""<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @keyframes thhCardIn {{ 0% {{opacity:0;transform:translateY(22px);}} 100% {{opacity:1;transform:translateY(0);}} }}
+  @keyframes thhLogoIn {{ 0% {{opacity:0;transform:translateY(-12px);}} 100% {{opacity:1;transform:translateY(0);}} }}
+  @keyframes thhTitlePop {{ 0% {{opacity:0;transform:scale(.9);}} 60% {{opacity:1;transform:scale(1.03);}} 100% {{opacity:1;transform:scale(1);}} }}
+  @keyframes thhFadeUp {{ 0% {{opacity:0;transform:translateY(10px);}} 100% {{opacity:1;transform:translateY(0);}} }}
+  @keyframes thhRowPop {{ 0% {{opacity:0;transform:translateX(-14px) scale(.96);}} 100% {{opacity:1;transform:translateX(0) scale(1);}} }}
+  @keyframes thhBadgePulse {{ 0%,100% {{transform:scale(1);}} 50% {{transform:scale(1.08);}} }}
+  @keyframes thhTrophyBounce {{ 0%,100% {{transform:translateY(0) scale(1);}} 50% {{transform:translateY(-4px) scale(1.06);}} }}
+  @media (prefers-reduced-motion: reduce) {{ * {{ animation:none !important; }} }}
+  @media only screen and (max-width: 600px) {{
+    .thh-shell {{ padding:20px 10px !important; }}
+    .thh-card  {{ padding:24px 20px !important; }}
+    .thh-title {{ font-size:22px !important; }}
+  }}
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f3f6">
+<div class="thh-shell"
+     style="margin:0;padding:32px 16px;background-color:#f1f3f6;
+            font-family:Arial,sans-serif;color:#333333">
+  <div style="max-width:680px;margin:0 auto;text-align:center;padding:0 0 24px;
+              animation:thhLogoIn .8s ease both">
+    <img src="cid:o2k-logo" alt="O2K"
+         style="max-width:180px;max-height:72px;display:inline-block">
+  </div>
+  <div class="thh-card"
+       style="max-width:620px;margin:0 auto;background-color:#ffffff;
+              border-radius:14px;padding:36px;
+              box-shadow:0 2px 12px rgba(0,0,0,.08);
+              animation:thhCardIn 1s .15s cubic-bezier(.25,.75,.35,1) both">
+    <h1 class="thh-title"
+        style="margin:0 0 14px;color:#df2c35;font-size:27px;
+               font-weight:800;line-height:1.3;letter-spacing:-.2px;
+               animation:thhTitlePop .8s .4s cubic-bezier(.34,1.56,.64,1) both">
+      {safe_subject}
+    </h1>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+           style="border-collapse:collapse;margin:0 0 22px;
+                  animation:thhFadeUp .8s .6s ease both">
+      <tr>
+        <td width="34" valign="middle" style="padding:0 8px 0 0">
+          <span style="display:inline-block;font-size:26px;line-height:1;
+                       animation:thhTrophyBounce 2.4s ease-in-out infinite">🏆</span>
+        </td>
+        <td valign="middle" style="font:400 15px Arial,sans-serif;
+                                   color:#333333;line-height:1.5">
+          Recognizing {len(mentioned_holders)}&nbsp;
+          {("holder" if len(mentioned_holders) == 1 else "holders")} this month
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 26px;font:400 15px Arial,sans-serif;
+              line-height:1.65;color:#333333;
+              animation:thhFadeUp .8s .75s ease both">
+      {safe_message}
+    </p>
+    <div style="margin:0 0 14px;font:800 14px Arial,sans-serif;
+                color:#0a8f3c;letter-spacing:.02em;
+                animation:thhFadeUp .7s .85s ease both">
+      Approved Holders
+    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="border-collapse:collapse">
+      <tbody>{holder_rows_html}</tbody>
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           bgcolor="#fdf3f4"
+           style="border-collapse:collapse;margin-top:20px;
+                  background-color:#fdf3f4;
+                  border-left:4px solid #df2c35;
+                  border-radius:8px;
+                  animation:thhFadeUp .9s 1.5s ease both">
+      <tr>
+        <td style="padding:18px 20px">
+          <div style="font:800 14px Arial,sans-serif;color:#df2c35;margin-bottom:4px">
+            Keep learning. Keep growing.
+          </div>
+          <div style="font:400 12.5px Arial,sans-serif;color:#666666;line-height:1.55">
+            Your commitment to professional excellence sets the standard for our entire team.
+            We are proud of every one of you.
+          </div>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:28px 0 0;padding-top:20px;
+              border-top:1px solid #eeeeee;
+              color:#999999;font:400 12px Arial,sans-serif;
+              text-align:center;
+              animation:thhFadeUp 1s 1.7s ease both">
+      This is an automated CertTrack notification.
+    </p>
+  </div>
+  <p style="max-width:620px;margin:18px auto 0;text-align:center;
+            color:#a0a8b0;font:400 11px Arial,sans-serif;
+            letter-spacing:.04em">
+    Office 2000 Solutions Pvt Ltd
+  </p>
+</div>
+</body>
+</html>"""
+
+    if not send_email([group_email], payload.subject.strip(), html, BRAND_LOGO_PATH):
+        raise HTTPException(status_code=503, detail="The email service could not deliver this message")
+
+    return {
+        "sent": 1,
+        "recipients": [group_email],
+        "mentioned_holders": [h["email"] for h in mentioned_holders],
+    }
+@app.post("/api/custom-email")
+def send_custom_group_email(payload: CustomGroupEmailRequest):
+    """Send one manually composed email to a company group mailbox."""
+    group_email = payload.group_email.strip().lower()
+    if group_email.count("@") != 1:
+        raise HTTPException(status_code=422, detail="Enter a valid company group email address")
+    safe_message = escape(payload.message.strip()).replace("\n", "<br>")
+    html = f"""<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
+    <style>@media only screen and (max-width:600px) {{ .shell {{ padding:20px 10px !important; }} .card {{ padding:24px 18px !important; border-radius:14px !important; }} .title {{ font-size:24px !important; }} }}</style>
+    </head><body style='margin:0;padding:0;background:#f7f2f3;font-family:Arial,sans-serif;color:#34262b'>
+      <div class='shell' style='padding:36px 16px;background:linear-gradient(135deg,#fff3f4,#f7eff2)'>
+        <div style='max-width:640px;margin:0 auto 18px;text-align:center'><img src='cid:o2k-logo' alt='O2K' style='max-width:190px;max-height:64px'></div>
+        <div class='card' style='max-width:570px;margin:0 auto;padding:38px;border-radius:20px;background:#fff;box-shadow:0 14px 35px rgba(128,44,61,.14)'>
+          <p style='margin:0 0 10px;color:#c73550;font-size:11px;font-weight:700;letter-spacing:1.5px'>OTEC CERTTRACK</p>
+          <h1 class='title' style='margin:0 0 20px;color:#42272f;font-size:28px;line-height:1.25'>{escape(payload.subject.strip())}</h1>
+          <div style='padding:20px;border-left:4px solid #df4058;border-radius:8px;background:#fff7f8;font-size:15px;line-height:1.7'>{safe_message}</div>
+          <p style='margin:28px 0 0;color:#856d75;font-size:12px;text-align:center'>Sent manually from CertTrack.</p>
+        </div>
+      </div></body></html>"""
+    if not send_email([group_email], payload.subject.strip(), html, BRAND_LOGO_PATH, respect_alert_setting=False):
+        raise HTTPException(status_code=503, detail="The email service could not deliver this message")
+    return {"sent": 1, "recipient": group_email}
+
+
 @app.get("/api/certificates")
 def list_certificates(
     search: str = Query(""),
@@ -1536,6 +2129,99 @@ def list_certificates(
         key=lambda item: item.get("created_at") or f"{item.get('issued_date', '1970-01-01')}T00:00:00",
         reverse=True,
     )
+    total = len(results)
+    start = (page - 1) * page_size
+    return {"items": results[start : start + page_size], "total": total, "page": page, "page_size": page_size}
+
+
+@app.get("/api/reports/certificates")
+def report_certificates(
+    employee: str = Query(""),
+    location: str = Query(""),
+    department: str = Query(""),
+    tenure: str = Query(""),
+    oem: str = Query(""),
+    category: str = Query(""),
+    certification: str = Query(""),
+    validity: str = Query(""),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=100),
+):
+    """Return active certificates enriched and filtered by current employee profiles."""
+    def key(value: object) -> str:
+        return " ".join(str(value or "").split()).casefold()
+
+    try:
+        access_users = [{"id": snapshot.id, **snapshot.to_dict()} for snapshot in db.collection("users").stream()] if db else []
+    except Exception:
+        access_users = []
+    users_by_id = {str(user["id"]): user for user in access_users}
+    users_by_email = {
+        key(user.get("employeeEmail")): user
+        for user in access_users
+        if key(user.get("employeeEmail"))
+    }
+
+    today = date.today()
+
+    def tenure_for(joined_value: object) -> str:
+        try:
+            joined = joined_value.date() if isinstance(joined_value, datetime) else joined_value
+            if not isinstance(joined, date):
+                joined = date.fromisoformat(str(joined_value)[:10])
+            years = (today - joined).days / 365.2425
+        except (TypeError, ValueError):
+            return "Not recorded"
+        return (
+            "Under 2 yrs" if years < 2 else "2â€“4 years" if years < 4 else
+            "4â€“6 years" if years < 6 else "6-10 years" if years < 10 else
+            "10-15 years" if years < 15 else "15-20 years" if years < 20 else "20+ years"
+        )
+
+    def matches_validity(certificate: dict) -> bool:
+        if not validity:
+            return True
+        expiry = certificate_expiry(certificate)
+        if validity == "Lifetime":
+            return expiry is None
+        if expiry is None:
+            return False
+        years = int("".join(character for character in validity if character.isdigit()) or 0)
+        cutoff = date(today.year + years, today.month, today.day)
+        return expiry > cutoff if validity == "Expires after 3 years" else expiry <= cutoff
+
+    results = []
+    for certificate in get_all():
+        if certificate.get("status") != "issued" or not certificate_is_current(certificate):
+            continue
+        profile = (
+            users_by_id.get(str(certificate.get("employee_profile_id") or "").strip())
+            or users_by_email.get(key(certificate.get("email")))
+            or {}
+        )
+        name = f"{profile.get('firstName', '')} {profile.get('lastName', '')}".strip() or certificate.get("recipient_name") or "Not recorded"
+        joined = profile.get("dateOfJoining") or profile.get("created_at") or certificate.get("dateOfJoining")
+        row = {
+            **certificate,
+            "recipient_name": name,
+            "employeeId": profile.get("employeeId") or certificate.get("employeeId") or certificate.get("employee_id"),
+            "location": profile.get("location") or certificate.get("location") or "Not assigned",
+            "department": profile.get("department") or certificate.get("department") or "Not assigned",
+            "dateOfJoining": joined,
+        }
+        if not (
+            (not employee or key(row["recipient_name"]) == key(employee)) and
+            (not location or key(row["location"]) == key(location)) and
+            (not department or key(row["department"]) == key(department)) and
+            (not tenure or key(tenure_for(joined)) == key(tenure)) and
+            (not oem or key(row.get("vendor_name")) == key(oem)) and
+            (not category or key(row.get("category") or "Other") == key(category)) and
+            (not certification or key(row.get("course_name")) == key(certification)) and
+            matches_validity(row)
+        ):
+            continue
+        results.append(row)
+    results.sort(key=lambda item: item.get("created_at") or f"{item.get('issued_date', '1970-01-01')}T00:00:00", reverse=True)
     total = len(results)
     start = (page - 1) * page_size
     return {"items": results[start : start + page_size], "total": total, "page": page, "page_size": page_size}
@@ -1837,14 +2523,20 @@ def list_employees(
         raise HTTPException(status_code=503, detail=f"Unable to load access users: {error}") from error
  
     certificates_by_email: dict[str, list[dict]] = {}
+    certificates_by_profile_id: dict[str, list[dict]] = {}
     for certificate in get_all():
         email = str(certificate.get("email", "")).strip().lower()
         certificates_by_email.setdefault(email, []).append(certificate)
+        profile_id = str(certificate.get("employee_profile_id", "")).strip()
+        if profile_id:
+            certificates_by_profile_id.setdefault(profile_id, []).append(certificate)
  
     employees = []
     for access_user in access_users:
         email = str(access_user.get("employeeEmail", "")).strip().lower()
-        certificates = certificates_by_email.get(email, [])
+        # Prefer the stable profile ID.  The email fallback keeps certificates
+        # created before profile IDs were introduced visible to their owner.
+        certificates = certificates_by_profile_id.get(access_user["id"], certificates_by_email.get(email, []))
         issued = [item for item in certificates if certificate_is_current(item)]
         categories = sorted({item.get("category") or "Other" for item in issued})
         employees.append({
@@ -1928,7 +2620,11 @@ def employee_profile(employee_id: str):
     all_certificates = [
         certificate
         for certificate in get_all()
-        if str(certificate.get("email", "")).strip().lower() == email
+        if str(certificate.get("employee_profile_id", "")).strip() == employee_id
+        or (
+            not str(certificate.get("employee_profile_id", "")).strip()
+            and str(certificate.get("email", "")).strip().lower() == email
+        )
     ]
     certificates = [certificate for certificate in all_certificates if certificate.get("status") == "issued"]
     certificates.sort(key=lambda certificate: certificate.get("issued_date", ""), reverse=True)
@@ -2218,7 +2914,7 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
         f"Certificate submitted by {certificate['recipient_name']}" if submitted_by_user else f"Certificate submitted by administrator for {certificate['recipient_name']}",
         f"{certificate['course_name']}  -  {certificate['certificate_number']}",
     )
-    background_tasks.add_task(send_submission_alert, certificate)
+    # Submission alerts are included in the once-daily admin pending digest.
     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate["id"]})
     return certificate
  
@@ -2264,8 +2960,7 @@ async def update_certificate(certificate_id: str, payload: CertificateUpdate, ba
         f"Certificate resubmitted by {updates['recipient_name']} for review" if submitted_by_user else f"Certificate updated by {updates['recipient_name']}",
         f"{updates['course_name']}  -  {updates['certificate_number']}",
     )
-    if submitted_by_user:
-        background_tasks.add_task(send_submission_alert, {**existing, **updates, "id": certificate_id})
+    # Resubmissions also appear in the once-daily admin pending digest.
     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
     return {"id": certificate_id, **updates}
  
@@ -2422,6 +3117,37 @@ def get_verification_file(certificate_id: str, request: Request):
         raise HTTPException(status_code=503, detail="Verification file is unavailable") from error
 
 
+@app.patch("/api/certificates/{certificate_id}/approval-details")
+async def update_certificate_approval_details(
+    certificate_id: str,
+    payload: CertificateApprovalDetailsUpdate,
+):
+    """Allow an administrator to correct a pending certificate before review."""
+    certificate = next((item for item in get_all() if item.get("id") == certificate_id), None)
+    if not certificate:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    if certificate.get("status") != "pending":
+        raise HTTPException(status_code=409, detail="Only under-review certificates can be corrected")
+    previous_course_name = str(certificate.get("course_name") or "Certificate")
+    course_name = payload.course_name.strip()
+    updates = {
+        "course_name": course_name,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        **avixa_course_suggestion(course_name, certificate.get("vendor_name", ""), certificate.get("total_ru_points")),
+    }
+    if db:
+        db.collection("certificates").document(certificate_id).update(updates)
+    else:
+        certificate.update(updates)
+    record_certificate_activity(
+        "bi-pencil-square",
+        "Certificate name corrected during approval",
+        f"{previous_course_name} → {course_name}",
+    )
+    await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
+    return {"id": certificate_id, **updates}
+
+
 @app.patch("/api/certificates/{certificate_id}/status")
 async def update_status(certificate_id: str, payload: StatusUpdate, background_tasks: BackgroundTasks):
     certificate = next((item for item in get_all() if item.get("id") == certificate_id), None)
@@ -2450,7 +3176,7 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
         f"Certificate {action} by {updates['reviewed_by']}",
         f"{certificate.get('course_name', 'Certificate')} - {certificate.get('recipient_name', 'user')}",
     )
-    background_tasks.add_task(send_review_alert, {**certificate, **updates}, payload.status, updates["reviewed_by"])
+    # Review decisions are included in the single daily 10 AM IST digest.
     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
     return {"id": certificate_id, **updates}
  

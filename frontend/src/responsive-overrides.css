@@ -732,14 +732,14 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .admin-dashboard-page .lead-grid > .er-card {
   display:flex;
   flex-direction:column;
-  height:350px!important;
+  height:auto!important;
   min-height:350px!important;
-  overflow:hidden;
+  overflow:visible;
 }
 .exact-react .er-view:has(> .er-kpis) .leaderboard-list {
   flex:1;
   min-height:0;
-  overflow:hidden;
+  overflow:visible;
 }
 .exact-react .er-view:has(> .er-kpis) .leaderboard-list .leader { padding-block:8px; }
 .exact-react .admin-dashboard-page .er-grid { gap:14px; }

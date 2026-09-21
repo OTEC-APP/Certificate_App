@@ -1,0 +1,1038 @@
+/* ============================================================
+
+   Top Certified Holders Mail — animated recognition workspace
+
+   Palette aligned with the OTEC red theme (#bd2942 → #fa967d).
+
+   ============================================================ */
+ 
+.top-holder-mail-page {
+
+  display: grid;
+
+  gap: 18px;
+
+  --thh-red: #bd2942;
+
+  --thh-red-2: #d64362;
+
+  --thh-red-3: #fa967d;
+
+  --thh-ink: #4b2730;
+
+  --thh-ink-2: #72555c;
+
+  --thh-line: #f0dfe2;
+
+  --thh-line-2: #f6eaec;
+
+  --thh-card: #ffffff;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Hero — animated gradient ribbon with a slow-moving shimmer
+
+   ------------------------------------------------------------ */
+
+.top-holder-mail-hero {
+
+  position: relative;
+
+  overflow: hidden;
+
+  padding: 30px 34px;
+
+  border-radius: 20px;
+
+  color: #fff;
+
+  background: linear-gradient(120deg, #8d2147, #d64362 55%, #fa967d);
+
+  background-size: 220% 220%;
+
+  animation: thh-gradient-shift 14s ease infinite;
+
+  box-shadow: 0 18px 42px rgba(148, 45, 67, 0.22);
+
+  isolation: isolate;
+
+}
+ 
+.top-holder-mail-hero::before {
+
+  content: "";
+
+  position: absolute;
+
+  inset: -50% -10% auto auto;
+
+  width: 380px;
+
+  height: 380px;
+
+  border-radius: 50%;
+
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), transparent 62%);
+
+  filter: blur(4px);
+
+  animation: thh-float 9s ease-in-out infinite;
+
+  pointer-events: none;
+
+}
+ 
+.top-holder-mail-hero::after {
+
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+
+  left: -60%;
+
+  width: 45%;
+
+  height: 100%;
+
+  background: linear-gradient(
+
+    100deg,
+
+    transparent 0%,
+
+    rgba(255, 255, 255, 0.42) 45%,
+
+    transparent 100%
+
+  );
+
+  transform: skewX(-18deg);
+
+  animation: thh-shine 7s ease-in-out infinite;
+
+  pointer-events: none;
+
+}
+ 
+.top-holder-mail-hero span,
+
+.top-holder-preview > span {
+
+  display: inline-block;
+
+  font-size: 10px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.16em;
+
+}
+ 
+.top-holder-mail-hero span {
+
+  color: rgba(255, 255, 255, 0.85);
+
+  animation: thh-fade-slide 0.6s ease both;
+
+}
+ 
+.top-holder-mail-hero h1 {
+
+  margin: 8px 0 6px;
+
+  font-size: 30px;
+
+  line-height: 1.1;
+
+  letter-spacing: -0.4px;
+
+  animation: thh-fade-slide 0.7s 0.05s ease both;
+
+}
+ 
+.top-holder-mail-hero p {
+
+  margin: 0;
+
+  max-width: 640px;
+
+  color: rgba(255, 255, 255, 0.9);
+
+  animation: thh-fade-slide 0.8s 0.1s ease both;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Layout grid — smooth card entrance, then a nice two-column split
+
+   ------------------------------------------------------------ */
+
+.top-holder-mail-grid {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1.2fr;
+
+  gap: 18px;
+
+}
+ 
+.top-holder-recipient-card,
+
+.top-holder-compose-card,
+
+.top-holder-preview {
+
+  position: relative;
+
+  border-radius: 16px;
+
+  border: 1px solid var(--thh-line);
+
+  background: var(--thh-card);
+
+  box-shadow: 0 6px 20px rgba(133, 43, 60, 0.06);
+
+  overflow: hidden;
+
+  animation: thh-rise 0.55s ease both;
+
+}
+ 
+.top-holder-compose-card {
+
+  animation-delay: 0.06s;
+
+}
+ 
+.top-holder-preview {
+
+  animation-delay: 0.12s;
+
+}
+ 
+/* Small hover lift for the interactive cards */
+
+.top-holder-recipient-card:hover,
+
+.top-holder-compose-card:hover {
+
+  box-shadow: 0 14px 34px rgba(133, 43, 60, 0.1);
+
+  transition: box-shadow 0.3s ease;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Card headers
+
+   ------------------------------------------------------------ */
+
+.top-holder-recipient-card header,
+
+.top-holder-compose-card header {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 18px 20px;
+
+  border-bottom: 1px solid var(--thh-line);
+
+  background: linear-gradient(180deg, #fffafa, #fff);
+
+}
+ 
+.top-holder-recipient-card h2,
+
+.top-holder-compose-card h2 {
+
+  margin: 0;
+
+  color: var(--thh-ink);
+
+  font-size: 18px;
+
+  letter-spacing: -0.2px;
+
+}
+ 
+.top-holder-compose-card header small {
+
+  color: var(--thh-ink-2);
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Period toggle (Month-wise / Overall) — sliding segmented control
+
+   ------------------------------------------------------------ */
+
+.top-holder-period {
+
+  position: relative;
+
+  display: inline-flex;
+
+  gap: 4px;
+
+  padding: 4px;
+
+  border: 1px solid var(--thh-line);
+
+  border-radius: 12px;
+
+  background: #fff6f7;
+
+}
+ 
+.top-holder-period button {
+
+  position: relative;
+
+  z-index: 1;
+
+  min-height: 34px;
+
+  padding: 0 14px;
+
+  border: 0;
+
+  border-radius: 8px;
+
+  background: transparent;
+
+  color: var(--thh-ink-2);
+
+  font: 700 12px Inter, sans-serif;
+
+  cursor: pointer;
+
+  transition: color 0.22s ease, transform 0.22s ease;
+
+}
+ 
+.top-holder-period button:hover {
+
+  color: var(--thh-red);
+
+}
+ 
+.top-holder-period button.active {
+
+  color: #fff;
+
+  background: linear-gradient(135deg, var(--thh-red), var(--thh-red-3));
+
+  box-shadow: 0 5px 12px rgba(189, 41, 66, 0.24);
+
+  animation: thh-pop 0.32s ease;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Holder rows — staggered slide-in with modern checkbox + rank pill
+
+   ------------------------------------------------------------ */
+
+.top-holder-row {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 15px 20px;
+
+  border-bottom: 1px solid var(--thh-line-2);
+
+  cursor: pointer;
+
+  transition: background 0.22s ease, transform 0.22s ease;
+
+  animation: thh-row-in 0.5s ease both;
+
+}
+ 
+.top-holder-row:nth-child(1) { animation-delay: 0.05s; }
+
+.top-holder-row:nth-child(2) { animation-delay: 0.10s; }
+
+.top-holder-row:nth-child(3) { animation-delay: 0.15s; }
+
+.top-holder-row:nth-child(4) { animation-delay: 0.20s; }
+
+.top-holder-row:nth-child(5) { animation-delay: 0.25s; }
+ 
+.top-holder-row:hover {
+
+  background: #fff6f7;
+
+  transform: translateX(3px);
+
+}
+ 
+.top-holder-row:last-child {
+
+  border-bottom: 0;
+
+}
+ 
+/* Custom checkbox: hidden native input, animated tick */
+
+.top-holder-row input[type="checkbox"] {
+
+  appearance: none;
+
+  -webkit-appearance: none;
+
+  width: 20px;
+
+  height: 20px;
+
+  flex: 0 0 20px;
+
+  margin: 0;
+
+  border: 2px solid #e6c8cd;
+
+  border-radius: 6px;
+
+  background: #fff;
+
+  cursor: pointer;
+
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+
+}
+ 
+.top-holder-row input[type="checkbox"]:hover {
+
+  border-color: var(--thh-red);
+
+}
+ 
+.top-holder-row input[type="checkbox"]:checked {
+
+  border-color: var(--thh-red);
+
+  background: linear-gradient(135deg, var(--thh-red), var(--thh-red-2));
+
+  animation: thh-pop 0.28s ease;
+
+}
+ 
+.top-holder-row input[type="checkbox"]:checked::after {
+
+  content: "";
+
+  display: block;
+
+  width: 5px;
+
+  height: 10px;
+
+  margin: 1px auto 0;
+
+  border-right: 2px solid #fff;
+
+  border-bottom: 2px solid #fff;
+
+  transform: rotate(45deg);
+
+  animation: thh-tick 0.24s ease;
+
+}
+ 
+/* Rank pill (#1, #2, ...) */
+
+.top-holder-row > b {
+
+  display: grid;
+
+  place-items: center;
+
+  min-width: 32px;
+
+  height: 32px;
+
+  padding: 0 8px;
+
+  border-radius: 999px;
+
+  background: linear-gradient(135deg, #fde8ec, #fff1f3);
+
+  color: var(--thh-red);
+
+  font: 800 12px Inter, sans-serif;
+
+  box-shadow: inset 0 0 0 1px #f5d6dc;
+
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+
+}
+ 
+.top-holder-row:hover > b {
+
+  transform: scale(1.06);
+
+  box-shadow: inset 0 0 0 1px #eebac4, 0 6px 14px rgba(189, 41, 66, 0.15);
+
+}
+ 
+/* Rank #1 gets a subtle pulsing halo */
+
+.top-holder-row:first-child > b {
+
+  background: linear-gradient(135deg, #d4a017, #f4c750);
+
+  color: #452300;
+
+  box-shadow: inset 0 0 0 1px #b98a10, 0 0 0 0 rgba(212, 160, 23, 0.4);
+
+  animation: thh-medal-pulse 2.4s ease-in-out infinite;
+
+}
+ 
+.top-holder-row > span {
+
+  display: grid;
+
+  gap: 3px;
+
+  min-width: 0;
+
+}
+ 
+.top-holder-row strong {
+
+  color: var(--thh-ink);
+
+  font-size: 14px;
+
+}
+ 
+.top-holder-row small {
+
+  color: var(--thh-ink-2);
+
+  font-size: 12px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Compose card — floating-label inputs and a shiny send button
+
+   ------------------------------------------------------------ */
+
+.top-holder-compose-card > label {
+
+  display: grid;
+
+  gap: 7px;
+
+  margin: 0 20px;
+
+  padding: 14px 0 0;
+
+  color: var(--thh-ink-2);
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+}
+ 
+.top-holder-compose-card input,
+
+.top-holder-compose-card textarea {
+
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 11px 13px;
+
+  border: 1px solid #ecd7db;
+
+  border-radius: 10px;
+
+  background: #fffafa;
+
+  color: var(--thh-ink);
+
+  font: inherit;
+
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease,
+
+    transform 0.15s ease;
+
+}
+ 
+.top-holder-compose-card input:hover,
+
+.top-holder-compose-card textarea:hover {
+
+  background: #fff;
+
+  border-color: #e3c4ca;
+
+}
+ 
+.top-holder-compose-card input:focus,
+
+.top-holder-compose-card textarea:focus {
+
+  outline: 0;
+
+  background: #fff;
+
+  border-color: var(--thh-red);
+
+  box-shadow: 0 0 0 4px rgba(189, 41, 66, 0.12);
+
+  transform: translateY(-1px);
+
+  animation: thh-input-glow 0.4s ease;
+
+}
+ 
+.top-holder-compose-card textarea {
+
+  resize: vertical;
+
+  min-height: 130px;
+
+  line-height: 1.5;
+
+}
+ 
+.top-holder-compose-card button {
+
+  position: relative;
+
+  overflow: hidden;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  min-height: 44px;
+
+  margin: 20px 20px 22px;
+
+  padding: 12px 20px;
+
+  border: 0;
+
+  border-radius: 11px;
+
+  background: linear-gradient(115deg, var(--thh-red), var(--thh-red-2) 55%, var(--thh-red-3));
+
+  background-size: 200% 200%;
+
+  color: #fff;
+
+  font: 800 13px Inter, sans-serif;
+
+  cursor: pointer;
+
+  box-shadow: 0 10px 22px rgba(189, 41, 66, 0.25);
+
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-position 0.4s ease;
+
+  animation: thh-gradient-shift 10s ease infinite;
+
+}
+ 
+.top-holder-compose-card button:hover:not(:disabled) {
+
+  transform: translateY(-2px);
+
+  box-shadow: 0 14px 30px rgba(189, 41, 66, 0.32);
+
+}
+ 
+.top-holder-compose-card button:active:not(:disabled) {
+
+  transform: translateY(0);
+
+}
+ 
+.top-holder-compose-card button:disabled {
+
+  cursor: not-allowed;
+
+  opacity: 0.55;
+
+  box-shadow: none;
+
+}
+ 
+/* Repeating shine across the send button */
+
+.top-holder-compose-card button::after {
+
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+
+  left: -55%;
+
+  width: 40%;
+
+  height: 100%;
+
+  background: linear-gradient(
+
+    100deg,
+
+    transparent 0%,
+
+    rgba(255, 255, 255, 0.4) 50%,
+
+    transparent 100%
+
+  );
+
+  transform: skewX(-18deg);
+
+  animation: thh-button-shine 3.6s ease-in-out infinite;
+
+  pointer-events: none;
+
+}
+ 
+.top-holder-compose-card button:disabled::after {
+
+  display: none;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Live preview — card lifts in, content fades/rewrites softly
+
+   ------------------------------------------------------------ */
+
+.top-holder-preview {
+
+  padding: 26px 28px;
+
+  border: 1px solid var(--thh-line);
+
+  background:
+
+    radial-gradient(circle at 92% 8%, rgba(250, 150, 125, 0.16), transparent 42%),
+
+    linear-gradient(180deg, #fffafa, #ffffff);
+
+  animation: thh-preview-in 0.6s ease both;
+
+}
+ 
+.top-holder-preview > span {
+
+  color: var(--thh-red);
+
+  letter-spacing: 0.18em;
+
+  animation: thh-fade-slide 0.5s ease both;
+
+}
+ 
+.top-holder-preview h2 {
+
+  margin: 8px 0;
+
+  color: var(--thh-ink);
+
+  font-size: 22px;
+
+  letter-spacing: -0.3px;
+
+  animation: thh-fade-slide 0.6s 0.05s ease both;
+
+}
+ 
+.top-holder-preview p {
+
+  white-space: pre-wrap;
+
+  line-height: 1.7;
+
+  color: #3f2a30;
+
+  animation: thh-fade-slide 0.7s 0.1s ease both;
+
+}
+ 
+.top-holder-preview footer {
+
+  margin-top: 12px;
+
+  padding-top: 12px;
+
+  border-top: 1px dashed #efd8dd;
+
+  color: var(--thh-ink-2);
+
+  font-size: 12px;
+
+  animation: thh-fade-slide 0.8s 0.15s ease both;
+
+}
+ 
+/* Empty holder list placeholder */
+
+.top-holder-recipient-card .user-empty {
+
+  padding: 28px 20px;
+
+  color: var(--thh-ink-2);
+
+  text-align: center;
+
+  animation: thh-fade-slide 0.5s ease both;
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Keyframes
+
+   ------------------------------------------------------------ */
+
+@keyframes thh-gradient-shift {
+
+  0%, 100% { background-position: 0% 50%; }
+
+  50%      { background-position: 100% 50%; }
+
+}
+ 
+@keyframes thh-float {
+
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+
+  50%      { transform: translate3d(-24px, 22px, 0) scale(1.06); }
+
+}
+ 
+@keyframes thh-shine {
+
+  0%   { left: -60%; opacity: 0; }
+
+  15%  { opacity: 0.9; }
+
+  60%  { left: 130%; opacity: 0; }
+
+  100% { left: 130%; opacity: 0; }
+
+}
+ 
+@keyframes thh-fade-slide {
+
+  from { opacity: 0; transform: translateY(8px); }
+
+  to   { opacity: 1; transform: none; }
+
+}
+ 
+@keyframes thh-rise {
+
+  from { opacity: 0; transform: translateY(14px); }
+
+  to   { opacity: 1; transform: none; }
+
+}
+ 
+@keyframes thh-row-in {
+
+  from { opacity: 0; transform: translateX(-10px); }
+
+  to   { opacity: 1; transform: translateX(0); }
+
+}
+ 
+@keyframes thh-preview-in {
+
+  0%   { opacity: 0; transform: translateY(16px) scale(0.985); }
+
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+
+}
+ 
+@keyframes thh-pop {
+
+  0%   { transform: scale(0.9); }
+
+  60%  { transform: scale(1.06); }
+
+  100% { transform: scale(1); }
+
+}
+ 
+@keyframes thh-tick {
+
+  from { opacity: 0; transform: rotate(45deg) scale(0.4); }
+
+  to   { opacity: 1; transform: rotate(45deg) scale(1); }
+
+}
+ 
+@keyframes thh-medal-pulse {
+
+  0%, 100% { box-shadow: inset 0 0 0 1px #b98a10, 0 0 0 0 rgba(212, 160, 23, 0.45); }
+
+  50%      { box-shadow: inset 0 0 0 1px #b98a10, 0 0 0 8px rgba(212, 160, 23, 0); }
+
+}
+ 
+@keyframes thh-button-shine {
+
+  0%   { left: -55%; }
+
+  45%  { left: 125%; }
+
+  100% { left: 125%; }
+
+}
+ 
+@keyframes thh-input-glow {
+
+  from { box-shadow: 0 0 0 0 rgba(189, 41, 66, 0.28); }
+
+  to   { box-shadow: 0 0 0 4px rgba(189, 41, 66, 0.12); }
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Responsive
+
+   ------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+
+  .top-holder-mail-hero { padding: 24px; }
+
+  .top-holder-mail-hero h1 { font-size: 26px; }
+
+  .top-holder-mail-grid { grid-template-columns: 1fr; }
+
+}
+ 
+@media (max-width: 560px) {
+
+  .top-holder-mail-hero { padding: 20px; border-radius: 16px; }
+
+  .top-holder-mail-hero h1 { font-size: 22px; }
+
+  .top-holder-mail-hero p { font-size: 12px; }
+ 
+  .top-holder-recipient-card header,
+
+  .top-holder-compose-card header {
+
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 8px;
+
+    padding: 14px 16px;
+
+  }
+ 
+  .top-holder-period { width: 100%; }
+
+  .top-holder-period button { flex: 1; padding: 0 10px; }
+ 
+  .top-holder-row { padding: 13px 14px; }
+
+  .top-holder-compose-card > label { margin: 0 16px; }
+
+  .top-holder-compose-card button { margin: 18px 16px 20px; width: calc(100% - 32px); }
+
+  .top-holder-preview { padding: 20px; }
+
+}
+ 
+/* ------------------------------------------------------------
+
+   Accessibility: honour reduced-motion preference
+
+   ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .top-holder-mail-hero,
+
+  .top-holder-mail-hero::after,
+
+  .top-holder-mail-hero::before,
+
+  .top-holder-recipient-card,
+
+  .top-holder-compose-card,
+
+  .top-holder-preview,
+
+  .top-holder-row,
+
+  .top-holder-row input[type="checkbox"],
+
+  .top-holder-row:first-child > b,
+
+  .top-holder-compose-card button,
+
+  .top-holder-compose-card button::after,
+
+  .top-holder-preview > span,
+
+  .top-holder-preview h2,
+
+  .top-holder-preview p,
+
+  .top-holder-preview footer {
+
+    animation: none !important;
+
+    transition: none !important;
+
+  }
+
+}
+ 

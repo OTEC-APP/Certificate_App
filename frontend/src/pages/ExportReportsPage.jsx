@@ -95,6 +95,12 @@ const matchesValidityPeriod = (certificate, selectedPeriod) => {
   return selectedPeriod === 'Expires after 3 years' ? expiry > cutoff : expiry <= cutoff
 }
 
+const currentEmployeeName = (certificate) => (
+  certificate.employee_name || certificate.name ||
+  `${certificate.firstName || ''} ${certificate.lastName || ''}`.trim() ||
+  certificate.recipient_name || 'Not recorded'
+)
+
 const valuesFor = (certificate) => {
   const expiry = expiryFor(certificate)
   const today = new Date()
@@ -106,7 +112,7 @@ const valuesFor = (certificate) => {
     ? `Expiry date set (${formatDate(expiry)})`
     : validity
   return {
-    employee: certificate.recipient_name || 'Not recorded',
+    employee: currentEmployeeName(certificate),
     employeeId: certificate.employeeId || certificate.employee_id || 'Not recorded',
     location: certificate.location || 'Not assigned',
     department: certificate.department || 'Not assigned',
@@ -126,16 +132,13 @@ const valuesFor = (certificate) => {
 
 const unique = (items, key, fallback = '') => [...new Set(items.map((item) => item[key] || fallback).filter(Boolean))]
   .sort((first, second) => first.localeCompare(second))
-const mergeOptions = (...lists) => [...new Set(lists.flat().map((value) => String(value || '').trim()).filter(Boolean))]
-  .sort((first, second) => first.localeCompare(second))
+
+const filterKey = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+const matchesFilter = (recordValue, selectedValue) => !selectedValue || filterKey(recordValue) === filterKey(selectedValue)
 
 export default function ExportReportsPage() {
   const { notify, realtimeVersion } = useOutletContext()
   const [records, setRecords] = useState([])
-  const [managedEmployees, setManagedEmployees] = useState([])
-  const [managedLocations, setManagedLocations] = useState([])
-  const [managedDepartments, setManagedDepartments] = useState([])
-  const [managedCategories, setManagedCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
@@ -150,12 +153,18 @@ export default function ExportReportsPage() {
     const load = async () => {
       setLoading(true)
       try {
-        const firstResponse = await fetch(`${apiUrl}/certificates?status=issued&page=1&page_size=100`, { cache: 'no-store' })
+        const reportParams = new URLSearchParams({ page: '1', page_size: '100' })
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value) reportParams.set(key, value)
+        })
+        const firstResponse = await fetch(`${apiUrl}/reports/certificates?${reportParams}`, { cache: 'no-store' })
         const first = await firstResponse.json()
         if (!firstResponse.ok) throw new Error(first.detail || 'Unable to load export records')
         const pages = Math.ceil((first.total || 0) / 100)
         const remaining = await Promise.all(Array.from({ length: Math.max(0, pages - 1) }, async (_, index) => {
-          const response = await fetch(`${apiUrl}/certificates?status=issued&page=${index + 2}&page_size=100`, { cache: 'no-store' })
+          const pageParams = new URLSearchParams(reportParams)
+          pageParams.set('page', String(index + 2))
+          const response = await fetch(`${apiUrl}/reports/certificates?${pageParams}`, { cache: 'no-store' })
           const result = await response.json()
           if (!response.ok) throw new Error(result.detail || 'Unable to load export records')
           return result.items || []
@@ -176,27 +185,21 @@ export default function ExportReportsPage() {
         } catch (employeeError) {
           employees = []
         }
+        const employeesById = new Map(employees.map((employee) => [
+          String(employee.id || '').trim(),
+          employee,
+        ]).filter(([id]) => id))
         const employeesByEmail = new Map(employees.map((employee) => [
           String(employee.employeeEmail || employee.email || '').toLowerCase(),
           employee,
         ]).filter(([email]) => email))
         const enrichedRecords = [...(first.items || []), ...remaining.flat()].map((certificate) => ({
           ...certificate,
-          ...(employeesByEmail.get(String(certificate.email || '').toLowerCase()) || {}),
+          ...(employeesById.get(String(certificate.employee_profile_id || '').trim()) ||
+            employeesByEmail.get(String(certificate.email || '').toLowerCase()) || {}),
         }))
-        const [locationsResult, departmentsResult, categoriesResult] = await Promise.allSettled([
-          fetch(`${apiUrl}/access-options/locations`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : []),
-          fetch(`${apiUrl}/access-options/departments`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : []),
-          fetch(`${apiUrl}/access-options/categories`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : []),
-        ])
-        const optionNames = (result) => result.status === 'fulfilled' && Array.isArray(result.value)
-          ? result.value.map((item) => item.name) : []
         if (active) {
           setRecords(enrichedRecords)
-          setManagedEmployees(employees.map((employee) => `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || employee.recipient_name || employee.employeeEmail || employee.email))
-          setManagedLocations(optionNames(locationsResult))
-          setManagedDepartments(optionNames(departmentsResult))
-          setManagedCategories(optionNames(categoriesResult))
           setError('')
         }
       } catch (loadError) {
@@ -207,20 +210,20 @@ export default function ExportReportsPage() {
     }
     load()
     return () => { active = false }
-  }, [realtimeVersion])
+  }, [filters, realtimeVersion])
 
   const reportValues = useMemo(() => records.map(valuesFor), [records])
 
   const options = useMemo(() => ({
-    employees: mergeOptions(managedEmployees, unique(reportValues, 'employee')),
-    locations: mergeOptions(managedLocations, unique(reportValues, 'location')),
-    departments: mergeOptions(managedDepartments, unique(reportValues, 'department')),
+    employees: unique(reportValues, 'employee'),
+    locations: unique(reportValues, 'location'),
+    departments: unique(reportValues, 'department'),
     tenures: tenureOptions,
     oems: unique(reportValues, 'oem'),
-    categories: mergeOptions(managedCategories, unique(reportValues, 'category')),
+    categories: unique(reportValues, 'category'),
     certifications: unique(reportValues, 'certification'),
     validities: validityFilterOptions,
-  }), [managedCategories, managedDepartments, managedEmployees, managedLocations, reportValues])
+  }), [reportValues])
 
   const filtered = useMemo(() => records.filter((item) => {
     const values = valuesFor(item)
@@ -232,13 +235,13 @@ export default function ExportReportsPage() {
         ? values.validity === 'Lifetime'
         : matchesValidityPeriod(item, filters.validity)
     )
-    return (!filters.employee || values.employee === filters.employee) &&
-      (!filters.location || values.location === filters.location) &&
-      (!filters.department || values.department === filters.department) &&
-      (!filters.tenure || values.tenure === filters.tenure) &&
-      (!filters.oem || values.oem === filters.oem) &&
-      (!filters.category || values.category === filters.category) &&
-      (!filters.certification || values.certification === filters.certification) &&
+    return matchesFilter(values.employee, filters.employee) &&
+      matchesFilter(values.location, filters.location) &&
+      matchesFilter(values.department, filters.department) &&
+      matchesFilter(values.tenure, filters.tenure) &&
+      matchesFilter(values.oem, filters.oem) &&
+      matchesFilter(values.category, filters.category) &&
+      matchesFilter(values.certification, filters.certification) &&
       matchesValidity
   }), [filters, records])
 
@@ -335,14 +338,14 @@ export default function ExportReportsPage() {
       <aside className="er-card export-filter-card">
         <header><div><span>STEP 1</span><h2>Filter records</h2></div>{activeFilterCount > 0 && <button type="button" onClick={() => { setFilters(initialFilters); setPage(1) }}>Clear all</button>}</header>
         <div className="export-filter-fields">
-          <label>Employee<CompactSelect value={filters.employee} onChange={(event) => setFilter('employee', event.target.value)}><option value="">All employees</option>{options.employees.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
-          <label>Location<CompactSelect value={filters.location} onChange={(event) => setFilter('location', event.target.value)}><option value="">All locations</option>{options.locations.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
-          <label>Department<CompactSelect value={filters.department} onChange={(event) => setFilter('department', event.target.value)}><option value="">All departments</option>{options.departments.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
-          <label>Tenure<CompactSelect value={filters.tenure} onChange={(event) => setFilter('tenure', event.target.value)}><option value="">All tenure bands</option>{options.tenures.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
-          <label>Certification name<CompactSelect value={filters.certification} onChange={(event) => setFilter('certification', event.target.value)}><option value="">All certifications</option>{options.certifications.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
-          <label>OEM<CompactSelect value={filters.oem} onChange={(event) => setFilter('oem', event.target.value)}><option value="">All OEMs</option>{options.oems.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
-          <label>Category<CompactSelect value={filters.category} onChange={(event) => setFilter('category', event.target.value)}><option value="">All categories</option>{options.categories.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
-          <label>Validity / expiry period<CompactSelect value={filters.validity} onChange={(event) => setFilter('validity', event.target.value)}><option value="">All validity periods</option>{options.validities.map((value) => <option key={value}>{value}</option>)}</CompactSelect></label>
+          <label>Employee<CompactSelect value={filters.employee} onChange={(event) => setFilter('employee', event.target.value)}><option value="">All employees</option>{options.employees.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
+          <label>Location<CompactSelect value={filters.location} onChange={(event) => setFilter('location', event.target.value)}><option value="">All locations</option>{options.locations.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
+          <label>Department<CompactSelect value={filters.department} onChange={(event) => setFilter('department', event.target.value)}><option value="">All departments</option>{options.departments.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
+          <label>Tenure<CompactSelect value={filters.tenure} onChange={(event) => setFilter('tenure', event.target.value)}><option value="">All tenure bands</option>{options.tenures.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
+          <label>Certification name<CompactSelect value={filters.certification} onChange={(event) => setFilter('certification', event.target.value)}><option value="">All certifications</option>{options.certifications.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
+          <label>OEM<CompactSelect value={filters.oem} onChange={(event) => setFilter('oem', event.target.value)}><option value="">All OEMs</option>{options.oems.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
+          <label>Category<CompactSelect value={filters.category} onChange={(event) => setFilter('category', event.target.value)}><option value="">All categories</option>{options.categories.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
+          <label>Validity / expiry period<CompactSelect value={filters.validity} onChange={(event) => setFilter('validity', event.target.value)}><option value="">All validity periods</option>{options.validities.map((value) => <option key={value} value={value}>{value}</option>)}</CompactSelect></label>
         </div>
       </aside>
 

@@ -31,6 +31,26 @@ export async function confirmDelete({ name, itemLabel }) {
   return result.isConfirmed;
 }
 
+export async function confirmEmailAlertsChange(enabled) {
+  const result = await Swal.fire({
+    ...baseOptions,
+    icon: enabled ? 'question' : 'warning',
+    iconColor: enabled ? '#10a58e' : '#ef4762',
+    title: `${enabled ? 'Turn on' : 'Turn off'} email alerts?`,
+    text: enabled
+      ? 'Certificate email notifications will be sent again.'
+      : 'All certificate email notifications will be paused until you turn them on again.',
+    showCancelButton: true,
+    confirmButtonText: enabled ? 'Turn on' : 'Turn off',
+    cancelButtonText: 'Cancel',
+    customClass: {
+      ...baseOptions.customClass,
+      confirmButton: enabled ? 'certtrack-swal-primary' : 'certtrack-swal-danger',
+    },
+  });
+  return result.isConfirmed;
+}
+
 export async function confirmCertificateReview({ name, approve }) {
   const result = await Swal.fire({
     ...baseOptions,

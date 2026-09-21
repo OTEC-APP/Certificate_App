@@ -46,6 +46,18 @@ def current_timestamp() -> str:
     """Return the current application time in India Standard Time."""
     return datetime.now(INDIA_TIMEZONE).isoformat()
 
+
+def mark_settings_updated(section: Literal["categories", "oems"]) -> None:
+    """Store the latest successful CRUD time for settings cards."""
+    try:
+        db = get_firestore_client()
+        if db:
+            db.collection("app_settings").document("settings_last_updated").set(
+                {section: current_timestamp()}, merge=True
+            )
+    except Exception as error:
+        logger.warning("Unable to save %s settings timestamp: %s", section, error)
+
 def aggregate_count(source) -> int | None:
     """Return a Firestore aggregation count without reading every document."""
     try:
@@ -1337,6 +1349,7 @@ def create_access_option(
     option = {
         "name": payload.name.strip(),
         "created_at": current_timestamp(),
+        "updated_at": current_timestamp(),
     }
     try:
         if option_type == "categories":
@@ -1362,6 +1375,7 @@ def create_access_option(
                 deletion_reference.delete()
             if existing:
                 restored = existing.to_dict()
+                mark_settings_updated("oems")
                 realtime_connections.publish({"type": "access.updated"})
                 return {"id": existing.id, **restored}
         reference = option_collection(option_type).document()
@@ -1370,6 +1384,8 @@ def create_access_option(
         raise
     except Exception as error:
         raise firestore_unavailable(error) from error
+    if option_type in {"categories", "oems"}:
+        mark_settings_updated(option_type)
     realtime_connections.publish({"type": "access.updated"})
     return {"id": reference.id, **option}
  
@@ -1401,6 +1417,8 @@ def update_access_option(
         raise
     except Exception as error:
         raise firestore_unavailable(error) from error
+    if option_type in {"categories", "oems"}:
+        mark_settings_updated(option_type)
     realtime_connections.publish({"type": "access.updated"})
     return {"id": option_id, **option}
  
@@ -1429,6 +1447,7 @@ def delete_access_option(
             })
             if snapshot.exists:
                 reference.delete()
+            mark_settings_updated("oems")
             realtime_connections.publish({"type": "access.updated"})
             return
         if not snapshot.exists:
@@ -1438,5 +1457,7 @@ def delete_access_option(
         raise
     except Exception as error:
         raise firestore_unavailable(error) from error
+    if option_type in {"categories", "oems"}:
+        mark_settings_updated(option_type)
     realtime_connections.publish({"type": "access.updated"})
  
