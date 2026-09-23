@@ -36,10 +36,10 @@ const validityFilterOptions = ['Lifetime', 'Expires within 1 year', 'Expires wit
 const formatDate = (value) => {
   if (!value) return 'Not recorded'
   if (value instanceof Date) {
-    return `${String(value.getDate()).padStart(2, '0')}/${String(value.getMonth() + 1).padStart(2, '0')}/${value.getFullYear()}`
+    return `${String(value.getMonth() + 1).padStart(2, '0')}/${String(value.getDate()).padStart(2, '0')}/${value.getFullYear()}`
   }
   const [year, month, day] = String(value).slice(0, 10).split('-')
-  return year && month && day ? `${day}/${month}/${year}` : 'Not recorded'
+  return year && month && day ? `${month}/${day}/${year}` : 'Not recorded'
 }
 
 const tenureFor = (dateOfJoining) => {

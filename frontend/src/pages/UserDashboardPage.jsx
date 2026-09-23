@@ -679,6 +679,7 @@ const expiryFor = (certificate) => {
 }
  
 const oemColors = ['#5147e5', '#f09b2e', '#10a58e', '#e25573', '#4385e8']
+const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Not recorded'
 const validityLabel = (certificate) => {
   if (certificate.expires_on) return 'Expiry date set'
   const years = validityYearsFor(certificate)
@@ -888,8 +889,8 @@ export default function UserDashboardPage({
 
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening'
-  const greetingDate = new Intl.DateTimeFormat('en-IN', {
-    weekday: 'long', day: 'numeric', month: 'long',
+  const greetingDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
   }).format(new Date())
   const dashboardName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'User'
 
@@ -1230,10 +1231,10 @@ function CertificateTable({ certificates, loading, onEdit, onDelete, notify, run
             <td>{validityLabel(certificate)}</td>
             <td>
               {expiryFor(certificate)
-                ? expiryFor(certificate).toLocaleDateString('en-IN')
+                ? expiryFor(certificate).toLocaleDateString('en-US')
                 : 'No expiry'}
             </td>
-            <td>{certificate.issued_date}</td>
+            <td>{formatDate(certificate.issued_date)}</td>
             <td>
               <span className={`user-status ${certificate.status}`}>{certificateStatusLabel(certificate.status)}</span>
             </td>
@@ -1295,9 +1296,9 @@ function RenewalList({ renewals, onAdd }) {
               <b>{certificate.course_name}</b>
               <small>
                 {isOverdue ? 'Expired' : 'Expires'}{' '}
-                {certificate.expiry.toLocaleDateString('en-IN', {
+                {certificate.expiry.toLocaleDateString('en-US', {
                   day: '2-digit',
-                  month: 'short',
+                  month: '2-digit',
                   year: 'numeric',
                 })}
               </small>

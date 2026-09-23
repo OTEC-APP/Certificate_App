@@ -18,7 +18,7 @@ const validityLabel = (row) => {
     let months = (expiry.getFullYear() - today.getFullYear()) * 12 + expiry.getMonth() - today.getMonth()
     if (expiry.getDate() < today.getDate()) months -= 1
     const remaining = months >= 12 ? `${Math.floor(months / 12)}y ${months % 12}m left` : months > 0 ? `${months}m left` : `${days}d left`
-    const date = expiry.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    const date = expiry.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const duration = row.uses_expiry_date ? '' : `${row.validity_years} ${Number(row.validity_years) === 1 ? 'year' : 'years'} · `
     return `${duration}Expires ${date} · ${remaining}`
   }
@@ -137,7 +137,7 @@ export default function LiveCatalogPage({ runWithLoader, notify, viewToggle, que
         document.setPage(pdfPage)
         document.setFontSize(8)
         document.setTextColor(125, 83, 92)
-        document.text(`Generated ${new Date().toLocaleDateString('en-IN')} | Page ${pdfPage} of ${pages}`, 283, 202, { align: 'right' })
+        document.text(`Generated ${new Date().toLocaleDateString('en-US')} | Page ${pdfPage} of ${pages}`, 283, 202, { align: 'right' })
       }
       document.save(`certification-catalog-${new Date().toISOString().slice(0, 10)}.pdf`)
       notify?.(`Exported ${exportRows.length} certification ${exportRows.length === 1 ? 'type' : 'types'}`)

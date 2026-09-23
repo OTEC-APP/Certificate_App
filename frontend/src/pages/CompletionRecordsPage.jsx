@@ -10,6 +10,7 @@ import { categoryBadgeStyle } from '../utils/categoryPalette'
 import { loadCompanyLogo, drawPdfHeader } from '../utils/pdfBranding'
  
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Not recorded'
  
 const validityYearsFor = (certificate) => {
   if (Object.prototype.hasOwnProperty.call(certificate, 'validity_years')) {
@@ -100,7 +101,7 @@ export default function CompletionRecordsPage() {
       const dates = certificateDates(item)
       const searchable = [item.course_name, item.recipient_name, item.vendor_name, item.category,
         item.certificate_number, item.issued_date, dates.validity,
-        dates.expiry?.toLocaleDateString('en-IN'), dates.daysRemaining, ruPointsFor(item)]
+        dates.expiry?.toLocaleDateString('en-US'), dates.daysRemaining, ruPointsFor(item)]
         .join(' ').toLowerCase()
       return (!search || searchable.includes(search)) &&
         (!filters.employee || String(item.recipient_name || '').toLowerCase().includes(filters.employee.toLowerCase())) &&
@@ -140,7 +141,7 @@ export default function CompletionRecordsPage() {
         body: filteredRecords.map((item) => {
           const { expiry, validity } = certificateDates(item)
           const points = ruPointsFor(item)
-          return [item.course_name, item.recipient_name, item.vendor_name || 'Not recorded', item.category || 'Other', item.certificate_number, item.issued_date, validity, expiry ? expiry.toLocaleDateString('en-IN') : 'Lifetime', points === null ? '—' : String(points)]
+          return [item.course_name, item.recipient_name, item.vendor_name || 'Not recorded', item.category || 'Other', item.certificate_number, formatDate(item.issued_date), validity, expiry ? expiry.toLocaleDateString('en-US') : 'Lifetime', points === null ? '—' : String(points)]
         }),
         theme: 'grid',
         headStyles: { fillColor: [189, 41, 66], textColor: 255, fontSize: 8 },
@@ -152,7 +153,7 @@ export default function CompletionRecordsPage() {
         document.setPage(pdfPage)
         document.setFontSize(8)
         document.setTextColor(125, 83, 92)
-        document.text(`Generated ${new Date().toLocaleDateString('en-IN')} | Page ${pdfPage} of ${pages}`, 283, 202, { align: 'right' })
+        document.text(`Generated ${new Date().toLocaleDateString('en-US')} | Page ${pdfPage} of ${pages}`, 283, 202, { align: 'right' })
       }
       document.save(`completion-records-${new Date().toISOString().slice(0, 10)}.pdf`)
     } finally {
@@ -171,7 +172,7 @@ export default function CompletionRecordsPage() {
       <th>Days remaining</th><th>RU points</th></tr></thead><tbody>{visible.map((item) => {
       const { expiry, daysRemaining, validity } = certificateDates(item)
       const ruPoints = ruPointsFor(item)
-      return <tr key={item.id}><td><b>{item.course_name}</b></td><td>{item.recipient_name}</td><td>{item.vendor_name || 'Not recorded'}</td><td><span className="category-badge" style={categoryBadgeStyle(item.category)}>{item.category || 'Other'}</span></td><td>{item.certificate_number}</td><td>{item.issued_date}</td><td>{validity}</td><td>{expiry ? expiry.toLocaleDateString('en-IN') : 'Lifetime'}</td><td>{renewalTimeLabel(daysRemaining)}</td><td>{ruPoints === null ? '—' : ruPoints}</td></tr>
+      return <tr key={item.id}><td><b>{item.course_name}</b></td><td>{item.recipient_name}</td><td>{item.vendor_name || 'Not recorded'}</td><td><span className="category-badge" style={categoryBadgeStyle(item.category)}>{item.category || 'Other'}</span></td><td>{item.certificate_number}</td><td>{formatDate(item.issued_date)}</td><td>{validity}</td><td>{expiry ? expiry.toLocaleDateString('en-US') : 'Lifetime'}</td><td>{renewalTimeLabel(daysRemaining)}</td><td>{ruPoints === null ? '—' : ruPoints}</td></tr>
     })}</tbody></table></div>}
     {!loading && !error && filteredRecords.length > 0 && <Pagination page={page} totalItems={filteredRecords.length} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={(size) => { setPageSize(size); setPage(1) }} label="certificates" />}</section>
   </section>

@@ -13,11 +13,11 @@ const validityLabel = (row) => {
     if (expiry.getDate() < today.getDate()) months -= 1
     const remaining = months >= 12 ? `${Math.floor(months / 12)}y ${months % 12}m left` : months > 0 ? `${months}m left` : `${days}d left`
     const duration = row.uses_expiry_date ? '' : `${row.validity_years} ${Number(row.validity_years) === 1 ? 'year' : 'years'} · `
-    return `${duration}Expires ${expiry.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} · ${remaining}`
+    return `${duration}Expires ${expiry.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })} · ${remaining}`
   }
   return row.uses_expiry_date ? 'Expiry date set' : !row.validity_years ? 'Lifetime' : `${row.validity_years} ${Number(row.validity_years) === 1 ? 'year' : 'years'}`
 }
-const formatDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ' - '
+const formatDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ' - '
 
 export default function CatalogCertificateDetailsModal({ row, close, notify, goTo }) {
   const [records, setRecords] = useState([])

@@ -44,14 +44,14 @@ function apiErrorMessage(detail, fallback) {
 }
 
 function now() {
-  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(
+  return new Intl.DateTimeFormat('en-US', { dateStyle: 'short', timeStyle: 'short' }).format(
     new Date(),
   )
 }
 
 function formatDate(value) {
   if (!value) return ' - '
-  return new Intl.DateTimeFormat('en-IN', {
+  return new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

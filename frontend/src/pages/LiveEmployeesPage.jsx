@@ -26,7 +26,7 @@ const lastSeenLabel = (value) => {
   if (minutes < 2) return 'Just now'
   if (minutes < 60) return `${minutes} min ago`
   if (minutes < 1440) return `${Math.floor(minutes / 60)} hr ago`
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  return date.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 const lastCertificateLabel = (value) => {
@@ -40,7 +40,7 @@ const lastCertificateLabel = (value) => {
 const joiningDateLabel = (value) => {
   if (!value) return 'Not recorded'
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00`)
-  return Number.isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  return Number.isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
  
 export default function LiveEmployeesPage({ query, filter, goTo, realtimeVersion }) {
