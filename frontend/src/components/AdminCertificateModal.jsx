@@ -110,6 +110,7 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
           body: JSON.stringify({
             recipient_name: employee.name,
             email: employee.email,
+            employee_profile_id: employee.id,
             course_name: certificateName,
             vendor_name: form.get('vendorName'),
             certificate_number: form.get('certificateNumber'),
@@ -162,6 +163,7 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
           Employee name <span className="required-field-mark" aria-hidden="true">*</span>
           <CompactSelect
             required
+            searchable
             value={employeeId}
             onChange={(event) => setEmployeeId(event.target.value)}
           >
@@ -181,6 +183,7 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
           <CompactSelect
             name="vendorName"
             required
+            searchable
             value={oemName}
             onChange={(event) => setOemName(event.target.value)}
             disabled={loadingOems}
@@ -209,6 +212,7 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
           <CompactSelect
             name="category"
             required
+            searchable
             value={categoryName}
             onChange={(event) => setCategoryName(event.target.value)}
             disabled={loadingCategories}
