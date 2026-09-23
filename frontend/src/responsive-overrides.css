@@ -70,6 +70,11 @@ body { margin:0;overflow-x:hidden; }
 .exact-react .compact-select-menu button:last-child { border-bottom:0; }
 .exact-react .compact-select-menu button:hover { background:#f3f3f3;color:#222; }
 .exact-react .compact-select-menu button[aria-selected='true'] { background:#ededed;color:#222;font-weight:700; }
+.exact-react .compact-select-search { position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid #e7d8db;background:#fff;border-radius:10px 10px 0 0; }
+.exact-react .compact-select-search i { color:#9b8790;font-size:12px; }
+.exact-react .compact-select-search input { flex:1;min-width:0;border:0;outline:0;background:transparent;color:#222;font:500 13px/1.25 Inter,sans-serif; }
+.exact-react .compact-select-search input::placeholder { color:#a89ba0; }
+.exact-react .compact-select-menu .compact-select-empty { display:block;padding:14px 12px;color:#8a7278;font:500 12px/1.4 Inter,sans-serif;text-align:center; }
 .exact-react .compact-select-native { color:#222!important; }
 .exact-react .er-table tbody tr:hover td { color:#1f1f1f!important;background:#f5f5f5!important; }
 
