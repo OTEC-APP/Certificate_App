@@ -89,6 +89,10 @@ class AccessUserFields(BaseModel):
  
 class AccessUserCreate(AccessUserFields):
     pass
+
+
+class BulkRowNumbers(BaseModel):
+    row_numbers: list[int] = Field(min_length=1)
  
  
 class AccessUserUpdate(AccessUserFields):
@@ -881,6 +885,7 @@ def upload_bulk_users(file: UploadFile = File(...)):
         if email in seen_emails: errors.append("Duplicate employee email in this file")
         if employee_id in seen_ids: errors.append("Duplicate employee ID in this file")
         seen_emails.add(email); seen_ids.add(employee_id)
+        errors.extend(row_field_errors(row))
         rows.append({"row": number, "data": row, "errors": errors})
     reference = bulk_uploads_collection().document(); reference.set({"rows": rows, "status": "pending", "created_at": current_timestamp()})
     realtime_connections.publish({"type": "access.updated"})
@@ -930,6 +935,31 @@ def find_bulk_upload(upload_id: str):
     return reference, snapshot, snapshot.to_dict()
 
 
+def row_field_errors(row):
+    """Return schema-level field errors so a row is flagged before approval."""
+    errors = []
+    if not str(row.get("firstName", "")).strip():
+        errors.append("First name is required")
+    if not str(row.get("lastName", "")).strip():
+        errors.append("Last name is required")
+    employee_id = str(row.get("employeeId", "")).strip()
+    if not employee_id:
+        errors.append("Employee ID is required")
+    elif not employee_id.isdigit():
+        errors.append("Employee ID must contain digits only")
+    if not str(row.get("reportingManager", "")).strip():
+        errors.append("Reporting manager is required")
+    if not str(row.get("employeeEmail", "")).strip():
+        errors.append("Employee email is required")
+    joining_date = row.get("dateOfJoining")
+    if joining_date:
+        try:
+            date.fromisoformat(joining_date)
+        except (TypeError, ValueError):
+            errors.append("Date of joining must be a valid date")
+    return errors
+
+
 def validate_bulk_row(row_data):
     """Normalize and validate a single bulk user row against options and existing users.
 
@@ -964,6 +994,7 @@ def validate_bulk_row(row_data):
     email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
     if email in existing_emails: errors.append("Employee email already exists")
     if employee_id in existing_ids: errors.append("Employee ID already exists")
+    errors.extend(row_field_errors(row))
     return row, errors
 
 
@@ -1041,8 +1072,35 @@ def delete_bulk_row(upload_id: str, row_number: int):
         f"Removed bulk user row {row_number}",
         f"{target['data'].get('firstName', '')} {target['data'].get('lastName', '')} ({target['data'].get('employeeId', '')})",
     )
- 
- 
+
+
+@router.post("/bulk/{upload_id}/rows/delete")
+def delete_bulk_rows(upload_id: str, payload: BulkRowNumbers):
+    """Remove several pending rows from a bulk upload at once."""
+    reference, snapshot, upload = find_bulk_upload(upload_id)
+    rows = upload.get("rows", [])
+    numbers = set(payload.row_numbers)
+    target_rows = [row for row in rows if row.get("row") in numbers]
+    if not target_rows:
+        raise HTTPException(status_code=404, detail="No matching rows found in bulk upload")
+    remaining = [row for row in rows if row.get("row") not in numbers]
+    if remaining:
+        reference.update({"rows": remaining, "status": "pending"})
+    else:
+        reference.update({"status": "approved", "approved_at": current_timestamp()})
+    names = ", ".join(
+        (f"{row.get('data', {}).get('firstName', '')} {row.get('data', {}).get('lastName', '')}".strip() or f"row {row.get('row')}")
+        for row in target_rows
+    )
+    record_history(
+        "bi-trash3",
+        f"Removed {len(target_rows)} bulk user row(s)",
+        names,
+    )
+    realtime_connections.publish({"type": "access.updated"})
+    return {"deleted": len(target_rows)}
+
+
 @router.put("/{user_id}")
 def update_user(user_id: str, payload: AccessUserUpdate):
     """Replace an existing user while preserving its creation time."""
@@ -1365,6 +1423,10 @@ def create_access_option(
             option["color"] = "#d84457"
             if any(str(snapshot.to_dict().get("name", "")).casefold() == option["name"].casefold() for snapshot in option_collection(option_type).stream()):
                 raise HTTPException(status_code=409, detail="That category already exists")
+        if option_type in {"locations", "departments"}:
+            label = "location" if option_type == "locations" else "department"
+            if any(str(snapshot.to_dict().get("name", "")).casefold() == option["name"].casefold() for snapshot in option_collection(option_type).stream()):
+                raise HTTPException(status_code=409, detail=f"That {label} already exists")
         if option_type == "oems":
             option["name"] = clean_oem_name(option["name"])
             normalized = option["name"].casefold()
@@ -1412,6 +1474,10 @@ def update_access_option(
         clean_name = payload.name.strip()
         if option_type == "categories" and any(snapshot.id != option_id and str(snapshot.to_dict().get("name", "")).casefold() == clean_name.casefold() for snapshot in option_collection(option_type).stream()):
             raise HTTPException(status_code=409, detail="That category already exists")
+        if option_type in {"locations", "departments"}:
+            label = "location" if option_type == "locations" else "department"
+            if any(snapshot.id != option_id and str(snapshot.to_dict().get("name", "")).casefold() == clean_name.casefold() for snapshot in option_collection(option_type).stream()):
+                raise HTTPException(status_code=409, detail=f"That {label} already exists")
         if option_type == "oems":
             if is_placeholder_oem(clean_name):
                 raise HTTPException(status_code=422, detail="Enter a valid OEM name")
