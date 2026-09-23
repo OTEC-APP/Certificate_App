@@ -21,7 +21,7 @@ from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from google.cloud.firestore_v1 import Query as FirestoreQuery
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
  
 try:
     from .firebase_service import get_firestore_client
@@ -46,6 +46,18 @@ def current_timestamp() -> str:
     """Return the current application time in India Standard Time."""
     return datetime.now(INDIA_TIMEZONE).isoformat()
 
+
+def mark_settings_updated(section: Literal["categories", "oems"]) -> None:
+    """Store the latest successful CRUD time for settings cards."""
+    try:
+        db = get_firestore_client()
+        if db:
+            db.collection("app_settings").document("settings_last_updated").set(
+                {section: current_timestamp()}, merge=True
+            )
+    except Exception as error:
+        logger.warning("Unable to save %s settings timestamp: %s", section, error)
+
 def aggregate_count(source) -> int | None:
     """Return a Firestore aggregation count without reading every document."""
     try:
@@ -66,10 +78,21 @@ class AccessUserFields(BaseModel):
     department: str = Field(min_length=1, max_length=100)
     reportingManager: str = Field(min_length=1, max_length=160)
     role: Literal["user", "admin", "project_manager"]
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def normalize_role(cls, value):
+        """Store role values in the canonical form required by the API."""
+        normalized = str(value or "").strip().casefold().replace(" ", "_")
+        return normalized
  
  
 class AccessUserCreate(AccessUserFields):
     pass
+
+
+class BulkRowNumbers(BaseModel):
+    row_numbers: list[int] = Field(min_length=1)
  
  
 class AccessUserUpdate(AccessUserFields):
@@ -807,10 +830,10 @@ def download_bulk_user_template():
     date_validation = DataValidation(type="date", operator="between", formula1="DATE(1900,1,1)", formula2="TODAY()", allow_blank=False)
     date_validation.error = "Enter a valid joining date, not later than today."
     date_validation.errorTitle = "Invalid joining date"
-    date_validation.prompt = "Enter a date, for example 03.03.2025."
+    date_validation.prompt = "Enter a date, for example 03/31/2025."
     date_validation.promptTitle = "Date of joining"
     sheet.add_data_validation(date_validation); date_validation.add("C2:C500")
-    for row in range(2, 501): sheet.cell(row, 3).number_format = "DD.MM.YYYY"
+    for row in range(2, 501): sheet.cell(row, 3).number_format = "MM/DD/YYYY"
     lists.sheet_state = "hidden"
     output = BytesIO(); workbook.save(output); output.seek(0)
     return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=OTEC_User_Bulk_Template.xlsx"})
@@ -844,7 +867,7 @@ def upload_bulk_users(file: UploadFile = File(...)):
         elif isinstance(joining_date, date):
             row["dateOfJoining"] = joining_date.isoformat()
         if row["dateOfJoining"]:
-            for pattern in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
+            for pattern in ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y"):
                 try:
                     row["dateOfJoining"] = datetime.strptime(row["dateOfJoining"], pattern).date().isoformat(); break
                 except ValueError: continue
@@ -853,14 +876,16 @@ def upload_bulk_users(file: UploadFile = File(...)):
         if row["department"].lower() not in departments: errors.append("Department is not in Manage options")
         if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
         if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
+        row["role"] = row["role"].casefold().replace(" ", "_")
         if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
-        if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be DD.MM.YYYY or YYYY-MM-DD")
+        if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
         email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
         if email in existing_emails: errors.append("Employee email already exists")
         if employee_id in existing_ids: errors.append("Employee ID already exists")
         if email in seen_emails: errors.append("Duplicate employee email in this file")
         if employee_id in seen_ids: errors.append("Duplicate employee ID in this file")
         seen_emails.add(email); seen_ids.add(employee_id)
+        errors.extend(row_field_errors(row))
         rows.append({"row": number, "data": row, "errors": errors})
     reference = bulk_uploads_collection().document(); reference.set({"rows": rows, "status": "pending", "created_at": current_timestamp()})
     realtime_connections.publish({"type": "access.updated"})
@@ -910,6 +935,31 @@ def find_bulk_upload(upload_id: str):
     return reference, snapshot, snapshot.to_dict()
 
 
+def row_field_errors(row):
+    """Return schema-level field errors so a row is flagged before approval."""
+    errors = []
+    if not str(row.get("firstName", "")).strip():
+        errors.append("First name is required")
+    if not str(row.get("lastName", "")).strip():
+        errors.append("Last name is required")
+    employee_id = str(row.get("employeeId", "")).strip()
+    if not employee_id:
+        errors.append("Employee ID is required")
+    elif not employee_id.isdigit():
+        errors.append("Employee ID must contain digits only")
+    if not str(row.get("reportingManager", "")).strip():
+        errors.append("Reporting manager is required")
+    if not str(row.get("employeeEmail", "")).strip():
+        errors.append("Employee email is required")
+    joining_date = row.get("dateOfJoining")
+    if joining_date:
+        try:
+            date.fromisoformat(joining_date)
+        except (TypeError, ValueError):
+            errors.append("Date of joining must be a valid date")
+    return errors
+
+
 def validate_bulk_row(row_data):
     """Normalize and validate a single bulk user row against options and existing users.
 
@@ -923,7 +973,7 @@ def validate_bulk_row(row_data):
     elif isinstance(joining_date, date):
         row["dateOfJoining"] = joining_date.isoformat()
     if row["dateOfJoining"]:
-        for pattern in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
+        for pattern in ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y"):
             try:
                 row["dateOfJoining"] = datetime.strptime(row["dateOfJoining"], pattern).date().isoformat(); break
             except ValueError: continue
@@ -938,11 +988,13 @@ def validate_bulk_row(row_data):
     if row["department"].lower() not in departments: errors.append("Department is not in Manage options")
     if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
     if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
+    row["role"] = row["role"].casefold().replace(" ", "_")
     if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
-    if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be DD.MM.YYYY or YYYY-MM-DD")
+    if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
     email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
     if email in existing_emails: errors.append("Employee email already exists")
     if employee_id in existing_ids: errors.append("Employee ID already exists")
+    errors.extend(row_field_errors(row))
     return row, errors
 
 
@@ -1020,8 +1072,35 @@ def delete_bulk_row(upload_id: str, row_number: int):
         f"Removed bulk user row {row_number}",
         f"{target['data'].get('firstName', '')} {target['data'].get('lastName', '')} ({target['data'].get('employeeId', '')})",
     )
- 
- 
+
+
+@router.post("/bulk/{upload_id}/rows/delete")
+def delete_bulk_rows(upload_id: str, payload: BulkRowNumbers):
+    """Remove several pending rows from a bulk upload at once."""
+    reference, snapshot, upload = find_bulk_upload(upload_id)
+    rows = upload.get("rows", [])
+    numbers = set(payload.row_numbers)
+    target_rows = [row for row in rows if row.get("row") in numbers]
+    if not target_rows:
+        raise HTTPException(status_code=404, detail="No matching rows found in bulk upload")
+    remaining = [row for row in rows if row.get("row") not in numbers]
+    if remaining:
+        reference.update({"rows": remaining, "status": "pending"})
+    else:
+        reference.update({"status": "approved", "approved_at": current_timestamp()})
+    names = ", ".join(
+        (f"{row.get('data', {}).get('firstName', '')} {row.get('data', {}).get('lastName', '')}".strip() or f"row {row.get('row')}")
+        for row in target_rows
+    )
+    record_history(
+        "bi-trash3",
+        f"Removed {len(target_rows)} bulk user row(s)",
+        names,
+    )
+    realtime_connections.publish({"type": "access.updated"})
+    return {"deleted": len(target_rows)}
+
+
 @router.put("/{user_id}")
 def update_user(user_id: str, payload: AccessUserUpdate):
     """Replace an existing user while preserving its creation time."""
@@ -1337,12 +1416,17 @@ def create_access_option(
     option = {
         "name": payload.name.strip(),
         "created_at": current_timestamp(),
+        "updated_at": current_timestamp(),
     }
     try:
         if option_type == "categories":
             option["color"] = "#d84457"
             if any(str(snapshot.to_dict().get("name", "")).casefold() == option["name"].casefold() for snapshot in option_collection(option_type).stream()):
                 raise HTTPException(status_code=409, detail="That category already exists")
+        if option_type in {"locations", "departments"}:
+            label = "location" if option_type == "locations" else "department"
+            if any(str(snapshot.to_dict().get("name", "")).casefold() == option["name"].casefold() for snapshot in option_collection(option_type).stream()):
+                raise HTTPException(status_code=409, detail=f"That {label} already exists")
         if option_type == "oems":
             option["name"] = clean_oem_name(option["name"])
             normalized = option["name"].casefold()
@@ -1362,6 +1446,7 @@ def create_access_option(
                 deletion_reference.delete()
             if existing:
                 restored = existing.to_dict()
+                mark_settings_updated("oems")
                 realtime_connections.publish({"type": "access.updated"})
                 return {"id": existing.id, **restored}
         reference = option_collection(option_type).document()
@@ -1370,6 +1455,8 @@ def create_access_option(
         raise
     except Exception as error:
         raise firestore_unavailable(error) from error
+    if option_type in {"categories", "oems"}:
+        mark_settings_updated(option_type)
     realtime_connections.publish({"type": "access.updated"})
     return {"id": reference.id, **option}
  
@@ -1387,6 +1474,10 @@ def update_access_option(
         clean_name = payload.name.strip()
         if option_type == "categories" and any(snapshot.id != option_id and str(snapshot.to_dict().get("name", "")).casefold() == clean_name.casefold() for snapshot in option_collection(option_type).stream()):
             raise HTTPException(status_code=409, detail="That category already exists")
+        if option_type in {"locations", "departments"}:
+            label = "location" if option_type == "locations" else "department"
+            if any(snapshot.id != option_id and str(snapshot.to_dict().get("name", "")).casefold() == clean_name.casefold() for snapshot in option_collection(option_type).stream()):
+                raise HTTPException(status_code=409, detail=f"That {label} already exists")
         if option_type == "oems":
             if is_placeholder_oem(clean_name):
                 raise HTTPException(status_code=422, detail="Enter a valid OEM name")
@@ -1401,6 +1492,8 @@ def update_access_option(
         raise
     except Exception as error:
         raise firestore_unavailable(error) from error
+    if option_type in {"categories", "oems"}:
+        mark_settings_updated(option_type)
     realtime_connections.publish({"type": "access.updated"})
     return {"id": option_id, **option}
  
@@ -1429,6 +1522,7 @@ def delete_access_option(
             })
             if snapshot.exists:
                 reference.delete()
+            mark_settings_updated("oems")
             realtime_connections.publish({"type": "access.updated"})
             return
         if not snapshot.exists:
@@ -1438,5 +1532,7 @@ def delete_access_option(
         raise
     except Exception as error:
         raise firestore_unavailable(error) from error
+    if option_type in {"categories", "oems"}:
+        mark_settings_updated(option_type)
     realtime_connections.publish({"type": "access.updated"})
  

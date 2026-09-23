@@ -44,14 +44,14 @@ function apiErrorMessage(detail, fallback) {
 }
 
 function now() {
-  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(
+  return new Intl.DateTimeFormat('en-US', { dateStyle: 'short', timeStyle: 'short' }).format(
     new Date(),
   )
 }
 
 function formatDate(value) {
   if (!value) return ' - '
-  return new Intl.DateTimeFormat('en-IN', {
+  return new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -440,6 +440,7 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
   const [bulkPageSize, setBulkPageSize] = useState(defaultPageSize)
   const [editingBulkRow, setEditingBulkRow] = useState(null)
   const [bulkErrorInfo, setBulkErrorInfo] = useState(null)
+  const [selectedBulkRows, setSelectedBulkRows] = useState([])
   const bulkErrorInfoRef = useRef(null)
 
   useEffect(() => { setSearch(query); setPage(1) }, [query])
@@ -551,6 +552,7 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
   const approveBulkRow = async (uploadId, row) => {
     const response = await runWithLoader('Approving bulk user', () => fetch(`${apiUrl}/users/bulk/${uploadId}/rows/${row.row}/approve`, { method: 'POST' }))
     const result = await response.json(); if (!response.ok) return notify(result.detail || 'Unable to approve this row')
+    setSelectedBulkRows((keys) => keys.filter((key) => key !== bulkRowKey(uploadId, row)))
     await Promise.all([reloadBulkUploads(), reloadUsers()]); notify(`${row.data.firstName} ${row.data.lastName} approved and added to Access Management`)
   }
 
@@ -580,7 +582,49 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       const result = await response.json()
       return notify(result.detail || 'Unable to delete this row')
     }
+    setSelectedBulkRows((keys) => keys.filter((key) => key !== bulkRowKey(uploadId, row)))
     await reloadBulkUploads(); notify('Row removed from the bulk upload')
+  }
+
+  const bulkRowKey = (uploadId, row) => `${uploadId}:${row.row}`
+
+  const toggleBulkRow = (uploadId, row) => {
+    const key = bulkRowKey(uploadId, row)
+    setSelectedBulkRows((keys) => (keys.includes(key) ? keys.filter((item) => item !== key) : [...keys, key]))
+  }
+
+  const toggleAllBulkRows = (rows) => {
+    const keys = rows.map(({ uploadId, row }) => bulkRowKey(uploadId, row))
+    const allSelected = keys.length > 0 && keys.every((key) => selectedBulkRows.includes(key))
+    setSelectedBulkRows(allSelected ? [] : keys)
+  }
+
+  const deleteSelectedBulkRows = async () => {
+    if (!selectedBulkRows.length) return
+    const grouped = selectedBulkRows.reduce((byUpload, key) => {
+      const separator = key.indexOf(':')
+      const uploadId = key.slice(0, separator)
+      const rowNumber = Number(key.slice(separator + 1))
+      ;(byUpload[uploadId] = byUpload[uploadId] || []).push(rowNumber)
+      return byUpload
+    }, {})
+    if (!(await confirmDelete({ name: `${selectedBulkRows.length} selected row${selectedBulkRows.length === 1 ? '' : 's'}`, itemLabel: 'rows' }))) return
+    let deleted = 0
+    for (const [uploadId, rowNumbers] of Object.entries(grouped)) {
+      const response = await runWithLoader('Deleting bulk user rows', () =>
+        fetch(`${apiUrl}/users/bulk/${uploadId}/rows/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ row_numbers: rowNumbers }),
+        }),
+      )
+      const result = await response.json()
+      if (!response.ok) return notify(result.detail || 'Unable to delete selected rows')
+      deleted += result.deleted || 0
+    }
+    setSelectedBulkRows([])
+    await reloadBulkUploads()
+    notify(`${deleted} row${deleted === 1 ? '' : 's'} removed from the bulk upload`)
   }
 
   const showBulkErrors = (uploadId, row, event) => {
@@ -901,12 +945,17 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
           const visibleRows = allRows.slice((bulkPage - 1) * bulkPageSize, bulkPage * bulkPageSize)
           return allRows.length ? (
             <div className="bulk-review-section">
+              <div className="bulk-review-toolbar">
+                <span className="bulk-selection-count">{selectedBulkRows.length ? `${selectedBulkRows.length} selected` : ''}</span>
+                <button type="button" className="bulk-delete-selected" disabled={!selectedBulkRows.length} onClick={deleteSelectedBulkRows} title="Remove the selected rows"><i className="bi bi-trash3" /> Delete selected</button>
+              </div>
               <div className="global-table-scroll">
                 <table className="er-table bulk-ready-table">
-                  <thead><tr><th>Row</th><th>User</th><th>Employee ID</th><th>Email</th><th>Role</th><th>Department</th><th>Location</th><th>Reporting manager</th><th>Status</th><th className="bulk-actions-col">Actions</th></tr></thead>
+                  <thead><tr><th className="bulk-select-col"><input type="checkbox" checked={visibleRows.length > 0 && visibleRows.every(({ uploadId, row }) => selectedBulkRows.includes(bulkRowKey(uploadId, row)))} onChange={() => toggleAllBulkRows(visibleRows)} aria-label="Select all visible rows" /></th><th>Row</th><th>User</th><th>Employee ID</th><th>Email</th><th>Role</th><th>Department</th><th>Location</th><th>Reporting manager</th><th>Status</th><th className="bulk-actions-col">Actions</th></tr></thead>
                   <tbody>
                     {visibleRows.map(({ uploadId, row }) => (
                       <tr key={`${uploadId}-${row.row}`}>
+                        <td className="bulk-select-col" data-label="Select"><input type="checkbox" checked={selectedBulkRows.includes(bulkRowKey(uploadId, row))} onChange={() => toggleBulkRow(uploadId, row)} aria-label={`Select row ${row.row}`} /></td>
                         <td data-label="Row">{row.row}</td>
                         <td data-label="User"><b>{row.data.firstName} {row.data.lastName}</b></td>
                         <td data-label="Employee ID">{row.data.employeeId}</td>
