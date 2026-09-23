@@ -181,8 +181,8 @@ export default function DashboardPage({
   })
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening'
-  const greetingDate = new Intl.DateTimeFormat('en-IN', {
-    weekday: 'long', day: 'numeric', month: 'long',
+  const greetingDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
   }).format(new Date())
   const dashboardName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Administrator'
  

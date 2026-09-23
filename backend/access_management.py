@@ -21,7 +21,7 @@ from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from google.cloud.firestore_v1 import Query as FirestoreQuery
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
  
 try:
     from .firebase_service import get_firestore_client
@@ -78,6 +78,13 @@ class AccessUserFields(BaseModel):
     department: str = Field(min_length=1, max_length=100)
     reportingManager: str = Field(min_length=1, max_length=160)
     role: Literal["user", "admin", "project_manager"]
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def normalize_role(cls, value):
+        """Store role values in the canonical form required by the API."""
+        normalized = str(value or "").strip().casefold().replace(" ", "_")
+        return normalized
  
  
 class AccessUserCreate(AccessUserFields):
@@ -819,10 +826,10 @@ def download_bulk_user_template():
     date_validation = DataValidation(type="date", operator="between", formula1="DATE(1900,1,1)", formula2="TODAY()", allow_blank=False)
     date_validation.error = "Enter a valid joining date, not later than today."
     date_validation.errorTitle = "Invalid joining date"
-    date_validation.prompt = "Enter a date, for example 03.03.2025."
+    date_validation.prompt = "Enter a date, for example 03/31/2025."
     date_validation.promptTitle = "Date of joining"
     sheet.add_data_validation(date_validation); date_validation.add("C2:C500")
-    for row in range(2, 501): sheet.cell(row, 3).number_format = "DD.MM.YYYY"
+    for row in range(2, 501): sheet.cell(row, 3).number_format = "MM/DD/YYYY"
     lists.sheet_state = "hidden"
     output = BytesIO(); workbook.save(output); output.seek(0)
     return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=OTEC_User_Bulk_Template.xlsx"})
@@ -856,7 +863,7 @@ def upload_bulk_users(file: UploadFile = File(...)):
         elif isinstance(joining_date, date):
             row["dateOfJoining"] = joining_date.isoformat()
         if row["dateOfJoining"]:
-            for pattern in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
+            for pattern in ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y"):
                 try:
                     row["dateOfJoining"] = datetime.strptime(row["dateOfJoining"], pattern).date().isoformat(); break
                 except ValueError: continue
@@ -865,8 +872,9 @@ def upload_bulk_users(file: UploadFile = File(...)):
         if row["department"].lower() not in departments: errors.append("Department is not in Manage options")
         if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
         if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
+        row["role"] = row["role"].casefold().replace(" ", "_")
         if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
-        if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be DD.MM.YYYY or YYYY-MM-DD")
+        if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
         email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
         if email in existing_emails: errors.append("Employee email already exists")
         if employee_id in existing_ids: errors.append("Employee ID already exists")
@@ -935,7 +943,7 @@ def validate_bulk_row(row_data):
     elif isinstance(joining_date, date):
         row["dateOfJoining"] = joining_date.isoformat()
     if row["dateOfJoining"]:
-        for pattern in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
+        for pattern in ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y"):
             try:
                 row["dateOfJoining"] = datetime.strptime(row["dateOfJoining"], pattern).date().isoformat(); break
             except ValueError: continue
@@ -950,8 +958,9 @@ def validate_bulk_row(row_data):
     if row["department"].lower() not in departments: errors.append("Department is not in Manage options")
     if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
     if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
+    row["role"] = row["role"].casefold().replace(" ", "_")
     if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
-    if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be DD.MM.YYYY or YYYY-MM-DD")
+    if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
     email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
     if email in existing_emails: errors.append("Employee email already exists")
     if employee_id in existing_ids: errors.append("Employee ID already exists")
