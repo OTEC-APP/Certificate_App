@@ -4,6 +4,7 @@ import base64
 import json
 import logging
 import os
+import re
 import secrets
 import time
 from datetime import date, datetime, timedelta
@@ -72,7 +73,8 @@ class AccessUserFields(BaseModel):
     firstName: str = Field(min_length=1, max_length=80)
     lastName: str = Field(min_length=1, max_length=80)
     dateOfJoining: date = Field(le=date.today())
-    employeeId: str = Field(min_length=1, max_length=20, pattern=r"^\d+$")
+    # employeeId: str = Field(min_length=1, max_length=20, pattern=r"^\d+$")
+    employeeId: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9-]+$")
     employeeEmail: str = Field(min_length=3, max_length=254)
     location: str = Field(min_length=1, max_length=100)
     department: str = Field(min_length=1, max_length=100)
@@ -945,8 +947,8 @@ def row_field_errors(row):
     employee_id = str(row.get("employeeId", "")).strip()
     if not employee_id:
         errors.append("Employee ID is required")
-    elif not employee_id.isdigit():
-        errors.append("Employee ID must contain digits only")
+    elif not re.fullmatch(r"[A-Za-z0-9-]+", employee_id):
+        errors.append("Employee ID may contain letters, digits, and hyphens only")
     if not str(row.get("reportingManager", "")).strip():
         errors.append("Reporting manager is required")
     if not str(row.get("employeeEmail", "")).strip():
@@ -958,7 +960,6 @@ def row_field_errors(row):
         except (TypeError, ValueError):
             errors.append("Date of joining must be a valid date")
     return errors
-
 
 def validate_bulk_row(row_data):
     """Normalize and validate a single bulk user row against options and existing users.

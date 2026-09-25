@@ -47,12 +47,41 @@ const ruPointsFor = (certificate) => {
   return Number.isFinite(numericPoints) ? numericPoints : null
 }
 
+// const ctsCredentialType = (certificate) => {
+//   const name = `${certificate.course_name || ''} ${certificate.vendor_name || ''}`.toUpperCase()
+//   const normalizedName = name.replace(/[^A-Z0-9]+/g, ' ').trim()
+//   if (name.includes('CTS-D') || normalizedName.includes('CTS D') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST DESIGN') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST D')) return 'CTS-D'
+//   if (name.includes('CTS-I') || normalizedName.includes('CTS I') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST INSTALL') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST I')) return 'CTS-I'
+//   return name.includes('CTS') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST') ? 'CTS' : ''
+// }
 const ctsCredentialType = (certificate) => {
-  const name = `${certificate.course_name || ''} ${certificate.vendor_name || ''}`.toUpperCase()
-  const normalizedName = name.replace(/[^A-Z0-9]+/g, ' ').trim()
-  if (name.includes('CTS-D') || normalizedName.includes('CTS D') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST DESIGN') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST D')) return 'CTS-D'
-  if (name.includes('CTS-I') || normalizedName.includes('CTS I') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST INSTALL') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST I')) return 'CTS-I'
-  return name.includes('CTS') || normalizedName.includes('CERTIFIED TECHNOLOGY SPECIALIST') ? 'CTS' : ''
+  // TEMP FIX: only treat AVIXA-issued certificates as CTS credentials.
+  const vendor = String(certificate.vendor_name || '').trim().toUpperCase()
+  const course = String(certificate.course_name || '').trim().toUpperCase()
+
+  const isAvixa = vendor.includes('AVIXA') || vendor.includes('INFOCOMM')
+if (!isAvixa) return ''
+
+  const normalizedCourse = course.replace(/[^A-Z0-9]+/g, ' ').trim()
+  const words = normalizedCourse.split(/\s+/)
+
+  if (
+    course.includes('CTS-D') ||
+    normalizedCourse.includes('CTS D') ||
+    normalizedCourse.includes('CERTIFIED TECHNOLOGY SPECIALIST DESIGN') ||
+    normalizedCourse.includes('CERTIFIED TECHNOLOGY SPECIALIST D')
+  ) return 'CTS-D'
+
+  if (
+    course.includes('CTS-I') ||
+    normalizedCourse.includes('CTS I') ||
+    normalizedCourse.includes('CERTIFIED TECHNOLOGY SPECIALIST INSTALL') ||
+    normalizedCourse.includes('CERTIFIED TECHNOLOGY SPECIALIST I')
+  ) return 'CTS-I'
+
+  if (words.includes('CTS') || normalizedCourse.includes('CERTIFIED TECHNOLOGY SPECIALIST')) return 'CTS'
+
+  return ''
 }
  
 export default function CompletionRecordsPage() {

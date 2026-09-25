@@ -669,18 +669,50 @@ def certificate_is_current(certificate: dict, today: date | None = None) -> bool
     return expiry is None or expiry >= (today or date.today())
 
 
+# def cts_credential_type(certificate: dict) -> str | None:
+#     """Classify an active AVIXA CTS credential from its full or abbreviated name."""
+#     credential_name = f"{certificate.get('course_name', '')} {certificate.get('vendor_name', '')}".upper()
+#     normalized_name = " ".join("".join(character if character.isalnum() else " " for character in credential_name).split())
+#     if "CTS-D" in credential_name or "CTS D" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST DESIGN" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST D" in normalized_name:
+#         return "CTS-D"
+#     if "CTS-I" in credential_name or "CTS I" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST INSTALL" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST I" in normalized_name:
+#         return "CTS-I"
+#     if "CTS" in credential_name or "CERTIFIED TECHNOLOGY SPECIALIST" in normalized_name:
+#         return "CTS"
+#     return None
+
 def cts_credential_type(certificate: dict) -> str | None:
     """Classify an active AVIXA CTS credential from its full or abbreviated name."""
-    credential_name = f"{certificate.get('course_name', '')} {certificate.get('vendor_name', '')}".upper()
-    normalized_name = " ".join("".join(character if character.isalnum() else " " for character in credential_name).split())
-    if "CTS-D" in credential_name or "CTS D" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST DESIGN" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST D" in normalized_name:
+    # TEMP FIX: only treat AVIXA/InfoComm-issued certificates as CTS credentials.
+    vendor = str(certificate.get("vendor_name") or "").strip().upper()
+    course = str(certificate.get("course_name") or "").strip().upper()
+
+    is_avixa = "AVIXA" in vendor or "INFOCOMM" in vendor
+    if not is_avixa:
+        return None
+
+    normalized_course = " ".join(
+        "".join(character if character.isalnum() else " " for character in course).split()
+    )
+    tokens = set(normalized_course.split())
+
+    if (
+        "CTS-D" in course
+        or "CTS D" in normalized_course
+        or "CERTIFIED TECHNOLOGY SPECIALIST DESIGN" in normalized_course
+        or "CERTIFIED TECHNOLOGY SPECIALIST D" in normalized_course
+    ):
         return "CTS-D"
-    if "CTS-I" in credential_name or "CTS I" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST INSTALL" in normalized_name or "CERTIFIED TECHNOLOGY SPECIALIST I" in normalized_name:
+    if (
+        "CTS-I" in course
+        or "CTS I" in normalized_course
+        or "CERTIFIED TECHNOLOGY SPECIALIST INSTALL" in normalized_course
+        or "CERTIFIED TECHNOLOGY SPECIALIST I" in normalized_course
+    ):
         return "CTS-I"
-    if "CTS" in credential_name or "CERTIFIED TECHNOLOGY SPECIALIST" in normalized_name:
+    if "CTS" in tokens or "CERTIFIED TECHNOLOGY SPECIALIST" in normalized_course:
         return "CTS"
     return None
-
 
 def cts_holder_ru_rows(email: str, certificates: list[dict]) -> list[tuple[str, str]]:
     """Return RU details only when the employee currently holds a CTS credential."""
