@@ -79,7 +79,7 @@ const certificateValue = (certificate, field) => {
     certificateNumber: certificate.certificate_number || 'Not recorded',
     completed: certificate.issued_date || 'Not recorded',
     validity: certificate.expires_on ? 'Expiry date set' : expiry ? `${validityYearsFor(certificate)} years` : 'Lifetime',
-    expiry: expiry ? expiry.toLocaleDateString('en-IN') : 'Lifetime',
+    expiry: expiry ? expiry.toLocaleDateString('en-US') : 'Lifetime',
     daysRemaining: days === null ? '—' : `${days} days`,
     ruPoints: Number.isFinite(ruPoints) ? String(ruPoints) : '—',
   }[field]
@@ -149,7 +149,7 @@ export async function exportEmployeePdf(employee, options) {
     document.setPage(page)
     document.setFontSize(8)
     document.setTextColor(...MUTED)
-    document.text(`Generated ${new Date().toLocaleDateString('en-IN')} · Page ${page} of ${pages}`, 196, 290, { align: 'right' })
+    document.text(`Generated ${new Date().toLocaleDateString('en-US')} · Page ${page} of ${pages}`, 196, 290, { align: 'right' })
   }
   document.save(`${safeFileName(employee.name)}-certification-report.pdf`)
 }

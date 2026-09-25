@@ -103,15 +103,15 @@ function UserForm({ user, locations, departments, onSave, onClose }) {
           <label>
             Employee ID
             <input
-              name="employeeId"
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              value={form.employeeId}
-              onChange={change}
-              required
-            />
+  name="employeeId"
+  type="text"
+  inputMode="text"
+  pattern="[A-Za-z0-9-]+"
+  title="Letters, digits, and hyphens only"
+  value={form.employeeId}
+  onChange={change}
+  required
+/>
           </label>
           <label>
             Employee email

@@ -12,6 +12,8 @@ function Card({
   hint,
   action,
   onAction,
+  trailingAction,
+  onTrailingAction,
   children,
   dark = false,
   clickable = false
@@ -19,7 +21,10 @@ function Card({
   return <section onClick={clickable ? onAction : undefined} className={`er-card ${dark ? 'dark' : ''} ${clickable ? 'card-clickable' : ''}`}><header><h3>{title}</h3><div className="card-header-actions">{hint && (typeof hint === 'string' ? <span>{hint}</span> : hint)}{action && <button className="card-action" onClick={event => {
         event.stopPropagation();
         onAction();
-      }}>{action}</button>}</div></header>{children}</section>;
+      }}>{action}</button>}{trailingAction && <button className="card-action" onClick={event => {
+        event.stopPropagation();
+        onTrailingAction();
+      }}>{trailingAction}</button>}</div></header>{children}</section>;
 }
 
 function Bars({
@@ -176,8 +181,8 @@ export default function DashboardPage({
   })
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening'
-  const greetingDate = new Intl.DateTimeFormat('en-IN', {
-    weekday: 'long', day: 'numeric', month: 'long',
+  const greetingDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
   }).format(new Date())
   const dashboardName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Administrator'
  
@@ -216,7 +221,7 @@ export default function DashboardPage({
       <Card dark clickable onAction={() => goTo('completions?credential=CTS')} title="CTS holders" hint="AVIXA CERTIFIED"><div className="cts"><div><b>{ctsSummary.total}</b><span>Certified {ctsSummary.total === 1 ? 'Professional' : 'Professionals'}</span></div><section>{ctsSummary.types.map((type) => <p className="cts-filter-tile" role="button" tabIndex="0" key={type.name} onClick={(event) => { event.stopPropagation();goTo(`completions?credentialType=${encodeURIComponent(type.name)}`) }}><b>{type.count}</b>{type.name}{type.name === 'CTS-D' ? ' · Design' : type.name === 'CTS-I' ? ' · Install' : ''}</p>)}</section><footer>{ctsSummary.holders.slice(0,6).map((holder,i) => { const holderInitials=String(holder.name||'Unknown').split(/\s+/).filter(Boolean).map((part)=>part[0]).join('').slice(0,2).toUpperCase();return <i key={`${holder.name}-${i}`} className={`face f${i}`}>{holderInitials}</i> })}<small>{ctsSummary.total ? `View all ${ctsSummary.total} CTS holders →` : 'No active CTS holders'}</small></footer></div></Card>
     </div>
     <div className="er-grid lead-grid">
-      <Card title={`${leaderboardLabel} Top 5 certified holders`} hint={leaderboardToggle} action="View all" onAction={() => openEmployees({ type: 'employee_ids', value: allRankedEmployees.map((employee) => employee.profile_id || employee.employee_id).filter(Boolean), ranked: true, rankingPeriod: leaderboardPeriod, rankCounts: Object.fromEntries(allRankedEmployees.map((employee) => [employee.profile_id || employee.employee_id, employee.count])), label: `${leaderboardLabel} certified holder ranking` })}><div className="leaderboard-list">{leaderboard.length ? leaderboard.map((employee,i) => { const employeeId = employee.profile_id || employee.employee_id; return <button className="leader" onClick={() => employeeId ? goTo(`employees/${employeeId}`) : goTo(`completions?employee=${encodeURIComponent(employee.name)}`)} key={employeeId || employee.name}><em className={`r${i+1}`} aria-label={`Rank ${i + 1}`}>{rankMedals[i] || i + 1}</em><i className="face" style={{background:employee.colour}}>{employee.initials}</i><span><b>{employee.name}</b><small>{leaderboardMeta(employee)}</small></span><strong>{employee.count}<small>certs</small></strong></button> }) : <p className="user-empty">No validated certificates were completed for this period.</p>}</div></Card>
+      <Card title={`${leaderboardLabel} Top 5 certified holders`} hint={leaderboardToggle} action="Customize email" onAction={() => goTo('top-certified-holders-mail')} trailingAction="View all" onTrailingAction={() => openEmployees({ type: 'certified', value: 'certified', certified: true, label: 'Certified employees' })}><div className="leaderboard-list">{leaderboard.length ? leaderboard.map((employee,i) => { const employeeId = employee.profile_id || employee.employee_id; return <button className="leader" onClick={() => employeeId ? goTo(`employees/${employeeId}`) : goTo(`completions?employee=${encodeURIComponent(employee.name)}`)} key={employeeId || employee.name}><em className={`r${i+1}`} aria-label={`Rank ${i + 1}`}>{rankMedals[i] || i + 1}</em><i className="face" style={{background:employee.colour}}>{employee.initials}</i><span><b>{employee.name}</b><small>{leaderboardMeta(employee)}</small></span><strong>{employee.count}<small>certs</small></strong></button> }) : <p className="user-empty">No validated certificates are available for this period.</p>}</div></Card>
        <Card title={`Certifications completed by ${chartPeriod}`} hint={chartToggle}>
   <CompletionLineChart 
     data={chartRows} 

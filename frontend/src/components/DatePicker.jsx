@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
  
 const displayDate = (value) => {
   const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : ''
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : ''
 }
  
 const isoDate = (value) => {
   const match = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
   if (!match) return ''
-  const [, day, month, year] = match
+  const [, month, day, year] = match
   const candidate = `${year}-${month}-${day}`
   const parsed = new Date(`${candidate}T00:00:00`)
   return !Number.isNaN(parsed.getTime()) && parsed.getFullYear() === Number(year) && parsed.getMonth() + 1 === Number(month) && parsed.getDate() === Number(day)
@@ -32,7 +32,7 @@ export default function DatePicker({ name, value, onChangeValue, min, max, requi
     if (!input) return
     let message = ''
     if (required && !text) message = `${label || 'Date'} is required.`
-    else if (text && !dateFromText) message = 'Enter a valid date in DD/MM/YYYY format.'
+    else if (text && !dateFromText) message = 'Enter a valid date in MM/DD/YYYY format.'
     else if (dateFromText && min && dateFromText < min) message = `${label || 'Date'} cannot be before ${displayDate(min)}.`
     else if (dateFromText && max && dateFromText > max) message = `${label || 'Date'} cannot be after ${displayDate(max)}.`
     input.setCustomValidity(message)
@@ -53,7 +53,7 @@ export default function DatePicker({ name, value, onChangeValue, min, max, requi
         type="text"
         inputMode="numeric"
         autoComplete="off"
-        placeholder="DD/MM/YYYY"
+        placeholder="MM/DD/YYYY"
         value={text}
         maxLength={10}
         required={required}

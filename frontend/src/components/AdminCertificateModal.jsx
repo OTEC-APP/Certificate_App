@@ -10,17 +10,33 @@ const capitalizeCertificationName = (value) =>
  
  
 export default function AdminCertificateModal({ close, notify, runWithLoader }) {
+  // Employee
   const [employees, setEmployees] = useState([])
   const [employeeId, setEmployeeId] = useState('')
+  const [selectedEmployee, setSelectedEmployee] = useState(null)
+  const [loadingEmployees, setLoadingEmployees] = useState(false)
+  const [employeeSearch, setEmployeeSearch] = useState('')
+  const [employeePage, setEmployeePage] = useState(1)
+  const [employeeHasMore, setEmployeeHasMore] = useState(false)
+  const [employeeLoadingMore, setEmployeeLoadingMore] = useState(false)
+
+  // OEM
+  const [oems, setOems] = useState([])
+  const [oemName, setOemName] = useState('')
+  const [loadingOems, setLoadingOems] = useState(false)
+  const [oemSearch, setOemSearch] = useState('')
+
+  // Category
+  const [categories, setCategories] = useState([])
+  const [categoryName, setCategoryName] = useState('')
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [categorySearch, setCategorySearch] = useState('')
+
+  // Validity + dates (these were removed and must come back)
   const [validityMode, setValidityMode] = useState('lifetime')
   const [expiresOn, setExpiresOn] = useState('')
   const [issuedDate, setIssuedDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [oems, setOems] = useState([])
-  const [oemName, setOemName] = useState('')
-  const [loadingOems, setLoadingOems] = useState(true)
-  const [categories, setCategories] = useState([])
-  const [categoryName, setCategoryName] = useState('')
-  const [loadingCategories, setLoadingCategories] = useState(true)
+  // const [loadingCategories, setLoadingCategories] = useState(true)
   const validateCertificateFile = (event) => {
     const file = event.currentTarget.files?.[0]
     if (file && file.size > MAX_CERTIFICATE_FILE_SIZE) {
@@ -30,70 +46,187 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
     }
   }
  
-  useEffect(() => {
-    fetch(`${apiUrl}/employees?page=1&page_size=100`)
-      .then((response) => response.json())
-      .then((result) => setEmployees(result.items || []))
-      .catch(() => setEmployees([]))
-  }, [])
+  // useEffect(() => {
+  //   fetch(`${apiUrl}/employees?page=1&page_size=100`)
+  //     .then((response) => response.json())
+  //     .then((result) => setEmployees(result.items || []))
+  //     .catch(() => setEmployees([]))
+  // }, [])
 
-  useEffect(() => {
-    let active = true
-    fetch(`${apiUrl}/access-options/categories`)
-      .then(async (response) => {
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.detail || 'Unable to load categories')
-        return result
-      })
-      .then((result) => {
-        if (!active) return
-        const names = new Map()
-        ;(Array.isArray(result) ? result : []).forEach((category) => {
-          const name = String(category.name || '').trim()
-          if (name && !names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
-        })
-        setCategories([...names.values()].sort((left, right) => left.localeCompare(right)))
-      })
-      .catch(() => {
-        if (active) setCategories([])
-      })
-      .finally(() => {
-        if (active) setLoadingCategories(false)
-      })
-    return () => { active = false }
-  }, [])
+  // useEffect(() => {
+  //   let active = true
+  //   fetch(`${apiUrl}/access-options/categories`)
+  //     .then(async (response) => {
+  //       const result = await response.json()
+  //       if (!response.ok) throw new Error(result.detail || 'Unable to load categories')
+  //       return result
+  //     })
+  //     .then((result) => {
+  //       if (!active) return
+  //       const names = new Map()
+  //       ;(Array.isArray(result) ? result : []).forEach((category) => {
+  //         const name = String(category.name || '').trim()
+  //         if (name && !names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
+  //       })
+  //       setCategories([...names.values()].sort((left, right) => left.localeCompare(right)))
+  //     })
+  //     .catch(() => {
+  //       if (active) setCategories([])
+  //     })
+  //     .finally(() => {
+  //       if (active) setLoadingCategories(false)
+  //     })
+  //   return () => { active = false }
+  // }, [])
  
-  useEffect(() => {
-    let active = true
-    fetch(`${apiUrl}/access-options/oems`)
-      .then(async (response) => {
-        const result = await response.json()
-        if (!response.ok) throw new Error(result.detail || 'Unable to load OEM directory')
-        return result
+  // useEffect(() => {
+  //   let active = true
+  //   fetch(`${apiUrl}/access-options/oems`)
+  //     .then(async (response) => {
+  //       const result = await response.json()
+  //       if (!response.ok) throw new Error(result.detail || 'Unable to load OEM directory')
+  //       return result
+  //     })
+  //     .then((result) => {
+  //       if (!active) return
+  //       const byName = new Map()
+  //       ;(Array.isArray(result) ? result : [])
+  //         .forEach((oem) => {
+  //           const name = String(oem.name || '').trim()
+  //           if (name && !byName.has(name.toLowerCase())) byName.set(name.toLowerCase(), name)
+  //         })
+  //       setOems([...byName.values()].sort((left, right) => left.localeCompare(right)))
+  //     })
+  //     .catch(() => {
+  //       if (active) setOems([])
+  //     })
+  //     .finally(() => {
+  //       if (active) setLoadingOems(false)
+  //     })
+  //   return () => { active = false }
+  // }, [])
+  // Employees — lazy search
+// Employees — lazy search + pagination
+useEffect(() => {
+  let active = true
+  const loadEmployees = async () => {
+    setLoadingEmployees(true)
+    try {
+      const params = new URLSearchParams({
+        page: '1',
+        page_size: '50',
+        search: employeeSearch,
       })
-      .then((result) => {
-        if (!active) return
-        const byName = new Map()
-        ;(Array.isArray(result) ? result : [])
-          .forEach((oem) => {
-            const name = String(oem.name || '').trim()
-            if (name && !byName.has(name.toLowerCase())) byName.set(name.toLowerCase(), name)
-          })
-        setOems([...byName.values()].sort((left, right) => left.localeCompare(right)))
+      const response = await fetch(`${apiUrl}/employees?${params}`)
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.detail || 'Unable to load employees')
+      if (!active) return
+      const items = result.items || []
+      const total = Number(result.total) || items.length
+      setEmployees(items)
+      setEmployeePage(1)
+      setEmployeeHasMore(items.length < total)
+    } catch {
+      if (active) {
+        setEmployees([])
+        setEmployeePage(1)
+        setEmployeeHasMore(false)
+      }
+    } finally {
+      if (active) setLoadingEmployees(false)
+    }
+  }
+  loadEmployees()
+  return () => { active = false }
+}, [employeeSearch])
+
+// OEMs — lazy search
+useEffect(() => {
+  let active = true
+  const loadOems = async () => {
+    setLoadingOems(true)
+    try {
+      const response = await fetch(`${apiUrl}/access-options/oems`)
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.detail || 'Unable to load OEM directory')
+      const term = oemSearch.trim().toLowerCase()
+      const names = new Map()
+      ;(Array.isArray(result) ? result : []).forEach((oem) => {
+        const name = String(oem.name || '').trim()
+        if (!name) return
+        if (term && !name.toLowerCase().includes(term)) return
+        if (!names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
       })
-      .catch(() => {
-        if (active) setOems([])
+      if (active) setOems([...names.values()].sort((a, b) => a.localeCompare(b)))
+    } catch {
+      if (active) setOems([])
+    } finally {
+      if (active) setLoadingOems(false)
+    }
+  }
+  loadOems()
+  return () => { active = false }
+}, [oemSearch])
+
+// Categories — lazy search
+useEffect(() => {
+  let active = true
+  const loadCategories = async () => {
+    setLoadingCategories(true)
+    try {
+      const response = await fetch(`${apiUrl}/access-options/categories`)
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.detail || 'Unable to load categories')
+      const term = categorySearch.trim().toLowerCase()
+      const names = new Map()
+      ;(Array.isArray(result) ? result : []).forEach((category) => {
+        const name = String(category.name || '').trim()
+        if (!name) return
+        if (term && !name.toLowerCase().includes(term)) return
+        if (!names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
       })
-      .finally(() => {
-        if (active) setLoadingOems(false)
-      })
-    return () => { active = false }
-  }, [])
- 
+      if (active) setCategories([...names.values()].sort((a, b) => a.localeCompare(b)))
+    } catch {
+      if (active) setCategories([])
+    } finally {
+      if (active) setLoadingCategories(false)
+    }
+  }
+  loadCategories()
+  return () => { active = false }
+}, [categorySearch])
+const loadMoreEmployees = async () => {
+  if (employeeLoadingMore || !employeeHasMore) return
+  setEmployeeLoadingMore(true)
+  const nextPage = employeePage + 1
+  try {
+    const params = new URLSearchParams({
+      page: String(nextPage),
+      page_size: '50',
+      search: employeeSearch,
+    })
+    const response = await fetch(`${apiUrl}/employees?${params}`)
+    const result = await response.json()
+    if (!response.ok) throw new Error(result.detail || 'Unable to load employees')
+    const items = result.items || []
+    setEmployees((current) => {
+      const seen = new Set(current.map((item) => item.id))
+      return [...current, ...items.filter((item) => !seen.has(item.id))]
+    })
+    setEmployeePage(nextPage)
+    const total = Number(result.total) || 0
+    setEmployeeHasMore((current) => current.length + items.length < total || items.length === 50)
+  } catch {
+    // Keep existing list; user can scroll again to retry.
+  } finally {
+    setEmployeeLoadingMore(false)
+  }
+}
+
   const submit = async (event) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const employee = employees.find((item) => item.id === employeeId)
+    const employee = selectedEmployee
     if (!employee) return notify('Select an employee first')
     const certificateName = capitalizeCertificationName(form.get('name')).trim()
     const totalRuPoints = form.get('totalRuPoints')
@@ -162,18 +295,31 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
         <label>
           Employee name <span className="required-field-mark" aria-hidden="true">*</span>
           <CompactSelect
-            required
-            searchable
-            value={employeeId}
-            onChange={(event) => setEmployeeId(event.target.value)}
-          >
-            <option value="">Choose employee</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}  -  {employee.employeeId}
-              </option>
-            ))}
-          </CompactSelect>
+  required
+  searchable
+  value={employeeId}
+  onChange={(event) => {
+    const id = event.target.value
+    setEmployeeId(id)
+    setSelectedEmployee(employees.find((item) => item.id === id) || null)
+  }}
+  onSearch={setEmployeeSearch}
+  loading={loadingEmployees || employeeLoadingMore}
+  hasMore={employeeHasMore}
+  onLoadMore={loadMoreEmployees}
+>
+  <option value="">Choose employee</option>
+  {selectedEmployee && !employees.some((item) => item.id === selectedEmployee.id) && (
+    <option value={selectedEmployee.id}>
+      {selectedEmployee.name}  -  {selectedEmployee.employeeId}
+    </option>
+  )}
+  {employees.map((employee) => (
+    <option key={employee.id} value={employee.id}>
+      {employee.name}  -  {employee.employeeId}
+    </option>
+  ))}
+</CompactSelect>
           <small className="verification-image-help">
             The certificate and its count will belong to the selected employee's profile.
           </small>
@@ -181,18 +327,20 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
         <label>
           OEM name <span className="required-field-mark" aria-hidden="true">*</span>
           <CompactSelect
-            name="vendorName"
-            required
-            searchable
-            value={oemName}
-            onChange={(event) => setOemName(event.target.value)}
-            disabled={loadingOems}
-          >
-            <option value="" disabled>
-              {loadingOems ? 'Loading OEMs...' : oems.length ? 'Choose OEM' : 'No OEMs configured'}
-            </option>
-            {oems.map((oem) => <option key={oem} value={oem} title={oem}>{oem}</option>)}
-          </CompactSelect>
+  name="vendorName"
+  required
+  searchable
+  value={oemName}
+  onChange={(event) => setOemName(event.target.value)}
+  onSearch={setOemSearch}
+  loading={loadingOems}
+>
+  <option value="" disabled>
+    {oems.length ? 'Choose OEM' : 'No OEMs configured'}
+  </option>
+  {oemName && !oems.includes(oemName) && <option value={oemName}>{oemName}</option>}
+  {oems.map((oem) => <option key={oem} value={oem} title={oem}>{oem}</option>)}
+</CompactSelect>
           <small className="verification-image-help">
             Add or edit OEM names from Settings.
           </small>
@@ -210,18 +358,20 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
         <label>
           Category <span className="required-field-mark" aria-hidden="true">*</span>
           <CompactSelect
-            name="category"
-            required
-            searchable
-            value={categoryName}
-            onChange={(event) => setCategoryName(event.target.value)}
-            disabled={loadingCategories}
-          >
-            <option value="" disabled>
-              {loadingCategories ? 'Loading categories...' : categories.length ? 'Choose category' : 'No categories configured'}
-            </option>
-            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-          </CompactSelect>
+  name="category"
+  required
+  searchable
+  value={categoryName}
+  onChange={(event) => setCategoryName(event.target.value)}
+  onSearch={setCategorySearch}
+  loading={loadingCategories}
+>
+  <option value="" disabled>
+    {categories.length ? 'Choose category' : 'No categories configured'}
+  </option>
+  {categoryName && !categories.includes(categoryName) && <option value={categoryName}>{categoryName}</option>}
+  {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+</CompactSelect>
           <small className="verification-image-help">Categories are managed in Settings.</small>
         </label>
         <label>

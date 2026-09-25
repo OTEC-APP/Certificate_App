@@ -6,7 +6,7 @@ import { confirmDelete } from '../dialogs'
 
 const apiUrl = process.env.REACT_APP_API_URL
 
-const formatDate = (value) => value ? new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${String(value).slice(0, 10)}T00:00:00`)) : 'No due date'
+const formatDate = (value) => value ? new Intl.DateTimeFormat('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${String(value).slice(0, 10)}T00:00:00`)) : 'No due date'
 
 export default function CertificationTasksPage({ user, notify, realtimeVersion, openCertificateForm, personalMode = false }) {
   const isAdmin = user?.role === 'admin' && !personalMode

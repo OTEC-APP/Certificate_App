@@ -26,6 +26,7 @@ import AccessManagementPage from './pages/AccessManagementPage'
 import ActivityHistoryPage from './pages/ActivityHistoryPage'
 import LoginPage from './pages/LoginPage'
 import LiveEmployeeRecordPage from './pages/LiveEmployeeRecordPage'
+import TopCertifiedHoldersMailPage from './pages/TopCertifiedHoldersMailPage'
 import Sidebar from './components/Sidebar'
 import AppHeader from './components/AppHeader'
 import PageHeading from './components/PageHeading'
@@ -57,6 +58,8 @@ import './drawer-navigation.css'
 import './dashboard-card-geometry.css'
 import './employee-record-overrides.css'
 import './responsive-overrides.css'
+import SendCustomEmailPage from './pages/SendCustomEmailPage'
+ 
 
 const SESSION_KEY = 'certtrack-auth-session'
 const SESSION_USER_KEY = 'certtrack-auth-user'
@@ -427,6 +430,7 @@ const RoutedUserRenewals = () => <UserDashboardPage {...useOutletContext()} init
 const RoutedMyCourseList = () => <CertificationTasksPage {...useOutletContext()} personalMode />
 const RoutedEmployees = () => <LiveEmployeesPage {...useOutletContext()} />
 const RoutedExportReports = () => <ExportReportsPage />
+
 const RoutedCertificationTasks = () => {
   const context = useOutletContext()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -651,6 +655,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+      <Route
+  path="send-email"
+  element={
+<AdminOnly>
+<SendCustomEmailPage {...useOutletContext()} />
+</AdminOnly>
+  }
+/>
+ 
         <Route
           path="login"
           element={
@@ -672,6 +685,7 @@ export default function App() {
           <Route path="my-course-list" element={<AdminOnly><RoutedMyCourseList /></AdminOnly>} />
           <Route path="completions" element={<AdminOnly><CompletionRecordsPage /></AdminOnly>} />
           <Route path="exports" element={<AdminOrProjectManager><RoutedExportReports /></AdminOrProjectManager>} />
+          <Route path="top-certified-holders-mail" element={<AdminOnly><TopCertifiedHoldersMailPage /></AdminOnly>} />
           <Route path="task-assignments" element={<AdminOnly><RoutedCertificationTasks /></AdminOnly>} />
           <Route path="task-assignments/:taskId/completed-users" element={<AdminOnly><RoutedCompletedTaskUsers /></AdminOnly>} />
           <Route path="certification-tasks" element={<UserOrProjectManager><RoutedCertificationTasks /></UserOrProjectManager>} />

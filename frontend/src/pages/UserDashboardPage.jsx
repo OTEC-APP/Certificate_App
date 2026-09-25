@@ -679,6 +679,7 @@ const expiryFor = (certificate) => {
 }
  
 const oemColors = ['#5147e5', '#f09b2e', '#10a58e', '#e25573', '#4385e8']
+const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Not recorded'
 const validityLabel = (certificate) => {
   if (certificate.expires_on) return 'Expiry date set'
   const years = validityYearsFor(certificate)
@@ -719,7 +720,6 @@ export default function UserDashboardPage({
   const location = useLocation()
   const isProfileRoute = location.pathname.split('/')[1] === 'my-profile'
   const isRenewalsRoute = location.pathname.split('/')[1] === 'upcoming-renewals'
-  const isProjectManager = user?.role === 'project_manager'
   const isAdminProfile = isProfileRoute && user.role === 'admin'
   const [certificates, setCertificates] = useState([])
   const [loading, setLoading] = useState(true)
@@ -889,8 +889,8 @@ export default function UserDashboardPage({
 
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening'
-  const greetingDate = new Intl.DateTimeFormat('en-IN', {
-    weekday: 'long', day: 'numeric', month: 'long',
+  const greetingDate = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
   }).format(new Date())
   const dashboardName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'User'
 
@@ -906,7 +906,6 @@ export default function UserDashboardPage({
               {/* <small>Here is the latest certification and compliance overview.</small>     */}
             </h2>
             <p className="user-greeting-details">
-              {isProjectManager && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Project Manager</strong>}
               <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
               <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Not assigned'}</strong>
             </p>
@@ -922,8 +921,7 @@ export default function UserDashboardPage({
             <span><i className="bi bi-grid-1x2" aria-hidden="true" /> PERSONAL WORKSPACE</span>
             <h2>{dashboardName}'s Dashboard</h2>
             <p className="dashboard-greeting-details">
-              {isProjectManager && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Project Manager</strong>}
-              {!isProjectManager && user?.role === 'admin' && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Administrator</strong>}
+              {user?.role === 'admin' && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Administrator</strong>}
               <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
               <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Not assigned'}</strong>
             </p>
@@ -1233,10 +1231,10 @@ function CertificateTable({ certificates, loading, onEdit, onDelete, notify, run
             <td>{validityLabel(certificate)}</td>
             <td>
               {expiryFor(certificate)
-                ? expiryFor(certificate).toLocaleDateString('en-IN')
+                ? expiryFor(certificate).toLocaleDateString('en-US')
                 : 'No expiry'}
             </td>
-            <td>{certificate.issued_date}</td>
+            <td>{formatDate(certificate.issued_date)}</td>
             <td>
               <span className={`user-status ${certificate.status}`}>{certificateStatusLabel(certificate.status)}</span>
             </td>
@@ -1298,9 +1296,9 @@ function RenewalList({ renewals, onAdd }) {
               <b>{certificate.course_name}</b>
               <small>
                 {isOverdue ? 'Expired' : 'Expires'}{' '}
-                {certificate.expiry.toLocaleDateString('en-IN', {
+                {certificate.expiry.toLocaleDateString('en-US', {
                   day: '2-digit',
-                  month: 'short',
+                  month: '2-digit',
                   year: 'numeric',
                 })}
               </small>
