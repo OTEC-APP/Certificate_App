@@ -25,7 +25,7 @@ from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Reques
 
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud.firestore_v1 import Query as FirestoreQuery
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 if __package__:
     # Package import: `from backend import app` or `uvicorn backend.main:app`
@@ -459,8 +459,15 @@ class CertificateCreate(BaseModel):
     validity_years: int | None = Field(default=None, ge=1, le=3)
     expires_on: date | None = None
     reminder_days_before: int = Field(default=90, ge=1, le=90)
-    issued_date: date
+    # Completion date is optional: a certificate can be recorded before the
+    # exact completion date is known.
+    issued_date: date | None = None
     submission_source: Literal["user", "admin"] = "user"
+
+    @field_validator("issued_date", mode="before")
+    @classmethod
+    def _blank_issued_date_is_none(cls, value):
+        return None if value in ("", None) else value
 
 class StatusUpdate(BaseModel):
     status: Literal["issued", "revoked"]
@@ -472,8 +479,17 @@ class StatusUpdate(BaseModel):
     verified_ru_points: float | None = Field(default=None, ge=0, le=9999)
 
 
+# class CertificateApprovalDetailsUpdate(BaseModel):
+#     course_name: str = Field(min_length=2, max_length=160)
 class CertificateApprovalDetailsUpdate(BaseModel):
-    course_name: str = Field(min_length=2, max_length=160)
+    course_name: str | None = Field(default=None, min_length=2, max_length=160)
+    vendor_name: str | None = Field(default=None, min_length=2, max_length=100)
+    category: str | None = Field(default=None, min_length=2, max_length=60)
+    certificate_number: str | None = Field(default=None, max_length=100)
+    issued_date: date | None = None
+    validity_years: int | None = Field(default=None, ge=1, le=3)
+    expires_on: date | None = None
+    total_ru_points: float | None = Field(default=None, ge=0, le=9999)
 
 
 class TopHolderEmailRequest(BaseModel):
@@ -650,7 +666,10 @@ def certificate_expiry(certificate: dict) -> date | None:
     years = certificate_validity_years(certificate)
     if not years:
         return None
-    issued = date.fromisoformat(str(certificate.get("issued_date")))
+    issued_value = certificate.get("issued_date")
+    if not issued_value:
+        return None
+    issued = date.fromisoformat(str(issued_value))
     try:
         return issued.replace(year=issued.year + years)
     except ValueError:  # 29 February in a non-leap expiry year
@@ -1728,7 +1747,7 @@ def dashboard(response: Response, year: str = Query("")):
             for name in tenure_labels
         ],
         "upcoming": sorted(upcoming, key=lambda item: item["days_remaining"]),
-        "recent": sorted(issued, key=lambda item: item.get("issued_date", ""), reverse=True)[:5],
+        "recent": sorted(issued, key=lambda item: item.get("issued_date") or "", reverse=True)[:5],
         "storage_mode": "firebase" if db else "local",
     }
  
@@ -2158,7 +2177,7 @@ def list_certificates(
         results = [item for item in results if item.get("status") == status]
     results = sorted(
         results,
-        key=lambda item: item.get("created_at") or f"{item.get('issued_date', '1970-01-01')}T00:00:00",
+        key=lambda item: item.get("created_at") or f"{item.get('issued_date') or '1970-01-01'}T00:00:00",
         reverse=True,
     )
     total = len(results)
@@ -2253,7 +2272,7 @@ def report_certificates(
         ):
             continue
         results.append(row)
-    results.sort(key=lambda item: item.get("created_at") or f"{item.get('issued_date', '1970-01-01')}T00:00:00", reverse=True)
+    results.sort(key=lambda item: item.get("created_at") or f"{item.get('issued_date') or '1970-01-01'}T00:00:00", reverse=True)
     total = len(results)
     start = (page - 1) * page_size
     return {"items": results[start : start + page_size], "total": total, "page": page, "page_size": page_size}
@@ -2393,7 +2412,7 @@ def certification_catalog_holders(name: str = Query(min_length=1), vendor: str =
             "reviewed_by": certificate.get("reviewed_by"),
             "verification_file_uploaded": bool(certificate.get("verification_image_path")),
         })
-    records.sort(key=lambda record: record.get("issued_date", ""), reverse=True)
+    records.sort(key=lambda record: record.get("issued_date") or "", reverse=True)
     return {"name": name.strip(), "vendor": vendor.strip(), "items": records, "total": len(records)}
 
 
@@ -2659,7 +2678,7 @@ def employee_profile(employee_id: str):
         )
     ]
     certificates = [certificate for certificate in all_certificates if certificate.get("status") == "issued"]
-    certificates.sort(key=lambda certificate: certificate.get("issued_date", ""), reverse=True)
+    certificates.sort(key=lambda certificate: certificate.get("issued_date") or "", reverse=True)
     return {
         "id": snapshot.id,
         "name": f"{access_user.get('firstName', '')} {access_user.get('lastName', '')}".strip(),
@@ -2918,7 +2937,7 @@ def list_renewals(
  
 @app.post("/api/certificates", status_code=201)
 async def create_certificate(payload: CertificateCreate, background_tasks: BackgroundTasks):
-    if payload.expires_on and payload.expires_on < payload.issued_date:
+    if payload.expires_on and payload.issued_date and payload.expires_on < payload.issued_date:
         raise HTTPException(status_code=422, detail="Expiry date must be on or after the completion date")
     certificate_number = payload.certificate_number.strip()
     if certificate_number and any(
@@ -2954,7 +2973,7 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
  
 @app.put("/api/certificates/{certificate_id}")
 async def update_certificate(certificate_id: str, payload: CertificateUpdate, background_tasks: BackgroundTasks):
-    if payload.expires_on and payload.expires_on < payload.issued_date:
+    if payload.expires_on and payload.issued_date and payload.expires_on < payload.issued_date:
         raise HTTPException(status_code=422, detail="Expiry date must be on or after the completion date")
     certificate_number = payload.certificate_number.strip()
     if certificate_number and any(
@@ -3149,6 +3168,36 @@ def get_verification_file(certificate_id: str, request: Request):
         raise HTTPException(status_code=503, detail="Verification file is unavailable") from error
 
 
+# @app.patch("/api/certificates/{certificate_id}/approval-details")
+# async def update_certificate_approval_details(
+#     certificate_id: str,
+#     payload: CertificateApprovalDetailsUpdate,
+# ):
+#     """Allow an administrator to correct a pending certificate before review."""
+#     certificate = next((item for item in get_all() if item.get("id") == certificate_id), None)
+#     if not certificate:
+#         raise HTTPException(status_code=404, detail="Certificate not found")
+#     if certificate.get("status") != "pending":
+#         raise HTTPException(status_code=409, detail="Only under-review certificates can be corrected")
+#     previous_course_name = str(certificate.get("course_name") or "Certificate")
+#     course_name = payload.course_name.strip()
+#     updates = {
+#         "course_name": course_name,
+#         "updated_at": datetime.now(timezone.utc).isoformat(),
+#         **avixa_course_suggestion(course_name, certificate.get("vendor_name", ""), certificate.get("total_ru_points")),
+#     }
+#     if db:
+#         db.collection("certificates").document(certificate_id).update(updates)
+#     else:
+#         certificate.update(updates)
+#     record_certificate_activity(
+#         "bi-pencil-square",
+#         "Certificate name corrected during approval",
+#         f"{previous_course_name} → {course_name}",
+#     )
+#     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
+#     return {"id": certificate_id, **updates}
+
 @app.patch("/api/certificates/{certificate_id}/approval-details")
 async def update_certificate_approval_details(
     certificate_id: str,
@@ -3160,24 +3209,58 @@ async def update_certificate_approval_details(
         raise HTTPException(status_code=404, detail="Certificate not found")
     if certificate.get("status") != "pending":
         raise HTTPException(status_code=409, detail="Only under-review certificates can be corrected")
-    previous_course_name = str(certificate.get("course_name") or "Certificate")
-    course_name = payload.course_name.strip()
-    updates = {
-        "course_name": course_name,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        **avixa_course_suggestion(course_name, certificate.get("vendor_name", ""), certificate.get("total_ru_points")),
-    }
+
+    updates: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+
+    if payload.course_name is not None:
+        updates["course_name"] = payload.course_name.strip()
+    if payload.vendor_name is not None:
+        updates["vendor_name"] = payload.vendor_name.strip()
+    if payload.category is not None:
+        updates["category"] = payload.category.strip()
+    if payload.certificate_number is not None:
+        new_number = payload.certificate_number.strip()
+        if new_number and any(
+            item.get("id") != certificate_id
+            and str(item.get("certificate_number") or "").strip().casefold() == new_number.casefold()
+            for item in get_all()
+        ):
+            raise HTTPException(status_code=409, detail="A certificate with this certificate number already exists")
+        updates["certificate_number"] = new_number
+    if payload.issued_date is not None:
+        updates["issued_date"] = payload.issued_date.isoformat()
+    if payload.validity_years is not None:
+        updates["validity_years"] = payload.validity_years
+        updates["expires_on"] = None
+    if payload.expires_on is not None:
+        updates["expires_on"] = payload.expires_on.isoformat()
+        updates["validity_years"] = None
+    if payload.total_ru_points is not None:
+        updates["total_ru_points"] = payload.total_ru_points
+
+    if any(k in updates for k in ("course_name", "vendor_name", "total_ru_points")):
+        updates.update(avixa_course_suggestion(
+            updates.get("course_name", certificate.get("course_name", "")),
+            updates.get("vendor_name", certificate.get("vendor_name", "")),
+            updates.get("total_ru_points", certificate.get("total_ru_points")),
+        ))
+
+    if any(k in updates for k in ("issued_date", "expires_on", "validity_years")):
+        updates["renewal_alerts_sent"] = {}
+
     if db:
         db.collection("certificates").document(certificate_id).update(updates)
     else:
         certificate.update(updates)
+
     record_certificate_activity(
         "bi-pencil-square",
-        "Certificate name corrected during approval",
-        f"{previous_course_name} → {course_name}",
+        "Certificate details corrected during approval",
+        f"{certificate.get('course_name', 'Certificate')} — admin edit",
     )
     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
-    return {"id": certificate_id, **updates}
+    return {"id": certificate_id, **certificate, **updates}
+
 
 
 @app.patch("/api/certificates/{certificate_id}/status")

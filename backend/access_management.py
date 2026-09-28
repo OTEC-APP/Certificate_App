@@ -785,9 +785,40 @@ def list_users(
     return {"items": users[start : start + page_size], "total": total, "page": page, "page_size": page_size}
  
  
+# @router.post("", status_code=201)
+# def create_user(payload: AccessUserCreate):
+#     """Create a Microsoft SSO access-management user in Firestore."""
+#     user = {
+#         **payload.model_dump(mode="json"),
+#         "auth_provider": "azure",
+#         "created_at": current_timestamp(),
+#     }
+#     reference = users_collection().document()
+#     reference.set(user)
+#     invitation_sent = send_user_invitation(user)
+#     record_history(
+#         "bi-person-plus",
+#         f"Created {user['firstName']} {user['lastName']}",
+#         f"{user['employeeId']} · {user['role']} · {user['department']}",
+#     )
+#     realtime_connections.publish({"type": "access.updated"})
+#     return {**public_user(reference.id, user), "invitation_sent": invitation_sent}
 @router.post("", status_code=201)
 def create_user(payload: AccessUserCreate):
     """Create a Microsoft SSO access-management user in Firestore."""
+    new_email = str(payload.employeeEmail or "").strip().casefold()
+    new_employee_id = str(payload.employeeId or "").strip().casefold()
+
+    # Reject duplicates against every existing user.
+    for snapshot in users_collection().stream():
+        existing = snapshot.to_dict()
+        existing_email = str(existing.get("employeeEmail") or "").strip().casefold()
+        existing_employee_id = str(existing.get("employeeId") or "").strip().casefold()
+        if new_email and existing_email == new_email:
+            raise HTTPException(status_code=409, detail="An employee with this email already exists")
+        if new_employee_id and existing_employee_id == new_employee_id:
+            raise HTTPException(status_code=409, detail="An employee with this employee ID already exists")
+
     user = {
         **payload.model_dump(mode="json"),
         "auth_provider": "azure",
@@ -1112,6 +1143,21 @@ def update_user(user_id: str, payload: AccessUserUpdate):
  
     existing_data = existing.to_dict()
     user_data = payload.model_dump(mode="json", exclude_none=True)
+
+    # Reject updates that would collide with a different existing user.
+    new_email = str(user_data.get("employeeEmail") or "").strip().casefold()
+    new_employee_id = str(user_data.get("employeeId") or "").strip().casefold()
+    for snapshot in users_collection().stream():
+        if snapshot.id == user_id:
+            continue
+        other = snapshot.to_dict()
+        other_email = str(other.get("employeeEmail") or "").strip().casefold()
+        other_employee_id = str(other.get("employeeId") or "").strip().casefold()
+        if new_email and other_email == new_email:
+            raise HTTPException(status_code=409, detail="Another employee already uses this email")
+        if new_employee_id and other_employee_id == new_employee_id:
+            raise HTTPException(status_code=409, detail="Another employee already uses this employee ID")
+
     is_demoting_last_admin = (
         str(existing_data.get("role") or "").casefold() == "admin"
         and str(user_data.get("role") or "").casefold() != "admin"

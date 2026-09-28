@@ -2552,8 +2552,13 @@ body { margin:0;background:#edf2f8;color:var(--modern-text); }
 .exact-react[data-theme="dark"] .email-alerts-switch { color:#78e6ac;background:rgba(16,31,24,.8); }
 
 @media (max-width:540px) {
-  .email-alerts-control { align-items:flex-start;flex-wrap:wrap; }
-  .email-alerts-switch { width:100%;justify-content:center;margin-left:50px; }
+  .email-alerts-control { align-items:stretch;flex-wrap:wrap;gap:10px;padding:13px; }
+  .email-alerts-icon { align-self:flex-start; }
+  .email-alerts-copy { flex:1 1 calc(100% - 50px); }
+  .email-alerts-switch { flex:1 1 100%;width:100%;min-height:42px;justify-content:center;margin-left:0;padding:9px 12px; }
+  .email-alerts-knob { flex:0 0 34px;width:34px;height:20px; }
+  .email-alerts-knob::after { width:14px;height:14px; }
+  .email-alerts-control.disabled .email-alerts-knob::after { transform:translateX(-14px); }
 }
 .exact-react,
 .exact-react[data-theme="dark"] {
@@ -2900,4 +2905,425 @@ body { margin:0;background:#edf2f8;color:var(--modern-text); }
   margin-left:2px;
   color:#d0193d;
   font-weight:800;
+}
+
+
+
+
+
+
+/* ==========================================================================
+   FINAL RESPONSIVE AUTHORITY — must remain the last block in this file.
+   Consolidates sidebar, settings, KPI, and table behaviour across breakpoints.
+   ========================================================================== */
+
+/* --- 1. Base box-sizing safety for the whole shell ------------------------ */
+.exact-react,
+.exact-react *,
+.exact-react *::before,
+.exact-react *::after {
+  box-sizing: border-box;
+}
+.exact-react,
+.exact-react > main,
+.exact-react .er-view,
+.exact-react .er-card,
+.exact-react .settings-exact,
+.exact-react .settings-exact > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* --- 2. Sidebar: one definition per breakpoint --------------------------- */
+
+/* Desktop ≥ 1001px: full sidebar, no collapse flicker */
+@media (min-width: 1001px) {
+  .exact-react > main { margin-left: 248px; padding-top: 0; }
+  .exact-react.sidebar-collapsed > main { margin-left: 70px; }
+
+  .exact-react .er-side,
+  .exact-react.sidebar-collapsed .er-side {
+    position: fixed;
+    inset: 0 auto 0 0;
+    height: 100dvh;
+    border-radius: 0;
+    transform: none;
+  }
+  .exact-react .er-side { width: 248px; padding: 22px 16px 0; }
+  .exact-react.sidebar-collapsed .er-side { width: 70px; padding: 12px 10px 0; }
+}
+
+/* Tablet 701–1000px: sidebar is a slide-over drawer, main is full width */
+@media (max-width: 1000px) {
+  .exact-react > main,
+  .exact-react.sidebar-collapsed > main {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+  .exact-react .er-side,
+  .exact-react[data-theme="dark"] .er-side {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 84vw);
+    height: 100dvh;
+    padding: 18px 14px 0;
+    border-radius: 0;
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+    z-index: 1300;
+  }
+  .exact-react:not(.sidebar-collapsed) .er-side { transform: translateX(0); }
+  .exact-react .sidebar-backdrop { z-index: 1290; }
+}
+
+/* Phone ≤ 700px: sidebar same behaviour, tighter padding */
+@media (max-width: 700px) {
+  .exact-react .er-side,
+  .exact-react[data-theme="dark"] .er-side { padding: 14px 12px 0; width: min(88vw, 300px); }
+}
+
+/* --- 3. Workspace padding: one value per breakpoint ----------------------- */
+@media (min-width: 1001px) { .exact-react .er-view { padding: 24px 28px 52px; } }
+@media (max-width: 1000px) { .exact-react .er-view { padding: 18px 16px 42px; overflow-x: hidden; } }
+@media (max-width: 700px)  { .exact-react .er-view { padding: 14px 11px 34px; } }
+@media (max-width: 430px)  { .exact-react .er-view { padding: 12px 9px 30px; } }
+
+/* --- 4. Settings: force a single vertical flow everywhere ---------------- */
+.exact-react .settings-exact {
+  display: flex !important;
+  flex-direction: column;
+  gap: 18px;
+  grid-template-columns: none !important;
+}
+.exact-react .settings-exact > .settings-lead,
+.exact-react .settings-exact > .settings-card,
+.exact-react .settings-exact > .oem-settings-card {
+  grid-column: auto !important;
+  grid-row: auto !important;
+  width: 100%;
+  min-width: 0;
+}
+
+/* --- 5. KPI grids: 4 / 2 / 1 -------------------------------------------- */
+@media (min-width: 1001px) {
+  .exact-react .er-kpis,
+  .exact-react .dashboard-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .exact-react .er-kpis,
+  .exact-react .dashboard-kpis,
+  .exact-react .user-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .exact-react .er-kpis,
+  .exact-react .dashboard-kpis,
+  .exact-react .user-kpis { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- 6. Bento & dashboard grids: collapse cleanly ----------------------- */
+@media (max-width: 1100px) {
+  .exact-react .er-grid.top-grid,
+  .exact-react .er-grid.lead-grid,
+  .exact-react .dashboard-intelligence-bento,
+  .exact-react .dashboard-action-grid,
+  .exact-react .dashboard-signal-grid,
+  .exact-react .user-chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+  }
+  .exact-react .dashboard-intelligence-bento > div { grid-area: auto; }
+}
+
+/* --- 7. Tables: scroll horizontally, never squeeze ---------------------- */
+.exact-react .global-table-scroll,
+.exact-react .access-table-card,
+.exact-react .completion-records-card,
+.exact-react .pending-certificates-card,
+.exact-react .card-table-scroll,
+.exact-react .catalog-details-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+}
+@media (max-width: 1000px) {
+  .exact-react .er-table,
+  .exact-react .access-table,
+  .exact-react .pending-certificate-table { min-width: 760px; }
+}
+
+/* --- 8. Modals: full-screen bottom sheet on phones --------------------- */
+@media (max-width: 700px) {
+  .exact-react .er-overlay,
+  .exact-react .access-overlay,
+  .exact-react .category-profile-overlay,
+  .exact-react .catalog-details-overlay {
+    align-items: flex-end;
+    padding: 8px;
+  }
+  .exact-react .er-modal,
+  .exact-react .user-certificate-modal,
+  .exact-react .access-dialog,
+  .exact-react .category-profile-modal,
+  .exact-react .catalog-details-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+    margin: 0;
+    border-radius: 18px 18px 12px 12px;
+  }
+}
+
+/* --- 9. Header: wraps gracefully on narrow screens --------------------- */
+@media (max-width: 1000px) {
+  .exact-react .er-top {
+    width: auto;
+    height: auto;
+    min-height: 66px;
+    margin: 8px 10px 0;
+    padding: 10px 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 700px) {
+  .exact-react .er-top {
+    min-height: 64px;
+    margin: 0;
+    border-radius: 0;
+    padding: 9px 10px;
+  }
+  .exact-react .er-search { display: none; }
+  .exact-react .mobile-menu-button,
+  .exact-react .top-notification-button,
+  .exact-react .global-profile-button,
+  .exact-react .er-top > .er-add,
+  .exact-react .global-back-button {
+    flex: 0 0 40px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 10px;
+    font-size: 0;
+  }
+  .exact-react .er-top > .er-add i,
+  .exact-react .global-back-button i,
+  .exact-react .mobile-menu-button i,
+  .exact-react .top-notification-button i {
+    margin: 0;
+    font-size: 16px;
+  }
+  .exact-react .global-back-button span { display: none; }
+}
+
+/* --- 10. Approval modal internals stack on phones ---------------------- */
+@media (max-width: 700px) {
+  .exact-react .approval-details-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .exact-react .approval-editable-grid { grid-template-columns: minmax(0, 1fr); }
+  .exact-react .approval-profile-grid { grid-template-columns: 1fr 1fr; }
+  .exact-react .approval-certificate-name-edit { grid-template-columns: 1fr; }
+  .exact-react .approval-details-modal > footer { flex-wrap: wrap; }
+  .exact-react .approval-details-modal > footer button { flex: 1 1 140px; }
+}
+@media (max-width: 480px) {
+  .exact-react .approval-details-grid,
+  .exact-react .approval-profile-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- 11. Prefer no horizontal page scroll ------------------------------ */
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* --- 12. Respect reduced motion ---------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .exact-react *,
+  .exact-react *::before,
+  .exact-react *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+
+/* ==========================================================================
+   APPROVAL EDITABLE GRID — fix for stacked labels and invisible dropdowns.
+   Must remain after all other approval-modal rules.
+   ========================================================================== */
+
+.exact-react .approval-editable-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 28px 0;
+  padding: 16px;
+  border: 1px solid #f0d9de;
+  border-radius: 14px;
+  background: #fff8f9;
+  box-sizing: border-box;
+}
+
+.exact-react .approval-editable-grid > label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  color: #72555c;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.3;
+  position: relative;
+}
+
+.exact-react .approval-editable-grid > label > small {
+  display: block;
+  color: #bd2942;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.exact-react .approval-editable-grid > label > input,
+.exact-react .approval-editable-grid > label > select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e7cdd3;
+  border-radius: 10px;
+  background: #fff;
+  color: #171717;
+  font: 500 13px/1.3 Inter, sans-serif;
+  box-sizing: border-box;
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+  visibility: visible;
+  opacity: 1;
+  position: static;
+}
+
+.exact-react .approval-editable-grid > label > select + input {
+  margin-top: 6px;
+}
+
+.exact-react .approval-editable-grid > label > input:focus,
+.exact-react .approval-editable-grid > label > select:focus {
+  outline: 0;
+  border-color: #d84457;
+  box-shadow: 0 0 0 3px rgba(216, 68, 87, .12);
+}
+
+@media (max-width: 900px) {
+  .exact-react .approval-editable-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 16px 20px 0;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 700px) {
+  .exact-react .approval-editable-grid {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 14px 12px 0;
+    padding: 14px;
+    gap: 12px;
+  }
+  .exact-react .approval-editable-grid > label > input,
+  .exact-react .approval-editable-grid > label > select {
+    height: 44px;
+    font-size: 14px;
+  }
+}
+
+/* Certificate-name card: full-width row inside the editable grid, with the
+   input taking every available pixel and the button never squeezing it. */
+
+.exact-react .approval-editable-grid > .approval-certificate-name-slot {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.exact-react .approval-certificate-name-edit {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+.exact-react .approval-certificate-name-edit > div {
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.exact-react .approval-certificate-name-edit > input {
+  flex: 1 1 240px;
+  width: auto;
+  min-width: 0;
+  height: 42px;
+}
+.exact-react .approval-certificate-name-edit > button {
+  flex: 0 0 auto;
+  min-width: 150px;
+  height: 42px;
+  padding: 0 18px;
+  white-space: nowrap;
+}
+
+.exact-react .approval-editable-grid .fixed-date-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  width: 100%;
+  min-width: 0;
+}
+.exact-react .approval-editable-grid .fixed-date-picker > input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e7cdd3;
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  background: #fff;
+  color: #171717;
+  font: 500 13px/1.3 Inter, sans-serif;
+  box-sizing: border-box;
+}
+.exact-react .approval-editable-grid .fixed-date-picker > button {
+  height: 42px;
+  width: 42px;
+  border: 1px solid #e7cdd3;
+  border-radius: 0 10px 10px 0;
+  background: #fff;
+  color: #b32c44;
+  cursor: pointer;
+}
+.exact-react .approval-editable-grid .fixed-date-picker > button:hover {
+  background: #fff0f1;
+}
+
+@media (max-width: 700px) {
+  .exact-react .approval-certificate-name-edit {
+    margin: 14px 0 0;
+    gap: 10px;
+  }
+  .exact-react .approval-certificate-name-edit > input,
+  .exact-react .approval-certificate-name-edit > button {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+  }
 }
