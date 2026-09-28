@@ -750,10 +750,10 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       )
       const result = await response.json()
       if (!response.ok) {
-        const error = new Error(apiErrorMessage(result.detail, 'Unable to save user'))
-        error.status = response.status
-        throw error
-      }
+  const error = new Error(apiErrorMessage(result.detail, 'Unable to save user'))
+  error.status = response.status
+  throw error
+}
       const { invitation_sent: invitationSent, ...savedUser } = result
       setUsers((items) =>
         isCreate

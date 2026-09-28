@@ -249,7 +249,7 @@ const loadMoreEmployees = async () => {
             certificate_number: form.get('certificateNumber'),
             category: form.get('category'),
             total_ru_points: totalRuPoints === '' ? null : Number(totalRuPoints),
-            issued_date: form.get('issuedDate'),
+            issued_date: form.get('issuedDate') || null,
             validity_years: null,
             expires_on: validityMode === 'expires' ? form.get('expiresOn') : null,
             submission_source: 'admin',
@@ -379,8 +379,8 @@ const loadMoreEmployees = async () => {
           <input name="certificateNumber" placeholder="Enter the certificate number" />
         </label>
         <label>
-          Completion date <span className="required-field-mark" aria-hidden="true">*</span>
-          <DatePicker name="issuedDate" value={issuedDate} onChangeValue={setIssuedDate} required label="Completion date" />
+          Completion date (optional)
+          <DatePicker name="issuedDate" value={issuedDate} onChangeValue={setIssuedDate} label="Completion date" />
         </label>
         <fieldset className="certificate-validity-choice">
           <legend>Validity period <span className="required-field-mark" aria-hidden="true">*</span></legend>
