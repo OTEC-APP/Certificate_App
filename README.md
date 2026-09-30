@@ -39,7 +39,7 @@ npm install
 npm start
 ```
 
-Open `http://localhost:3000`. The frontend calls `/api` by default and the development proxy forwards it to the port configured in `frontend/package.json` (currently `5003`).
+Open `http://localhost:3000`. The frontend calls `/api` by default and the development proxy forwards it to the port configured in `frontend/package.json` (currently `5000`).
 
 ## Cloud Run production deployment
 

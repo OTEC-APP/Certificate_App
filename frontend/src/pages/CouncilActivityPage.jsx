@@ -59,64 +59,6 @@ export default function CouncilActivityPage({ notify }) {
 
   return (
     <section className="council-activity-page">
-      <div className="council-kpis">
-        <article
-          className="pending clickable"
-          onClick={() => {
-            setStatus('pending')
-            setActivityScope('all')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
-          title="Show pending reviews"
-        >
-          <small>Pending approvals</small>
-          <b>{data.pending_count}</b>
-          <span>Certificates awaiting Council review</span>
-        </article>
-        <article
-          className="clickable"
-          onClick={() => {
-            setStatus('approved')
-            setActivityScope('all')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
-          title="Show approved"
-        >
-          <small>Certificates validated</small>
-          <b>{data.validated_count}</b>
-          <span>Completed Council decisions</span>
-        </article>
-        <article
-          className="clickable"
-          onClick={() => {
-            setStatus('rejected')
-            setActivityScope('all')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
-          title="Show rejected"
-        >
-          <small>Certificates revoked</small>
-          <b>{data.revoked_count}</b>
-          <span>Rejected after review</span>
-        </article>
-        <article
-          className="clickable"
-          onClick={() => {
-            setStatus('approved')
-            setActivityScope('hr')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
-          title="Show approved HR activities"
-        >
-          <small>HR activities approved</small>
-          <b>{stats.hr_activity_approvals || 0}</b>
-          <span>User/Category/OEM requests approved</span>
-        </article>
-      </div>
       <div className="council-grid">
         <section className="er-card">
           <header>
