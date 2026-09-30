@@ -7,8 +7,14 @@
 }
 
 @keyframes slideUpFade {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .send-email-header {
@@ -155,7 +161,9 @@
   animation: spin 1s linear infinite;
 }
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* --- Live Preview Pane --- */
@@ -204,13 +212,13 @@
   white-space: pre-wrap; /* Preserves line breaks from textarea */
 }
 .preview-recipient {
-  margin:24px 0 0;
-  padding-top:14px;
-  border-top:1px solid #f0dfe2;
-  color:#bd3349;
-  font-size:12px;
-  font-weight:700;
-  overflow-wrap:anywhere;
+  margin: 24px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid #f0dfe2;
+  color: #bd3349;
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 /* --- Success State --- */
@@ -225,8 +233,14 @@
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .success-icon-wrapper {
@@ -269,12 +283,34 @@
 }
 
 @media (max-width: 560px) {
-  .send-email-page { padding:16px; }
-  .send-email-header { align-items:flex-start;gap:12px; }
-  .send-email-header h2 { font-size:20px; }
-  .back-btn { padding:9px 11px;font-size:12px; }
-  .email-editor,.preview-content { padding:16px; }
-  .editor-actions { align-items:stretch;flex-direction:column;gap:14px; }
-  .send-btn { width:100%;justify-content:center; }
-  .hint-text { line-height:1.45; }
+  .send-email-page {
+    padding: 16px;
+  }
+  .send-email-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .send-email-header h2 {
+    font-size: 20px;
+  }
+  .back-btn {
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+  .email-editor,
+  .preview-content {
+    padding: 16px;
+  }
+  .editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .send-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .hint-text {
+    line-height: 1.45;
+  }
 }

@@ -1,9 +1,10 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useOutletContext } from 'react-router-dom'
 import Pagination from '../components/Pagination'
 import { confirmDelete, showResultAlert } from '../dialogs'
 import DatePicker from '../components/DatePicker'
- 
+
 const apiUrl = process.env.REACT_APP_API_URL
 
 const defaultPageSize = 10
@@ -77,7 +78,9 @@ function UserForm({ user, locations, departments, onSave, onClose }) {
             <h2>{user ? 'Edit user' : 'Create user'}</h2>
             <p>Manage employee access information.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close"><i className='bi bi-x-lg' aria-hidden='true' /></button>
+          <button type="button" onClick={onClose} aria-label="Close">
+            <i className="bi bi-x-lg" aria-hidden="true" />
+          </button>
         </header>
         <div className="access-form">
           <label>
@@ -89,29 +92,31 @@ function UserForm({ user, locations, departments, onSave, onClose }) {
             <input name="lastName" value={form.lastName} onChange={change} required />
           </label>
           <label>
-              Date of joining
+            Date of joining
             <DatePicker
               name="dateOfJoining"
               value={form.dateOfJoining || ''}
-              onChangeValue={(dateOfJoining) => setForm((current) => ({ ...current, dateOfJoining }))}
+              onChangeValue={(dateOfJoining) =>
+                setForm((current) => ({ ...current, dateOfJoining }))
+              }
               max={new Date().toISOString().slice(0, 10)}
               required={!user}
               label="Date of joining"
             />
           </label>
- 
+
           <label>
             Employee ID
             <input
-  name="employeeId"
-  type="text"
-  inputMode="text"
-  pattern="[A-Za-z0-9-]+"
-  title="Letters, digits, and hyphens only"
-  value={form.employeeId}
-  onChange={change}
-  required
-/>
+              name="employeeId"
+              type="text"
+              inputMode="text"
+              pattern="[A-Za-z0-9-]+"
+              title="Letters, digits, and hyphens only"
+              value={form.employeeId}
+              onChange={change}
+              required
+            />
           </label>
           <label>
             Employee email
@@ -130,6 +135,8 @@ function UserForm({ user, locations, departments, onSave, onClose }) {
               <option value="user">User</option>
               <option value="project_manager">Project Manager</option>
               <option value="admin">Admin</option>
+              <option value="council_member">Council Member</option>
+              <option value="hr">HR</option>
             </select>
           </label>
           <label>
@@ -383,7 +390,11 @@ function HistoryPanel({
             <h2>{title}</h2>
             <p>{description}</p>
           </div>
-          {!embedded && <button type="button" onClick={onClose} aria-label="Close"><i className='bi bi-x-lg' aria-hidden='true' /></button>}
+          {!embedded && (
+            <button type="button" onClick={onClose} aria-label="Close">
+              <i className="bi bi-x-lg" aria-hidden="true" />
+            </button>
+          )}
         </header>
         <div className="history-list">
           {history.length ? (
@@ -414,8 +425,12 @@ function HistoryPanel({
   )
 }
 
-export default function AccessManagementPage({ notify, runWithLoader, query = '', realtimeVersion }) {
- 
+export default function AccessManagementPage({
+  notify,
+  runWithLoader,
+  query = '',
+  realtimeVersion,
+}) {
   const [users, setUsers] = useState(initialUsers)
   const [totalUsers, setTotalUsers] = useState(0)
   const [history, setHistory] = useState([])
@@ -443,8 +458,15 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
   const [selectedBulkRows, setSelectedBulkRows] = useState([])
   const bulkErrorInfoRef = useRef(null)
 
-  useEffect(() => { setSearch(query); setPage(1) }, [query])
-  useEffect(() => { setBulkPage(1) }, [bulkUploads.length])
+  const { user } = useOutletContext()
+
+  useEffect(() => {
+    setSearch(query)
+    setPage(1)
+  }, [query])
+  useEffect(() => {
+    setBulkPage(1)
+  }, [bulkUploads.length])
 
   const reloadUsers = async () => {
     try {
@@ -508,26 +530,35 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
     return () => {
       active = false
     }
-
   }, [realtimeVersion])
- 
+
   useEffect(() => {
     reloadHistory()
   }, [historyPage, historyPageSize, realtimeVersion])
- 
+
   useEffect(() => {
     reloadCertificateActivity()
   }, [certificateActivityPage, certificateActivityPageSize, realtimeVersion])
- 
+
   useEffect(() => {
     reloadUsers()
   }, [page, pageSize, search, realtimeVersion])
-  const reloadBulkUploads = async () => { const response = await fetch(`${apiUrl}/users/bulk/pending`); if (response.ok) { setBulkUploads(await response.json()); setBulkPage(1) } }
-  useEffect(() => { reloadBulkUploads().catch(() => {}) }, [realtimeVersion])
- 
+  const reloadBulkUploads = async () => {
+    const response = await fetch(`${apiUrl}/users/bulk/pending`)
+    if (response.ok) {
+      setBulkUploads(await response.json())
+      setBulkPage(1)
+    }
+  }
+  useEffect(() => {
+    reloadBulkUploads().catch(() => {})
+  }, [realtimeVersion])
+
   const downloadBulkTemplate = async () => {
     try {
-      const response = await runWithLoader('Preparing Excel template', () => fetch(`${apiUrl}/users/bulk/template`))
+      const response = await runWithLoader('Preparing Excel template', () =>
+        fetch(`${apiUrl}/users/bulk/template`),
+      )
       if (!response.ok) throw new Error('Unable to download template')
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
@@ -544,16 +575,27 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
   }
   const uploadBulkFile = async (file) => {
     if (!file) return
-    const data = new FormData(); data.append('file', file)
-    const response = await runWithLoader('Validating bulk upload', () => fetch(`${apiUrl}/users/bulk/upload`, { method: 'POST', body: data }))
-    const result = await response.json(); if (!response.ok) return notify(result.detail || 'Unable to upload file')
-    setBulkDialogOpen(false); setBulkFile(null); await reloadBulkUploads(); notify('Bulk upload is ready for review')
+    const data = new FormData()
+    data.append('file', file)
+    const response = await runWithLoader('Validating bulk upload', () =>
+      fetch(`${apiUrl}/users/bulk/upload`, { method: 'POST', body: data }),
+    )
+    const result = await response.json()
+    if (!response.ok) return notify(result.detail || 'Unable to upload file')
+    setBulkDialogOpen(false)
+    setBulkFile(null)
+    await reloadBulkUploads()
+    notify('Bulk upload is ready for review')
   }
   const approveBulkRow = async (uploadId, row) => {
-    const response = await runWithLoader('Approving bulk user', () => fetch(`${apiUrl}/users/bulk/${uploadId}/rows/${row.row}/approve`, { method: 'POST' }))
-    const result = await response.json(); if (!response.ok) return notify(result.detail || 'Unable to approve this row')
+    const response = await runWithLoader('Approving bulk user', () =>
+      fetch(`${apiUrl}/users/bulk/${uploadId}/rows/${row.row}/approve`, { method: 'POST' }),
+    )
+    const result = await response.json()
+    if (!response.ok) return notify(result.detail || 'Unable to approve this row')
     setSelectedBulkRows((keys) => keys.filter((key) => key !== bulkRowKey(uploadId, row)))
-    await Promise.all([reloadBulkUploads(), reloadUsers()]); notify(`${row.data.firstName} ${row.data.lastName} approved and added to Access Management`)
+    await Promise.all([reloadBulkUploads(), reloadUsers()])
+    notify(`${row.data.firstName} ${row.data.lastName} approved and added to Access Management`)
   }
 
   const editBulkRow = async (form) => {
@@ -570,27 +612,40 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
     if (!response.ok) return notify(result.detail || 'Unable to save row')
     setEditingBulkRow(null)
     await reloadBulkUploads()
-    notify(result.errors && result.errors.length
-      ? `Row ${row.row} saved but still needs correction`
-      : `Row ${row.row} saved and ready to approve`)
+    notify(
+      result.errors && result.errors.length
+        ? `Row ${row.row} saved but still needs correction`
+        : `Row ${row.row} saved and ready to approve`,
+    )
   }
 
   const deleteBulkRow = async (uploadId, row) => {
-    if (!(await confirmDelete({ name: `${row.data.firstName} ${row.data.lastName} (row ${row.row})`, itemLabel: 'row' }))) return
-    const response = await fetch(`${apiUrl}/users/bulk/${uploadId}/rows/${row.row}`, { method: 'DELETE' })
+    if (
+      !(await confirmDelete({
+        name: `${row.data.firstName} ${row.data.lastName} (row ${row.row})`,
+        itemLabel: 'row',
+      }))
+    )
+      return
+    const response = await fetch(`${apiUrl}/users/bulk/${uploadId}/rows/${row.row}`, {
+      method: 'DELETE',
+    })
     if (!response.ok) {
       const result = await response.json()
       return notify(result.detail || 'Unable to delete this row')
     }
     setSelectedBulkRows((keys) => keys.filter((key) => key !== bulkRowKey(uploadId, row)))
-    await reloadBulkUploads(); notify('Row removed from the bulk upload')
+    await reloadBulkUploads()
+    notify('Row removed from the bulk upload')
   }
 
   const bulkRowKey = (uploadId, row) => `${uploadId}:${row.row}`
 
   const toggleBulkRow = (uploadId, row) => {
     const key = bulkRowKey(uploadId, row)
-    setSelectedBulkRows((keys) => (keys.includes(key) ? keys.filter((item) => item !== key) : [...keys, key]))
+    setSelectedBulkRows((keys) =>
+      keys.includes(key) ? keys.filter((item) => item !== key) : [...keys, key],
+    )
   }
 
   const toggleAllBulkRows = (rows) => {
@@ -608,7 +663,13 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       ;(byUpload[uploadId] = byUpload[uploadId] || []).push(rowNumber)
       return byUpload
     }, {})
-    if (!(await confirmDelete({ name: `${selectedBulkRows.length} selected row${selectedBulkRows.length === 1 ? '' : 's'}`, itemLabel: 'rows' }))) return
+    if (
+      !(await confirmDelete({
+        name: `${selectedBulkRows.length} selected row${selectedBulkRows.length === 1 ? '' : 's'}`,
+        itemLabel: 'rows',
+      }))
+    )
+      return
     let deleted = 0
     for (const [uploadId, rowNumbers] of Object.entries(grouped)) {
       const response = await runWithLoader('Deleting bulk user rows', () =>
@@ -673,7 +734,7 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: option.name }),
+        body: JSON.stringify({ name: option.name, requester_role: user?.role }),
       }),
     )
     const result = await response.json()
@@ -736,7 +797,7 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
   const saveUser = async (form) => {
     try {
       const isCreate = editing.mode === 'create'
-      const payload = { ...form }
+      const payload = { ...form, requester_role: user?.role }
       // Legacy administrator accounts can legitimately have no joining date.
       // Omit the empty value so the API preserves the stored record instead of
       // attempting to parse an empty string as a date.
@@ -750,19 +811,27 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       )
       const result = await response.json()
       if (!response.ok) {
-  const error = new Error(apiErrorMessage(result.detail, 'Unable to save user'))
-  error.status = response.status
-  throw error
-}
+        const error = new Error(apiErrorMessage(result.detail, 'Unable to save user'))
+        error.status = response.status
+        throw error
+      }
+      // Check if approval is required
+      if (result.status === 'pending') {
+        notify('User creation request submitted for council approval')
+        setEditing(null)
+        return
+      }
       const { invitation_sent: invitationSent, ...savedUser } = result
       setUsers((items) =>
         isCreate
           ? [savedUser, ...items]
           : items.map((item) => (item.id === savedUser.id ? savedUser : item)),
       )
-      notify(isCreate
-        ? `${savedUser.firstName} ${savedUser.lastName} created${invitationSent ? ' and invitation email sent' : '; invitation email could not be sent'}`
-        : `${savedUser.firstName} ${savedUser.lastName} updated`)
+      notify(
+        isCreate
+          ? `${savedUser.firstName} ${savedUser.lastName} created${invitationSent ? ' and invitation email sent' : '; invitation email could not be sent'}`
+          : `${savedUser.firstName} ${savedUser.lastName} updated`,
+      )
       await reloadHistory()
       if (isCreate && page !== 1) setPage(1)
       else await reloadUsers()
@@ -813,21 +882,37 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
     setEditing(null)
   }
 
-  const deleteUser = async (user) => {
-    if (!(await confirmDelete({ name: `${user.firstName} ${user.lastName}`, itemLabel: 'user' })))
+  const deleteUser = async (targetUser) => {
+    if (
+      !(await confirmDelete({
+        name: `${targetUser.firstName} ${targetUser.lastName}`,
+        itemLabel: 'user',
+      }))
+    )
       return
     try {
       const response = await runWithLoader('Offboarding employee', () =>
-        fetch(`${apiUrl}/users/${user.id}`, { method: 'DELETE' }),
+        fetch(`${apiUrl}/users/${targetUser.id}?requester_role=${user?.role}`, {
+          method: 'DELETE',
+        }),
       )
+      const result = await response.json()
       if (!response.ok) {
-        const result = await response.json()
         const error = new Error(apiErrorMessage(result.detail, 'Unable to delete user'))
         error.status = response.status
         throw error
       }
-      setUsers((items) => items.filter((item) => item.id !== user.id))
-      notify(`${user.firstName} ${user.lastName} marked as left; records retained for 30 days`)
+
+      // Check if approval is required
+      if (result.status === 'pending') {
+        notify('User deletion request submitted for council approval')
+        return
+      }
+
+      setUsers((items) => items.filter((item) => item.id !== targetUser.id))
+      notify(
+        `${targetUser.firstName} ${targetUser.lastName} marked as left; records retained for 30 days`,
+      )
       await reloadHistory()
       await reloadUsers()
       return
@@ -843,13 +928,13 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       notify(error.message || 'Unable to delete user')
       return
     }
-    setUsers((items) => items.filter((item) => item.id !== user.id))
+    setUsers((items) => items.filter((item) => item.id !== targetUser.id))
     addHistory({
       icon: 'bi-trash3',
-      title: `Deleted ${user.firstName} ${user.lastName}`,
-      detail: `Removed ${user.employeeId} (${user.employeeEmail}) from access management.`,
+      title: `Deleted ${targetUser.firstName} ${targetUser.lastName}`,
+      detail: `Removed ${targetUser.employeeId} (${targetUser.employeeEmail}) from access management.`,
     })
-    notify(`${user.firstName} ${user.lastName} deleted`)
+    notify(`${targetUser.firstName} ${targetUser.lastName} deleted`)
   }
 
   return (
@@ -868,7 +953,9 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
         </div>
         <span className="access-total">Total: {totalUsers}</span>
         <div className="access-toolbar-actions">
-          <button className="outline-action" onClick={() => setBulkDialogOpen(true)}><i className="bi bi-upload" /> Bulk upload users</button>
+          <button className="outline-action" onClick={() => setBulkDialogOpen(true)}>
+            <i className="bi bi-upload" /> Bulk upload users
+          </button>
           <button className="outline-action" onClick={() => setManagingOptions(true)}>
             <i className="bi bi-sliders" /> Manage options
           </button>
@@ -879,121 +966,239 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
       </div>
       <section className="er-card access-table-card">
         <div className="global-table-scroll">
-        <table className="er-table access-table">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Employee ID</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Department</th>
-              <th>Location</th>
-              <th>Reporting manager</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleUsers.map((user) => (
-              <tr key={user.id}>
-                <td>
-                  <b>
-                    {user.firstName} {user.lastName}
-                  </b>
-                </td>
-                <td>
-                  <code>{user.employeeId}</code>
-                </td>
-                <td>{user.employeeEmail}</td>
-                <td>{user.role}</td>
-                <td>
-                  <label>{user.department}</label>
-                </td>
-                <td>{user.location}</td>
-                <td>{user.reportingManager}</td>
-                <td className="access-row-actions">
-                  <button onClick={() => openEdit(user)} aria-label={`Edit ${user.firstName}`}>
-                    <i className="bi bi-pencil" />
-                  </button>
-                  <button
-                    className="delete"
-                    onClick={() => deleteUser(user)}
-                    aria-label={`Delete ${user.firstName}`}
-                  >
-                    <i className="bi bi-trash3" />
-                  </button>
-                </td>
+          <table className="er-table access-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Employee ID</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Department</th>
+                <th>Location</th>
+                <th>Reporting manager</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visibleUsers.map((user) => (
+                <tr key={user.id}>
+                  <td>
+                    <b>
+                      {user.firstName} {user.lastName}
+                    </b>
+                  </td>
+                  <td>
+                    <code>{user.employeeId}</code>
+                  </td>
+                  <td>{user.employeeEmail}</td>
+                  <td>{user.role}</td>
+                  <td>
+                    <label>{user.department}</label>
+                  </td>
+                  <td>{user.location}</td>
+                  <td>{user.reportingManager}</td>
+                  <td className="access-row-actions">
+                    <button onClick={() => openEdit(user)} aria-label={`Edit ${user.firstName}`}>
+                      <i className="bi bi-pencil" />
+                    </button>
+                    <button
+                      className="delete"
+                      onClick={() => deleteUser(user)}
+                      aria-label={`Delete ${user.firstName}`}
+                    >
+                      <i className="bi bi-trash3" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         {!visibleUsers.length && <p className="access-empty">No users match this search.</p>}
-      <Pagination
-        page={page}
-        totalItems={totalUsers}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        label="users"
-      />
+        <Pagination
+          page={page}
+          totalItems={totalUsers}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          label="users"
+        />
       </section>
-      <section className={`er-card access-table-card bulk-upload-card ${bulkUploads.length ? '' : 'bulk-upload-card-empty'}`}>
-        <header><div><h3>Approve bulk upload users <span>({bulkUploads.reduce((sum, upload) => sum + (upload.rows || []).length, 0)})</span></h3><p>All uploaded rows in one table. Approve, edit, or remove each row below.</p></div></header>
+      <section
+        className={`er-card access-table-card bulk-upload-card ${bulkUploads.length ? '' : 'bulk-upload-card-empty'}`}
+      >
+        <header>
+          <div>
+            <h3>
+              Approve bulk upload users{' '}
+              <span>
+                ({bulkUploads.reduce((sum, upload) => sum + (upload.rows || []).length, 0)})
+              </span>
+            </h3>
+            <p>All uploaded rows in one table. Approve, edit, or remove each row below.</p>
+          </div>
+        </header>
         {(() => {
-          const allRows = bulkUploads.flatMap((upload) => (upload.rows || []).map((row) => ({ uploadId: upload.id, row })))
+          const allRows = bulkUploads.flatMap((upload) =>
+            (upload.rows || []).map((row) => ({ uploadId: upload.id, row })),
+          )
           const totalItems = allRows.length
           const visibleRows = allRows.slice((bulkPage - 1) * bulkPageSize, bulkPage * bulkPageSize)
           return allRows.length ? (
             <div className="bulk-review-section">
               <div className="bulk-review-toolbar">
-                <span className="bulk-selection-count">{selectedBulkRows.length ? `${selectedBulkRows.length} selected` : ''}</span>
-                <button type="button" className="bulk-delete-selected" disabled={!selectedBulkRows.length} onClick={deleteSelectedBulkRows} title="Remove the selected rows"><i className="bi bi-trash3" /> Delete selected</button>
+                <span className="bulk-selection-count">
+                  {selectedBulkRows.length ? `${selectedBulkRows.length} selected` : ''}
+                </span>
+                <button
+                  type="button"
+                  className="bulk-delete-selected"
+                  disabled={!selectedBulkRows.length}
+                  onClick={deleteSelectedBulkRows}
+                  title="Remove the selected rows"
+                >
+                  <i className="bi bi-trash3" /> Delete selected
+                </button>
               </div>
               <div className="global-table-scroll">
                 <table className="er-table bulk-ready-table">
-                  <thead><tr><th className="bulk-select-col"><input type="checkbox" checked={visibleRows.length > 0 && visibleRows.every(({ uploadId, row }) => selectedBulkRows.includes(bulkRowKey(uploadId, row)))} onChange={() => toggleAllBulkRows(visibleRows)} aria-label="Select all visible rows" /></th><th>Row</th><th>User</th><th>Employee ID</th><th>Email</th><th>Role</th><th>Department</th><th>Location</th><th>Reporting manager</th><th>Status</th><th className="bulk-actions-col">Actions</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th className="bulk-select-col">
+                        <input
+                          type="checkbox"
+                          checked={
+                            visibleRows.length > 0 &&
+                            visibleRows.every(({ uploadId, row }) =>
+                              selectedBulkRows.includes(bulkRowKey(uploadId, row)),
+                            )
+                          }
+                          onChange={() => toggleAllBulkRows(visibleRows)}
+                          aria-label="Select all visible rows"
+                        />
+                      </th>
+                      <th>Row</th>
+                      <th>User</th>
+                      <th>Employee ID</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Department</th>
+                      <th>Location</th>
+                      <th>Reporting manager</th>
+                      <th>Status</th>
+                      <th className="bulk-actions-col">Actions</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {visibleRows.map(({ uploadId, row }) => (
                       <tr key={`${uploadId}-${row.row}`}>
-                        <td className="bulk-select-col" data-label="Select"><input type="checkbox" checked={selectedBulkRows.includes(bulkRowKey(uploadId, row))} onChange={() => toggleBulkRow(uploadId, row)} aria-label={`Select row ${row.row}`} /></td>
+                        <td className="bulk-select-col" data-label="Select">
+                          <input
+                            type="checkbox"
+                            checked={selectedBulkRows.includes(bulkRowKey(uploadId, row))}
+                            onChange={() => toggleBulkRow(uploadId, row)}
+                            aria-label={`Select row ${row.row}`}
+                          />
+                        </td>
                         <td data-label="Row">{row.row}</td>
-                        <td data-label="User"><b>{row.data.firstName} {row.data.lastName}</b></td>
+                        <td data-label="User">
+                          <b>
+                            {row.data.firstName} {row.data.lastName}
+                          </b>
+                        </td>
                         <td data-label="Employee ID">{row.data.employeeId}</td>
                         <td data-label="Email">{row.data.employeeEmail}</td>
                         <td data-label="Role">{row.data.role}</td>
                         <td data-label="Department">{row.data.department}</td>
                         <td data-label="Location">{row.data.location}</td>
                         <td data-label="Reporting manager">{row.data.reportingManager}</td>
-                        <td data-label="Status">{row.errors && row.errors.length ? <span className="bulk-status-wrap"><span className="bulk-row-error">Needs correction</span><button type="button" className="bulk-error-info" onClick={(event) => showBulkErrors(uploadId, row, event)} aria-label="Show error details" title="Show error details"><i className="bi bi-info-circle" /></button></span> : <span className="bulk-row-valid">Ready</span>}</td>
+                        <td data-label="Status">
+                          {row.errors && row.errors.length ? (
+                            <span className="bulk-status-wrap">
+                              <span className="bulk-row-error">Needs correction</span>
+                              <button
+                                type="button"
+                                className="bulk-error-info"
+                                onClick={(event) => showBulkErrors(uploadId, row, event)}
+                                aria-label="Show error details"
+                                title="Show error details"
+                              >
+                                <i className="bi bi-info-circle" />
+                              </button>
+                            </span>
+                          ) : (
+                            <span className="bulk-row-valid">Ready</span>
+                          )}
+                        </td>
                         <td className="access-row-actions" data-label="Actions">
-                          <button className="approve" disabled={row.errors && row.errors.length} onClick={() => approveBulkRow(uploadId, row)} aria-label="Approve row" title="Approve"><i className="bi bi-check-lg" /></button>
-                          <button onClick={() => setEditingBulkRow({ uploadId, row })} aria-label="Edit row" title="Edit"><i className="bi bi-pencil" /></button>
-                          <button className="delete" onClick={() => deleteBulkRow(uploadId, row)} aria-label="Delete row" title="Delete row"><i className="bi bi-trash3" /></button>
+                          <button
+                            className="approve"
+                            disabled={row.errors && row.errors.length}
+                            onClick={() => approveBulkRow(uploadId, row)}
+                            aria-label="Approve row"
+                            title="Approve"
+                          >
+                            <i className="bi bi-check-lg" />
+                          </button>
+                          <button
+                            onClick={() => setEditingBulkRow({ uploadId, row })}
+                            aria-label="Edit row"
+                            title="Edit"
+                          >
+                            <i className="bi bi-pencil" />
+                          </button>
+                          <button
+                            className="delete"
+                            onClick={() => deleteBulkRow(uploadId, row)}
+                            aria-label="Delete row"
+                            title="Delete row"
+                          >
+                            <i className="bi bi-trash3" />
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <Pagination page={bulkPage} totalItems={totalItems} pageSize={bulkPageSize} onPageChange={setBulkPage} onPageSizeChange={(size) => { setBulkPageSize(size); setBulkPage(1) }} label="uploaded users" />
+              <Pagination
+                page={bulkPage}
+                totalItems={totalItems}
+                pageSize={bulkPageSize}
+                onPageChange={setBulkPage}
+                onPageSizeChange={(size) => {
+                  setBulkPageSize(size)
+                  setBulkPage(1)
+                }}
+                label="uploaded users"
+              />
             </div>
-          ) : <p className="access-empty">No bulk uploaded users awaiting approval.</p>
+          ) : (
+            <p className="access-empty">No bulk uploaded users awaiting approval.</p>
+          )
         })()}
-        {bulkErrorInfo && createPortal(
-          <div ref={bulkErrorInfoRef} className="bulk-error-popover" style={{ left: bulkErrorInfo.x, top: bulkErrorInfo.y, width: bulkErrorInfo.popW }}>
-            <div className="bulk-error-popover-head">
-              <span>Row {bulkErrorInfo.row.row} errors</span>
-              <button type="button" onClick={() => setBulkErrorInfo(null)} aria-label="Close"><i className="bi bi-x-lg" /></button>
-            </div>
-            <ul className="bulk-error-list">
-              {bulkErrorInfo.errors.map((error, index) => (
-                <li key={index}>{error}</li>
-              ))}
-            </ul>
-            <p className="bulk-error-popover-hint">Edit the row to fix these before approving.</p>
-          </div>,
-          document.body,
-        )}
+        {bulkErrorInfo &&
+          createPortal(
+            <div
+              ref={bulkErrorInfoRef}
+              className="bulk-error-popover"
+              style={{ left: bulkErrorInfo.x, top: bulkErrorInfo.y, width: bulkErrorInfo.popW }}
+            >
+              <div className="bulk-error-popover-head">
+                <span>Row {bulkErrorInfo.row.row} errors</span>
+                <button type="button" onClick={() => setBulkErrorInfo(null)} aria-label="Close">
+                  <i className="bi bi-x-lg" />
+                </button>
+              </div>
+              <ul className="bulk-error-list">
+                {bulkErrorInfo.errors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+              <p className="bulk-error-popover-hint">Edit the row to fix these before approving.</p>
+            </div>,
+            document.body,
+          )}
       </section>
       {editing && (
         <UserForm
@@ -1022,7 +1227,52 @@ export default function AccessManagementPage({ notify, runWithLoader, query = ''
           onClose={() => setManagingOptions(null)}
         />
       )}
-      {bulkDialogOpen && <div className="access-overlay" onMouseDown={(event) => event.target === event.currentTarget && setBulkDialogOpen(false)}><section className="access-dialog bulk-upload-dialog" role="dialog" aria-modal="true" aria-label="Upload bulk users"><header><div><h2><i className="bi bi-upload" /> Upload Excel File</h2><p>Upload the completed OTEC user template for validation.</p></div><button type="button" onClick={() => setBulkDialogOpen(false)} aria-label="Close"><i className="bi bi-x-lg" /></button></header><label className="bulk-file-input">Choose Excel File<input type="file" accept=".xlsx" onChange={(event) => setBulkFile(event.target.files?.[0] || null)} /></label><footer><button type="button" className="outline-action" onClick={downloadBulkTemplate}><i className="bi bi-download" /> Export Excel template</button><button type="button" className="er-add" disabled={!bulkFile} onClick={() => uploadBulkFile(bulkFile)}><i className="bi bi-upload" /> Upload</button></footer></section></div>}
+      {bulkDialogOpen && (
+        <div
+          className="access-overlay"
+          onMouseDown={(event) => event.target === event.currentTarget && setBulkDialogOpen(false)}
+        >
+          <section
+            className="access-dialog bulk-upload-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Upload bulk users"
+          >
+            <header>
+              <div>
+                <h2>
+                  <i className="bi bi-upload" /> Upload Excel File
+                </h2>
+                <p>Upload the completed OTEC user template for validation.</p>
+              </div>
+              <button type="button" onClick={() => setBulkDialogOpen(false)} aria-label="Close">
+                <i className="bi bi-x-lg" />
+              </button>
+            </header>
+            <label className="bulk-file-input">
+              Choose Excel File
+              <input
+                type="file"
+                accept=".xlsx"
+                onChange={(event) => setBulkFile(event.target.files?.[0] || null)}
+              />
+            </label>
+            <footer>
+              <button type="button" className="outline-action" onClick={downloadBulkTemplate}>
+                <i className="bi bi-download" /> Export Excel template
+              </button>
+              <button
+                type="button"
+                className="er-add"
+                disabled={!bulkFile}
+                onClick={() => uploadBulkFile(bulkFile)}
+              >
+                <i className="bi bi-upload" /> Upload
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </section>
   )
 }

@@ -27,7 +27,7 @@
 //   issued.setFullYear(issued.getFullYear() + Number(years))
 //   return issued
 // }
- 
+
 // const oemColors = ['#5147e5', '#f09b2e', '#10a58e', '#e25573', '#4385e8']
 // const validityLabel = (certificate) => {
 //   if (certificate.expires_on) return 'Expiry date set'
@@ -129,9 +129,9 @@
 //     // updates refresh data quietly so the dashboard is never interrupted.
 //     loadCertificates(realtimeVersion === 0)
 //   }, [realtimeVersion, user.employeeEmail])
- 
+
 //   const [renewals, setRenewals] = useState([])
- 
+
 //   const loadRenewals = async () => {
 //     try {
 //       const response = await fetch(
@@ -149,15 +149,14 @@
 //       notify(error.message || 'Unable to load your renewal alerts')
 //     }
 //   }
- 
+
 //   useEffect(() => {
 //     loadRenewals()
 //   }, [realtimeVersion, user.employeeEmail])
- 
 
 //   // Approval is performed by an administrator in a different session. Refresh
 //   // quietly so a user sees its decision without needing to sign out or reload.
- 
+
 //   const activeCount = certificates.filter((certificate) => certificate.status === 'issued').length
 //   const approvedCertificates = useMemo(
 //     () => certificates.filter((certificate) => certificate.status === 'issued'),
@@ -642,44 +641,59 @@
 //   )
 // }
 
-
-
-
-
-
-
 import { useEffect, useMemo, useState } from 'react'
 import UserCertificateModal from '../components/UserCertificateModal'
 import { useLocation } from 'react-router-dom'
 import { confirmDelete } from '../dialogs'
-const apiUrl = process.env.REACT_APP_API_URL
 import VerificationFileButton from '../components/VerificationFileButton'
 import CompactSelect from '../components/CompactSelect'
+import Pagination from '../components/Pagination'
 import { renewalTimeLabel } from '../utils/renewalTime'
+import apiUrl from '../api'
+import CertificationTasksPage from './CertificationTasksPage'
 
-const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const shortMonthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 const validityYearsFor = (certificate) => {
   if (Object.prototype.hasOwnProperty.call(certificate, 'validity_years')) {
     const value = certificate.validity_years
     return value === null || value === '' || Number(value) === 0 ? null : Number(value)
   }
-  return { lifetime: null, '1_year': 1, '2_years': 2, '3_years': 3 }[
-    certificate.validity
-  ] ?? null
+  return { lifetime: null, '1_year': 1, '2_years': 2, '3_years': 3 }[certificate.validity] ?? null
 }
 
 const expiryFor = (certificate) => {
-  if (certificate.expires_on) return new Date(`${String(certificate.expires_on).slice(0, 10)}T00:00:00`)
+  if (certificate.expires_on)
+    return new Date(`${String(certificate.expires_on).slice(0, 10)}T00:00:00`)
   const years = validityYearsFor(certificate)
   if (!years) return null
   const issued = new Date(`${certificate.issued_date}T00:00:00`)
   issued.setFullYear(issued.getFullYear() + Number(years))
   return issued
 }
- 
+
 const oemColors = ['#5147e5', '#f09b2e', '#10a58e', '#e25573', '#4385e8']
-const formatDate = (value) => value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Not recorded'
+const formatDate = (value) =>
+  value
+    ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : 'Not recorded'
 const validityLabel = (certificate) => {
   if (certificate.expires_on) return 'Expiry date set'
   const years = validityYearsFor(certificate)
@@ -697,13 +711,20 @@ const oemFor = (certificate) => {
   return 'Other'
 }
 
-const certificateStatusLabel = (status) => (
-  status === 'issued' ? 'Validated' : status === 'pending' ? 'Under Review' : status === 'revoked' ? 'Revoked' : status
-)
+const certificateStatusLabel = (status) =>
+  status === 'issued'
+    ? 'Validated'
+    : status === 'pending'
+      ? 'Under Review'
+      : status === 'revoked'
+        ? 'Revoked'
+        : status
 
 const newestCertificateFirst = (first, second) => {
-  const firstDate = Date.parse(first.created_at || `${first.issued_date || '1970-01-01'}T00:00:00`) || 0
-  const secondDate = Date.parse(second.created_at || `${second.issued_date || '1970-01-01'}T00:00:00`) || 0
+  const firstDate =
+    Date.parse(first.created_at || `${first.issued_date || '1970-01-01'}T00:00:00`) || 0
+  const secondDate =
+    Date.parse(second.created_at || `${second.issued_date || '1970-01-01'}T00:00:00`) || 0
   return secondDate - firstDate
 }
 
@@ -731,25 +752,38 @@ export default function UserDashboardPage({
   const [configuredOems, setConfiguredOems] = useState([])
   const [monthlyRank, setMonthlyRank] = useState({ rank: null, certificate_count: 0 })
   const [completionPeriod, setCompletionPeriod] = useState('year')
-  const [selectedCompletionYear, setSelectedCompletionYear] = useState(String(new Date().getFullYear()))
+  const [selectedCompletionYear, setSelectedCompletionYear] = useState(
+    String(new Date().getFullYear()),
+  )
 
   useEffect(() => setTab(initialTab), [initialTab])
   useEffect(() => setCertificateSearch(query), [query])
 
   useEffect(() => {
     fetch(`${apiUrl}/access-options/oems`)
-      .then(async (response) => response.ok ? response.json() : [])
-      .then((oems) => setConfiguredOems((oems || []).map((item) => item.name).filter(Boolean).sort()) )
+      .then(async (response) => (response.ok ? response.json() : []))
+      .then((oems) =>
+        setConfiguredOems(
+          (oems || [])
+            .map((item) => item.name)
+            .filter(Boolean)
+            .sort(),
+        ),
+      )
       .catch(() => setConfiguredOems([]))
   }, [realtimeVersion])
 
   useEffect(() => {
     fetch(`${apiUrl}/monthly-rankings?email=${encodeURIComponent(user.employeeEmail || '')}`)
-      .then(async (response) => response.ok ? response.json() : { rank: null, certificate_count: 0 })
-      .then((result) => setMonthlyRank({
-        rank: result.rank ?? null,
-        certificate_count: Number(result.certificate_count) || 0,
-      }))
+      .then(async (response) =>
+        response.ok ? response.json() : { rank: null, certificate_count: 0 },
+      )
+      .then((result) =>
+        setMonthlyRank({
+          rank: result.rank ?? null,
+          certificate_count: Number(result.certificate_count) || 0,
+        }),
+      )
       .catch(() => setMonthlyRank({ rank: null, certificate_count: 0 }))
   }, [realtimeVersion, user.employeeEmail])
 
@@ -759,7 +793,9 @@ export default function UserDashboardPage({
         fetch(
           `${apiUrl}/certificates?search=${encodeURIComponent(user.employeeEmail)}&page=1&page_size=100`,
         )
-      const response = showLoader ? await runWithLoader('Loading your certificates', request) : await request()
+      const response = showLoader
+        ? await runWithLoader('Loading your certificates', request)
+        : await request()
       if (!response.ok) throw new Error('Unable to load certificates')
       const result = await response.json()
       const savedCertificates = result.items || []
@@ -779,9 +815,9 @@ export default function UserDashboardPage({
     // updates refresh data quietly so the dashboard is never interrupted.
     loadCertificates(realtimeVersion === 0)
   }, [realtimeVersion, user.employeeEmail])
- 
+
   const [renewals, setRenewals] = useState([])
- 
+
   const loadRenewals = async () => {
     try {
       const response = await fetch(
@@ -799,36 +835,46 @@ export default function UserDashboardPage({
       notify(error.message || 'Unable to load your renewal alerts')
     }
   }
- 
+
   useEffect(() => {
     loadRenewals()
   }, [realtimeVersion, user.employeeEmail])
- 
 
   // Approval is performed by an administrator in a different session. Refresh
   // quietly so a user sees its decision without needing to sign out or reload.
- 
+
   const activeCount = certificates.filter((certificate) => certificate.status === 'issued').length
   const approvedCertificates = useMemo(
     () => certificates.filter((certificate) => certificate.status === 'issued'),
     [certificates],
   )
-  const certificateOems = useMemo(() => configuredOems.length
-    ? configuredOems
-    : [...new Set(certificates.map(oemFor))].sort((first, second) => first.localeCompare(second)),
-  [certificates, configuredOems])
+  const certificateOems = useMemo(
+    () =>
+      configuredOems.length
+        ? configuredOems
+        : [...new Set(certificates.map(oemFor))].sort((first, second) =>
+            first.localeCompare(second),
+          ),
+    [certificates, configuredOems],
+  )
   const filteredCertificates = useMemo(() => {
     const search = certificateSearch.trim().toLowerCase()
-    return certificates.filter((certificate) => {
-      const matchesSearch = !search || [
-        certificate.course_name,
-        certificate.certificate_number,
-        oemFor(certificate),
-      ].some((value) => String(value || '').toLowerCase().includes(search))
-      const matchesOem = certificateOem === 'all' || oemFor(certificate) === certificateOem
-      const matchesStatus = certificateStatus === 'all' || certificate.status === certificateStatus
-      return matchesSearch && matchesOem && matchesStatus
-    }).sort(newestCertificateFirst)
+    return certificates
+      .filter((certificate) => {
+        const matchesSearch =
+          !search ||
+          [certificate.course_name, certificate.certificate_number, oemFor(certificate)].some(
+            (value) =>
+              String(value || '')
+                .toLowerCase()
+                .includes(search),
+          )
+        const matchesOem = certificateOem === 'all' || oemFor(certificate) === certificateOem
+        const matchesStatus =
+          certificateStatus === 'all' || certificate.status === certificateStatus
+        return matchesSearch && matchesOem && matchesStatus
+      })
+      .sort(newestCertificateFirst)
   }, [certificates, certificateSearch, certificateOem, certificateStatus])
   const oemRows = useMemo(
     () =>
@@ -843,10 +889,11 @@ export default function UserDashboardPage({
   )
   const yearRows = useMemo(() => {
     const currentYear = new Date().getFullYear()
-    const joiningYear = new Date(`${String(user?.dateOfJoining || '').slice(0, 10)}T00:00:00`).getFullYear()
-    const firstYear = Number.isFinite(joiningYear) && joiningYear <= currentYear
-      ? joiningYear
-      : currentYear - 5
+    const joiningYear = new Date(
+      `${String(user?.dateOfJoining || '').slice(0, 10)}T00:00:00`,
+    ).getFullYear()
+    const firstYear =
+      Number.isFinite(joiningYear) && joiningYear <= currentYear ? joiningYear : currentYear - 5
     const counts = approvedCertificates.reduce((total, certificate) => {
       const year = new Date(`${certificate.issued_date}T00:00:00`).getFullYear()
       total[year] = (total[year] || 0) + 1
@@ -860,7 +907,8 @@ export default function UserDashboardPage({
   const monthRows = useMemo(() => {
     const counts = approvedCertificates.reduce((total, certificate) => {
       const issued = new Date(`${certificate.issued_date}T00:00:00`)
-      if (issued.getFullYear() === Number(selectedCompletionYear)) total[issued.getMonth()] = (total[issued.getMonth()] || 0) + 1
+      if (issued.getFullYear() === Number(selectedCompletionYear))
+        total[issued.getMonth()] = (total[issued.getMonth()] || 0) + 1
       return total
     }, {})
     return shortMonthNames.map((name, index) => [name, counts[index] || 0])
@@ -888,9 +936,13 @@ export default function UserDashboardPage({
   }
 
   const currentHour = new Date().getHours()
-  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening'
+  const greeting =
+    currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening'
   const greetingDate = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   }).format(new Date())
   const dashboardName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'User'
 
@@ -899,15 +951,24 @@ export default function UserDashboardPage({
       {/* {!isRenewalsRoute && (
         <section className="dashboard-greeting" aria-label={`${greeting}, ${dashboardName}`}> */}
       {!isRenewalsRoute && !isProfileRoute && (
-  <section className="dashboard-greeting" aria-label={`${greeting}, ${dashboardName}`}>
+        <section className="dashboard-greeting" aria-label={`${greeting}, ${dashboardName}`}>
           <div>
-            <span><i className="bi bi-grid-1x2" aria-hidden="true" /> CERTIFICATION DASHBOARD</span>
-            <h2>{greeting}, {dashboardName}
+            <span>
+              <i className="bi bi-grid-1x2" aria-hidden="true" /> CERTIFICATION DASHBOARD
+            </span>
+            <h2>
+              {greeting}, {dashboardName}
               {/* <small>Here is the latest certification and compliance overview.</small>     */}
             </h2>
             <p className="user-greeting-details">
-              <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
-              <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Not assigned'}</strong>
+              <strong>
+                <i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID:{' '}
+                {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}
+              </strong>
+              <strong>
+                <i className="bi bi-building" aria-hidden="true" /> Department:{' '}
+                {user?.department || 'Not assigned'}
+              </strong>
             </p>
           </div>
           <time dateTime={new Date().toISOString().slice(0, 10)}>
@@ -918,12 +979,24 @@ export default function UserDashboardPage({
       {isProfileRoute && (
         <section className="dashboard-greeting" aria-label={`${dashboardName} Dashboard`}>
           <div>
-            <span><i className="bi bi-grid-1x2" aria-hidden="true" /> PERSONAL WORKSPACE</span>
+            <span>
+              <i className="bi bi-grid-1x2" aria-hidden="true" /> PERSONAL WORKSPACE
+            </span>
             <h2>{dashboardName}'s Dashboard</h2>
             <p className="dashboard-greeting-details">
-              {user?.role === 'admin' && <strong><i className="bi bi-person-badge" aria-hidden="true" /> Role: Administrator</strong>}
-              <strong><i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID: {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}</strong>
-              <strong><i className="bi bi-building" aria-hidden="true" /> Department: {user?.department || 'Not assigned'}</strong>
+              {user?.role === 'admin' && (
+                <strong>
+                  <i className="bi bi-person-badge" aria-hidden="true" /> Role: Administrator
+                </strong>
+              )}
+              <strong>
+                <i className="bi bi-person-vcard" aria-hidden="true" /> Employee ID:{' '}
+                {user?.employeeId || user?.employee_id || user?.id || 'Not assigned'}
+              </strong>
+              <strong>
+                <i className="bi bi-building" aria-hidden="true" /> Department:{' '}
+                {user?.department || 'Not assigned'}
+              </strong>
             </p>
           </div>
           <time dateTime={new Date().toISOString().slice(0, 10)}>
@@ -931,43 +1004,45 @@ export default function UserDashboardPage({
           </time>
         </section>
       )}
-     
+
       {isProfileRoute && (
-  <nav className="completion-chart-toggle admin-tabs-toggle" aria-label="Profile views">
-    <button
-      type="button"
-      className={tab === 'overview' ? 'active' : ''}
-      onClick={() => setTab('overview')}
-      aria-pressed={tab === 'overview'}
-    >
-      <i className="bi bi-grid-1x2" aria-hidden="true" /> Dashboard
-    </button>
-    <button
-      type="button"
-      className={tab === 'certificates' ? 'active' : ''}
-      onClick={() => setTab('certificates')}
-      aria-pressed={tab === 'certificates'}
-    >
-      <i className="bi bi-patch-check" aria-hidden="true" /> My certificates
-    </button>
-    <button
-      type="button"
-      className={tab === 'renewals' ? 'active' : ''}
-      onClick={() => setTab('renewals')}
-      aria-pressed={tab === 'renewals'}
-    >
-      <i className="bi bi-clock-history" aria-hidden="true" /> Upcoming renewals
-      {renewals.length > 0 && <span>{renewals.length}</span>}
-    </button>
-    <button
-      type="button"
-      onClick={() => goTo('my-course-list')}
-    >
-      <i className="bi bi-list-check" aria-hidden="true" /> My course list
-    </button>
-  </nav>
-)}
-      
+        <nav className="completion-chart-toggle admin-tabs-toggle" aria-label="Profile views">
+          <button
+            type="button"
+            className={tab === 'overview' ? 'active' : ''}
+            onClick={() => setTab('overview')}
+            aria-pressed={tab === 'overview'}
+          >
+            <i className="bi bi-grid-1x2" aria-hidden="true" /> Dashboard
+          </button>
+          <button
+            type="button"
+            className={tab === 'certificates' ? 'active' : ''}
+            onClick={() => setTab('certificates')}
+            aria-pressed={tab === 'certificates'}
+          >
+            <i className="bi bi-patch-check" aria-hidden="true" /> My certificates
+          </button>
+          <button
+            type="button"
+            className={tab === 'renewals' ? 'active' : ''}
+            onClick={() => setTab('renewals')}
+            aria-pressed={tab === 'renewals'}
+          >
+            <i className="bi bi-clock-history" aria-hidden="true" /> Upcoming renewals
+            {renewals.length > 0 && <span>{renewals.length}</span>}
+          </button>
+          <button
+            type="button"
+            className={tab === 'my-course-list' ? 'active' : ''}
+            onClick={() => setTab('my-course-list')}
+            aria-pressed={tab === 'my-course-list'}
+          >
+            <i className="bi bi-list-check" aria-hidden="true" /> My course list
+          </button>
+        </nav>
+      )}
+
       {tab === 'overview' && (
         <>
           <div className="user-kpis">
@@ -1000,13 +1075,24 @@ export default function UserDashboardPage({
               <i className="bi bi-trophy" />
               <span>
                 Current month rank<b>{monthlyRank.rank || '—'}</b>
-                <small>{monthlyRank.certificate_count ? `${monthlyRank.certificate_count} validated ${monthlyRank.certificate_count === 1 ? 'certificate' : 'certificates'}` : 'No validated certificates this month'}</small>
+                <small>
+                  {monthlyRank.certificate_count
+                    ? `${monthlyRank.certificate_count} validated ${monthlyRank.certificate_count === 1 ? 'certificate' : 'certificates'}`
+                    : 'No validated certificates this month'}
+                </small>
               </span>
             </article>
           </div>
           <div className="user-chart-grid">
             <OemChart rows={oemRows} />
-            <YearChart rows={completionPeriod === 'year' ? yearRows : monthRows} period={completionPeriod} selectedYear={selectedCompletionYear} years={yearRows.map(([year]) => String(year))} onPeriodChange={setCompletionPeriod} onYearChange={setSelectedCompletionYear} />
+            <YearChart
+              rows={completionPeriod === 'year' ? yearRows : monthRows}
+              period={completionPeriod}
+              selectedYear={selectedCompletionYear}
+              years={yearRows.map(([year]) => String(year))}
+              onPeriodChange={setCompletionPeriod}
+              onYearChange={setSelectedCompletionYear}
+            />
           </div>
           <section className="er-card user-renewal-card">
             <header>
@@ -1027,7 +1113,11 @@ export default function UserDashboardPage({
           <header>
             <div>
               <h3>My certificates</h3>
-              <p>{isAdminProfile ? 'Certificates recorded for this administrator.' : `Certificates recorded under ${user.employeeEmail}`}</p>
+              <p>
+                {isAdminProfile
+                  ? 'Certificates recorded for this administrator.'
+                  : `Certificates recorded under ${user.employeeEmail}`}
+              </p>
             </div>
             <button className="er-add" onClick={openCertificateForm}>
               <i className="bi bi-plus-lg" /> Add certificate
@@ -1046,14 +1136,24 @@ export default function UserDashboardPage({
             </label>
             <label>
               <span>OEM</span>
-              <CompactSelect value={certificateOem} onChange={(event) => setCertificateOem(event.target.value)}>
+              <CompactSelect
+                value={certificateOem}
+                onChange={(event) => setCertificateOem(event.target.value)}
+              >
                 <option value="all">All OEMs</option>
-                {certificateOems.map((oem) => <option key={oem} value={oem}>{oem}</option>)}
+                {certificateOems.map((oem) => (
+                  <option key={oem} value={oem}>
+                    {oem}
+                  </option>
+                ))}
               </CompactSelect>
             </label>
             <label>
               <span>Status</span>
-              <CompactSelect value={certificateStatus} onChange={(event) => setCertificateStatus(event.target.value)}>
+              <CompactSelect
+                value={certificateStatus}
+                onChange={(event) => setCertificateStatus(event.target.value)}
+              >
                 <option value="all">All statuses</option>
                 <option value="issued">Validated</option>
                 <option value="pending">Under Review</option>
@@ -1061,36 +1161,45 @@ export default function UserDashboardPage({
               </CompactSelect>
             </label>
             {(certificateSearch || certificateOem !== 'all' || certificateStatus !== 'all') && (
-              <button type="button" onClick={() => {
-                setCertificateSearch('')
-                setCertificateOem('all')
-                setCertificateStatus('all')
-              }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCertificateSearch('')
+                  setCertificateOem('all')
+                  setCertificateStatus('all')
+                }}
+              >
                 <i className="bi bi-x-lg" aria-hidden="true" /> Clear
               </button>
             )}
           </div>
-                <CertificateTable
-        certificates={filteredCertificates}
-        loading={loading}
-        onEdit={setEditingCertificate}
-        onDelete={deleteCertificate}
-        notify={notify}
-        runWithLoader={runWithLoader}
-      />
-    </section>
-  
-)}
+          <CertificateTable
+            certificates={filteredCertificates}
+            loading={loading}
+            onEdit={setEditingCertificate}
+            onDelete={deleteCertificate}
+            notify={notify}
+            runWithLoader={runWithLoader}
+          />
+        </section>
+      )}
       {tab === 'renewals' && (
         <section className="er-card user-renewal-card">
           <header>
             <div>
               <h3>Upcoming renewals</h3>
-              <p>{isAdminProfile ? 'Review this administrator’s certificates approaching their renewal date.' : 'Review certificates approaching their renewal date.'}</p>
+              <p>
+                {isAdminProfile
+                  ? 'Review this administrator&apos;s certificates approaching their renewal date.'
+                  : 'Review certificates approaching their renewal date.'}
+              </p>
             </div>
           </header>
           <RenewalList renewals={renewals} onAdd={openCertificateForm} />
         </section>
+      )}
+      {tab === 'my-course-list' && (
+        <CertificationTasksPage personalMode user={user} notify={notify} />
       )}
       {editingCertificate && (
         <UserCertificateModal
@@ -1145,14 +1254,45 @@ function YearChart({ rows, period, selectedYear, years, onPeriodChange, onYearCh
       <header>
         <div>
           <h3>Certifications completed by {period}</h3>
-          <p>{period === 'year' ? 'Your recorded completion history.' : `Your completions in ${selectedYear}.`}</p>
+          <p>
+            {period === 'year'
+              ? 'Your recorded completion history.'
+              : `Your completions in ${selectedYear}.`}
+          </p>
         </div>
         <div className="completion-chart-controls">
           <div className="completion-chart-toggle">
-            <button type="button" className={period === 'month' ? 'active' : ''} onClick={() => onPeriodChange('month')}>Month</button>
-            <button type="button" className={period === 'year' ? 'active' : ''} onClick={() => onPeriodChange('year')}>Year</button>
+            <button
+              type="button"
+              className={period === 'month' ? 'active' : ''}
+              onClick={() => onPeriodChange('month')}
+            >
+              Month
+            </button>
+            <button
+              type="button"
+              className={period === 'year' ? 'active' : ''}
+              onClick={() => onPeriodChange('year')}
+            >
+              Year
+            </button>
           </div>
-          {period === 'month' && <label className="completion-year-select">Year<select value={selectedYear} onChange={(event) => onYearChange(event.target.value)} aria-label="Choose a year for monthly completions">{years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>}
+          {period === 'month' && (
+            <label className="completion-year-select">
+              Year
+              <select
+                value={selectedYear}
+                onChange={(event) => onYearChange(event.target.value)}
+                aria-label="Choose a year for monthly completions"
+              >
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </header>
       <UserCompletionLineChart rows={rows} period={period} />
@@ -1173,25 +1313,98 @@ function UserCompletionLineChart({ rows, period }) {
   const xStep = rows.length > 1 ? graphWidth / (rows.length - 1) : graphWidth
   const points = rows.map(([label, rawCount], index) => {
     const count = Number(rawCount) || 0
-    return { label, count, index, x: padding.left + (rows.length > 1 ? index * xStep : graphWidth / 2), y: height - padding.bottom - (count / yMax) * graphHeight }
+    return {
+      label,
+      count,
+      index,
+      x: padding.left + (rows.length > 1 ? index * xStep : graphWidth / 2),
+      y: height - padding.bottom - (count / yMax) * graphHeight,
+    }
   })
-  const linePath = points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ')
-  const areaPath = points.length ? `${linePath} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z` : ''
-  const gridLines = Array.from({ length: 5 }, (_, index) => ({ value: yMax - (yMax / 4) * index, y: padding.top + (graphHeight / 4) * index }))
+  const linePath = points
+    .map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`)
+    .join(' ')
+  const areaPath = points.length
+    ? `${linePath} L ${points[points.length - 1].x} ${height - padding.bottom} L ${points[0].x} ${height - padding.bottom} Z`
+    : ''
+  const gridLines = Array.from({ length: 5 }, (_, index) => ({
+    value: yMax - (yMax / 4) * index,
+    y: padding.top + (graphHeight / 4) * index,
+  }))
   const hoveredPoint = hoveredIndex === null ? null : points[hoveredIndex]
 
-  return <div className="line-chart-layout user-completion-line-chart">
-    <div className="line-chart-y-axis">{gridLines.map(({ value }) => <span key={value}>{value}</span>)}</div>
-    <div className="line-chart-scroll-container" onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}>
-      <svg className="line-chart-svg" viewBox={`0 0 ${width} ${height}`} style={{ width: `${width}px`, height: `${height}px` }} aria-label={`Certifications completed by ${period} line chart`}>
-        <defs><linearGradient id="lineChartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#d84457" stopOpacity="0.3" /><stop offset="100%" stopColor="#d84457" stopOpacity="0" /></linearGradient></defs>
-        {gridLines.map(({ y }) => <line key={y} x1={padding.left} y1={y} x2={width - padding.right} y2={y} className="line-chart-grid-line" />)}
-        <path d={areaPath} className="line-chart-area" /><path d={linePath} className="line-chart-path" />
-        {points.map((point) => <g key={point.label}><text x={point.x} y={height - 15} textAnchor="middle" className="line-chart-axis-label">{point.label}</text><circle cx={point.x} cy={point.y} r={hoveredIndex === point.index ? 7 : 4} className="line-chart-dot" onPointerEnter={() => setHoveredIndex(point.index)} onPointerLeave={() => setHoveredIndex(null)} /></g>)}
-      </svg>
+  return (
+    <div className="line-chart-layout user-completion-line-chart">
+      <div className="line-chart-y-axis">
+        {gridLines.map(({ value }) => (
+          <span key={value}>{value}</span>
+        ))}
+      </div>
+      <div
+        className="line-chart-scroll-container"
+        onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
+      >
+        <svg
+          className="line-chart-svg"
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ width: `${width}px`, height: `${height}px` }}
+          aria-label={`Certifications completed by ${period} line chart`}
+        >
+          <defs>
+            <linearGradient id="lineChartGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#d84457" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#d84457" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {gridLines.map(({ y }) => (
+            <line
+              key={y}
+              x1={padding.left}
+              y1={y}
+              x2={width - padding.right}
+              y2={y}
+              className="line-chart-grid-line"
+            />
+          ))}
+          <path d={areaPath} className="line-chart-area" />
+          <path d={linePath} className="line-chart-path" />
+          {points.map((point) => (
+            <g key={point.label}>
+              <text
+                x={point.x}
+                y={height - 15}
+                textAnchor="middle"
+                className="line-chart-axis-label"
+              >
+                {point.label}
+              </text>
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r={hoveredIndex === point.index ? 7 : 4}
+                className="line-chart-dot"
+                onPointerEnter={() => setHoveredIndex(point.index)}
+                onPointerLeave={() => setHoveredIndex(null)}
+              />
+            </g>
+          ))}
+        </svg>
+      </div>
+      {hoveredPoint && (
+        <div
+          className="line-chart-tooltip"
+          role="status"
+          style={{
+            left: `calc(40px + ${hoveredPoint.x - scrollLeft}px)`,
+            top: `${hoveredPoint.y + 42}px`,
+          }}
+        >
+          <span>{hoveredPoint.label}</span>
+          <strong>{hoveredPoint.count} completed</strong>
+        </div>
+      )}
     </div>
-    {hoveredPoint && <div className="line-chart-tooltip" role="status" style={{ left: `calc(40px + ${hoveredPoint.x - scrollLeft}px)`, top: `${hoveredPoint.y + 42}px` }}><span>{hoveredPoint.label}</span><strong>{hoveredPoint.count} completed</strong></div>}
-  </div>
+  )
 }
 
 function CertificateTable({ certificates, loading, onEdit, onDelete, notify, runWithLoader }) {
@@ -1204,69 +1417,71 @@ function CertificateTable({ certificates, loading, onEdit, onDelete, notify, run
     )
   return (
     <div className="global-table-scroll">
-    <table className="er-table user-cert-table">
-      <thead>
-        <tr>
-          <th>Certificate</th>
-          <th>OEM</th>
-          <th>Certificate no.</th>
-          <th>Validity</th>
-          <th>Renewal / expiry</th>
-          <th>Completed</th>
-          <th>Status</th>
-          <th>Evidence</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {certificates.map((certificate) => (
-          <tr key={certificate.id}>
-            <td>
-              <b>{certificate.course_name}</b>
-            </td>
-            <td>{certificate.vendor_name || oemFor(certificate)}</td>
-            <td>
-              <code>{certificate.certificate_number}</code>
-            </td>
-            <td>{validityLabel(certificate)}</td>
-            <td>
-              {expiryFor(certificate)
-                ? expiryFor(certificate).toLocaleDateString('en-US')
-                : 'No expiry'}
-            </td>
-            <td>{formatDate(certificate.issued_date)}</td>
-            <td>
-              <span className={`user-status ${certificate.status}`}>{certificateStatusLabel(certificate.status)}</span>
-            </td>
-            <td>
-              <VerificationFileButton
-                certificateId={certificate.id}
-                hasFile={Boolean(certificate.verification_image_path)}
-                notify={notify}
-                runWithLoader={runWithLoader}
-              />
-            </td>
-            <td className="user-certificate-actions">
-              <button
-                type="button"
-                onClick={() => onEdit(certificate)}
-                aria-label="Edit certificate"
-              >
-                <i className="bi bi-pencil" />
-              </button>
-              <button
-                type="button"
-                className="delete"
-                onClick={() => onDelete(certificate)}
-                aria-label="Delete certificate"
-              >
-                <i className="bi bi-trash3" />
-              </button>
-            </td>
+      <table className="er-table user-cert-table">
+        <thead>
+          <tr>
+            <th>Certificate</th>
+            <th>OEM</th>
+            <th>Certificate no.</th>
+            <th>Validity</th>
+            <th>Renewal / expiry</th>
+            <th>Completed</th>
+            <th>Status</th>
+            <th>Evidence</th>
+            <th>Actions</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {certificates.map((certificate) => (
+            <tr key={certificate.id}>
+              <td>
+                <b>{certificate.course_name}</b>
+              </td>
+              <td>{certificate.vendor_name || oemFor(certificate)}</td>
+              <td>
+                <code>{certificate.certificate_number}</code>
+              </td>
+              <td>{validityLabel(certificate)}</td>
+              <td>
+                {expiryFor(certificate)
+                  ? expiryFor(certificate).toLocaleDateString('en-US')
+                  : 'No expiry'}
+              </td>
+              <td>{formatDate(certificate.issued_date)}</td>
+              <td>
+                <span className={`user-status ${certificate.status}`}>
+                  {certificateStatusLabel(certificate.status)}
+                </span>
+              </td>
+              <td>
+                <VerificationFileButton
+                  certificateId={certificate.id}
+                  hasFile={Boolean(certificate.verification_image_path)}
+                  notify={notify}
+                  runWithLoader={runWithLoader}
+                />
+              </td>
+              <td className="user-certificate-actions">
+                <button
+                  type="button"
+                  onClick={() => onEdit(certificate)}
+                  aria-label="Edit certificate"
+                >
+                  <i className="bi bi-pencil" />
+                </button>
+                <button
+                  type="button"
+                  className="delete"
+                  onClick={() => onDelete(certificate)}
+                  aria-label="Delete certificate"
+                >
+                  <i className="bi bi-trash3" />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -1303,12 +1518,11 @@ function RenewalList({ renewals, onAdd }) {
                 })}
               </small>
               <small className="renewal-certificate-details">
-                {certificate.vendor_name || oemFor(certificate)} · Certificate no. {certificate.certificate_number || 'Not recorded'}
+                {certificate.vendor_name || oemFor(certificate)} · Certificate no.{' '}
+                {certificate.certificate_number || 'Not recorded'}
               </small>
             </div>
-            <em className={isUrgent ? 'urgent' : ''}>
-              {renewalTimeLabel(days)}
-            </em>
+            <em className={isUrgent ? 'urgent' : ''}>{renewalTimeLabel(days)}</em>
           </article>
         )
       })}

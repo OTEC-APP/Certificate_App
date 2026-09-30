@@ -624,10 +624,7 @@
 
   .login-page .login-panel {
     min-height: 100svh;
-    padding:
-      max(28px, env(safe-area-inset-top))
-      max(20px, env(safe-area-inset-right))
-      max(28px, env(safe-area-inset-bottom))
-      max(20px, env(safe-area-inset-left));
+    padding: max(28px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+      max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   }
 }

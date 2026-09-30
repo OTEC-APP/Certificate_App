@@ -13,36 +13,51 @@ export default function PageHeading({ user, filter }) {
   const isUserDashboard = user?.role === 'user' && key === 'dashboard'
   const isProfile = key === 'my-profile'
   const displayName = user?.firstName || user?.name?.split(' ')[0] || 'User'
-  const isAdminAlerts = key === 'alerts' && user?.role === 'admin'
-const isUserRenewals = key === 'alerts' && params.get('section') === 'renewals'
+  const isAdminAlerts = key === 'alerts' && ['admin', 'council_member'].includes(user?.role)
+  const isUserRenewals = key === 'alerts' && params.get('section') === 'renewals'
 
-const contextualTitle = key === 'employees'
-  ? filter?.label || (['tenure', 'location'].includes(filter?.type) ? `${filter.value} employees` : defaultTitle)
-  : isAdminAlerts
-    ? 'Certificate approvals'
-    : isUserRenewals
-      ? (params.get('source') === 'expiring' ? 'Expiring in 90 days' : 'Renewals')
-      : filter?.label || defaultTitle
-  const title = isProfile ? `Hello, ${displayName}` : isUserDashboard ? 'My certification dashboard' : contextualTitle
+  const contextualTitle =
+    key === 'employees'
+      ? filter?.label ||
+        (['tenure', 'location'].includes(filter?.type) ? `${filter.value} employees` : defaultTitle)
+      : isAdminAlerts
+        ? 'Certificate approvals'
+        : isUserRenewals
+          ? params.get('source') === 'expiring'
+            ? 'Expiring in 90 days'
+            : 'Renewals'
+          : filter?.label || defaultTitle
+  const title = isProfile
+    ? `Hello, ${displayName}`
+    : isUserDashboard
+      ? 'My certification dashboard'
+      : contextualTitle
   const subtitle = isUserDashboard
-  ? 'Your certificates, renewal alerts, and compliance tasks'
-  : isProfile
-    ? 'Keep your certification profile current and stay ahead of upcoming renewals.'
-    : isAdminAlerts
-      ? 'Certificates submitted by employees awaiting your review.'
-      : isUserRenewals
-        ? 'Certificates that need your attention soon'
-        : defaultSubtitle
+    ? 'Your certificates, renewal alerts, and compliance tasks'
+    : isProfile
+      ? 'Keep your certification profile current and stay ahead of upcoming renewals.'
+      : isAdminAlerts
+        ? 'Certificates submitted by employees awaiting your review.'
+        : isUserRenewals
+          ? 'Certificates that need your attention soon'
+          : defaultSubtitle
   // const eyebrow = isProfile ? 'Personal workspace' : key.replaceAll('-', ' ')
   const eyebrowLabels = {
-  alerts: user?.role === 'admin' ? 'Approvals' : 'Upcoming renewals',
-  'my-certificates': 'My certificates',
-  'my-profile': 'Personal workspace',
-}
-const eyebrow = isProfile
-  ? 'Personal workspace'
-  : eyebrowLabels[key] || key.replaceAll('-', ' ')
-  const roleLabel = user?.role === 'admin' ? 'Administrator' : 'User'
+    alerts: ['admin', 'council_member'].includes(user?.role) ? 'Approvals' : 'Upcoming renewals',
+    'my-certificates': 'My certificates',
+    'my-profile': 'Personal workspace',
+  }
+  const eyebrow = isProfile ? 'Personal workspace' : eyebrowLabels[key] || key.replaceAll('-', ' ')
+  const roleLabel =
+    user?.role === 'council_member'
+      ? 'Council Member'
+      : user?.role === 'admin'
+        ? 'Administrator'
+        : user?.role === 'hr'
+          ? 'HR'
+          : user?.role === 'project_manager'
+            ? 'Project Manager'
+            : 'User'
   const icon = isEmployeeRecord ? 'bi-person-vcard' : pageIcons[key] || 'bi-grid-1x2'
 
   // These routes already introduce themselves with a richer in-page hero.
@@ -59,10 +74,13 @@ const eyebrow = isProfile
     'my-profile',
     'my-certificates',
     'my-course-list',
+    'council-member-dashboard',
+    'top-certified-holders-mail',
   ])
   // User alerts already start with their Alerts / Renewals tabs and card heading.
   // Do not duplicate that introduction above the user workflow.
-  if (hasOwnHero.has(key) || isEmployeeRecord || (user?.role === 'user' && key === 'alerts')) return null
+  if (hasOwnHero.has(key) || isEmployeeRecord || (user?.role === 'user' && key === 'alerts'))
+    return null
 
   return (
     <header className="page-content-heading">

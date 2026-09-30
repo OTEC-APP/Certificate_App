@@ -24,6 +24,8 @@ import LiveCatalogPage from './pages/LiveCatalogPage'
 import SettingsPage from './pages/SettingsPage'
 import AccessManagementPage from './pages/AccessManagementPage'
 import ActivityHistoryPage from './pages/ActivityHistoryPage'
+import CouncilActivityPage from './pages/CouncilActivityPage'
+import CouncilMemberDashboardPage from './pages/CouncilMemberDashboardPage'
 import LoginPage from './pages/LoginPage'
 import LiveEmployeeRecordPage from './pages/LiveEmployeeRecordPage'
 import TopCertifiedHoldersMailPage from './pages/TopCertifiedHoldersMailPage'
@@ -58,8 +60,8 @@ import './drawer-navigation.css'
 import './dashboard-card-geometry.css'
 import './employee-record-overrides.css'
 import './responsive-overrides.css'
+import './council-activity.css'
 import SendCustomEmailPage from './pages/SendCustomEmailPage'
- 
 
 const SESSION_KEY = 'certtrack-auth-session'
 const SESSION_USER_KEY = 'certtrack-auth-user'
@@ -67,27 +69,27 @@ const LAST_ACTIVITY_KEY = 'certtrack-last-activity'
 const TAB_ID_KEY = 'certtrack-tab-id'
 const TAB_OWNER_PREFIX = 'certtrack-tab-owner:'
 const LAST_PRESENCE_KEY = 'certtrack-last-presence'
+const SESSION_CREATED_KEY = 'certtrack-session-created'
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000
 const TAB_OWNER_TTL_MS = 15 * 1000
 const PRESENCE_INTERVAL_MS = 60 * 1000
-
+const SESSION_GRACE_PERIOD_MS = 10 * 1000
 
 // Authentication is deliberately per browser tab.  localStorage is shared by every
 // tab, so an admin signing in elsewhere could otherwise replace a user's role.
 const authStorage = () => window.sessionStorage
 const randomId = () =>
-  window.crypto?.randomUUID?.() ||
-  `${Date.now()}-${Math.random().toString(36).slice(2)}`
- 
+  window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
 const tabRuntimeId = randomId()
- 
+
 const prepareTabSession = () => {
   try {
     let tabId = authStorage().getItem(TAB_ID_KEY)
     const navigation = window.performance?.getEntriesByType?.('navigation')?.[0]
     const isReload = navigation?.type === 'reload'
     let existingOwner = null
- 
+
     if (tabId) {
       try {
         existingOwner = JSON.parse(localStorage.getItem(`${TAB_OWNER_PREFIX}${tabId}`) || 'null')
@@ -95,15 +97,19 @@ const prepareTabSession = () => {
         existingOwner = null
       }
     }
- 
+
+    // Skip duplicate-tab detection on Microsoft OAuth callback
+    const isAzureCallback = new URLSearchParams(window.location.search).has('azure_code')
+
     const copiedFromActiveTab = Boolean(
       tabId &&
       !isReload &&
+      !isAzureCallback &&
       existingOwner?.runtimeId &&
       existingOwner.runtimeId !== tabRuntimeId &&
       Date.now() - Number(existingOwner.updatedAt || 0) < TAB_OWNER_TTL_MS,
     )
- 
+
     if (copiedFromActiveTab) {
       // Browser "Duplicate tab" copies the complete sessionStorage snapshot.
       // Discard that copied state so the new tab always starts as a clean,
@@ -115,7 +121,7 @@ const prepareTabSession = () => {
       tabId = randomId()
       authStorage().setItem(TAB_ID_KEY, tabId)
     }
- 
+
     localStorage.setItem(
       `${TAB_OWNER_PREFIX}${tabId}`,
       JSON.stringify({ runtimeId: tabRuntimeId, updatedAt: Date.now() }),
@@ -127,16 +133,27 @@ const prepareTabSession = () => {
     return ''
   }
 }
- 
+
 const currentTabId = prepareTabSession()
 
 const normaliseUser = (savedUser) => {
   if (!savedUser || typeof savedUser !== 'object') return null
 
-  const role = String(savedUser.role || '')
+  // Older user records may contain the label shown in the UI ("Project Manager")
+  // instead of the API value ("project_manager").  Both represent the same role.
+  const storedRole = String(savedUser.role || '')
     .trim()
     .toLowerCase()
-  if (!['admin', 'project_manager', 'user'].includes(role)) return null
+    .replace(/[\s-]+/g, '_')
+  const role =
+    {
+      administrator: 'admin',
+      council: 'council_member',
+      councilmember: 'council_member',
+      projectmanager: 'project_manager',
+      employee: 'user',
+    }[storedRole] || storedRole
+  if (!['admin', 'council_member', 'hr', 'project_manager', 'user'].includes(role)) return null
 
   return { ...savedUser, role }
 }
@@ -163,15 +180,18 @@ function Shell({ onLogout, user }) {
   const [alertCount, setAlertCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [realtimeVersion, setRealtimeVersion] = useState(0)
-  const personalCertificatePage = ['/my-profile', '/my-certificates', '/upcoming-renewals'].includes(location.pathname)
+  const personalCertificatePage = [
+    '/my-profile',
+    '/my-certificates',
+    '/upcoming-renewals',
+  ].includes(location.pathname)
   const notificationUserKey = String(user?.id || user?.employeeEmail || user?.role || 'anonymous')
   useEffect(() => {
     document.documentElement.lang = 'en-GB'
     localStorage.removeItem('certtrack-theme')
   }, [])
 
-
-   useEffect(() => {
+  useEffect(() => {
     let socket
     let reconnectTimer
     let heartbeatTimer
@@ -182,9 +202,9 @@ function Shell({ onLogout, user }) {
       ? configuredSocketUrl.replace(/\/ws\/updates\/?$/, '')
       : /^https?:\/\//i.test(configuredApiUrl)
         ? configuredApiUrl.replace(/\/api\/?$/, '').replace(/^http/i, 'ws')
-        // CRA's HTTP proxy does not reliably forward WebSocket upgrades. Use the
-        // local FastAPI server directly, without changing the existing REST API.
-        : process.env.NODE_ENV === 'development'
+        : // CRA's HTTP proxy does not reliably forward WebSocket upgrades. Use the
+          // local FastAPI server directly, without changing the existing REST API.
+          process.env.NODE_ENV === 'development'
           ? `ws://${window.location.hostname}:5000`
           : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
     const socketUrl = `${socketBase.replace(/\/$/, '')}/ws/updates`
@@ -218,8 +238,6 @@ function Shell({ onLogout, user }) {
       socket?.close()
     }
   }, [])
- 
- 
 
   useEffect(() => {
     if (window.innerWidth <= 1000) setSidebarOpen(false)
@@ -230,24 +248,44 @@ function Shell({ onLogout, user }) {
     let active = true
     const loadAlertCount = async () => {
       try {
-        const approvalUrl = user?.role === 'admin'
+        const approvalUrl = ['admin', 'council_member'].includes(user?.role)
           ? `${apiUrl}/certificates?status=pending&page=1&page_size=100`
           : `${apiUrl}/certificates?search=${encodeURIComponent(user.employeeEmail || '')}&page=1&page_size=100`
         const requests = [
           fetch(approvalUrl, { cache: 'no-store' }),
-          fetch(`${apiUrl}/notification-reads?user_key=${encodeURIComponent(notificationUserKey)}`, { cache: 'no-store' }),
+          fetch(
+            `${apiUrl}/notification-reads?user_key=${encodeURIComponent(notificationUserKey)}`,
+            { cache: 'no-store' },
+          ),
         ]
+        // Add HR activities for council/admin
+        if (['admin', 'council_member'].includes(user?.role)) {
+          requests.push(
+            fetch(`${apiUrl}/hr-activities?status=pending&page=1&page_size=100`, {
+              cache: 'no-store',
+            }),
+          )
+        }
         const results = await Promise.all(requests)
-        const data = await Promise.all(results.map((response) => response.ok ? response.json() : { total: 0 }))
+        const data = await Promise.all(
+          results.map((response) => (response.ok ? response.json() : { total: 0, items: [] })),
+        )
         const seenKeys = new Set(data[1]?.notification_keys || [])
-        const nextNotifications = (data[0].items || [])
-          .filter((item) => user?.role === 'admin' || (
-            String(item.email || '').toLowerCase() === String(user.employeeEmail || '').toLowerCase()
-            && item.reviewed_at
-            && ['issued', 'revoked'].includes(item.status)
-          ))
-          .map((item) => {
-            const isAdminRequest = user?.role === 'admin'
+
+        const nextNotifications = []
+
+        // Certificate approvals
+        const certificateItems = (data[0].items || []).filter(
+          (item) =>
+            ['admin', 'council_member'].includes(user?.role) ||
+            (String(item.email || '').toLowerCase() ===
+              String(user.employeeEmail || '').toLowerCase() &&
+              item.reviewed_at &&
+              ['issued', 'revoked'].includes(item.status)),
+        )
+        nextNotifications.push(
+          ...certificateItems.map((item) => {
+            const isAdminRequest = ['admin', 'council_member'].includes(user?.role)
             const key = isAdminRequest
               ? `pending:${item.id}`
               : `review:${item.id}:${item.status}:${item.reviewed_at}`
@@ -261,12 +299,29 @@ function Shell({ onLogout, user }) {
               path: isAdminRequest ? '/alerts' : '/my-certificates',
               read: seenKeys.has(key),
             }
-          })
+          }),
+        )
+
+        // HR activities
+        if (data[2]?.items) {
+          nextNotifications.push(
+            ...data[2].items.map((activity) => ({
+              key: `hr:${activity.id}`,
+              title: activity.title,
+              message: activity.details,
+              time: activity.created_at,
+              path: '/alerts?section=hr-activities',
+              read: seenKeys.has(`hr:${activity.id}`),
+            })),
+          )
+        }
+
+        const finalNotifications = nextNotifications
           .sort((first, second) => (Date.parse(second.time) || 0) - (Date.parse(first.time) || 0))
           .filter((item) => !item.read)
         if (active) {
-          setNotifications(nextNotifications)
-          setAlertCount(nextNotifications.length)
+          setNotifications(finalNotifications)
+          setAlertCount(finalNotifications.length)
         }
       } catch {
         if (active) {
@@ -278,13 +333,16 @@ function Shell({ onLogout, user }) {
     loadAlertCount()
     const refresh = () => loadAlertCount()
     window.addEventListener('certificates-updated', refresh)
-    const interval = window.setInterval(loadAlertCount, 30_000)
+    window.addEventListener('hr-activities-updated', refresh)
     return () => {
       active = false
       window.removeEventListener('certificates-updated', refresh)
-      window.clearInterval(interval)
+      window.removeEventListener('hr-activities-updated', refresh)
     }
-  }, [notificationUserKey, user?.employeeEmail, user?.role])
+    // The WebSocket above triggers this effect when certificates or access data
+    // changes. Polling every 30 seconds made every signed-in browser repeatedly
+    // scan the same Firestore collections, even when nothing had changed.
+  }, [notificationUserKey, realtimeVersion, user?.employeeEmail, user?.role])
 
   const markNotificationRead = async (notificationKey) => {
     setNotifications((items) => items.filter((item) => item.key !== notificationKey))
@@ -293,7 +351,10 @@ function Shell({ onLogout, user }) {
       const response = await fetch(`${apiUrl}/notification-reads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_key: notificationUserKey, notification_keys: [notificationKey] }),
+        body: JSON.stringify({
+          user_key: notificationUserKey,
+          notification_keys: [notificationKey],
+        }),
       })
       if (!response.ok) throw new Error('Unable to synchronize notification read status')
     } catch (error) {
@@ -310,7 +371,10 @@ function Shell({ onLogout, user }) {
       const response = await fetch(`${apiUrl}/notification-reads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_key: notificationUserKey, notification_keys: notificationKeys }),
+        body: JSON.stringify({
+          user_key: notificationUserKey,
+          notification_keys: notificationKeys,
+        }),
       })
       if (!response.ok) throw new Error('Unable to synchronize notification read status')
     } catch (error) {
@@ -377,7 +441,10 @@ function Shell({ onLogout, user }) {
         <AppHeader
           query={query}
           setQuery={setQuery}
-          onAdd={() => { setCertificateDefaults(null); setShowModal(true) }}
+          onAdd={() => {
+            setCertificateDefaults(null)
+            setShowModal(true)
+          }}
           onMenu={() => setSidebarOpen(true)}
           user={user}
           alertCount={alertCount}
@@ -396,7 +463,10 @@ function Shell({ onLogout, user }) {
       {showModal &&
         (user?.role === 'user' || personalCertificatePage ? (
           <UserCertificateModal
-            close={() => { setShowModal(false); setCertificateDefaults(null) }}
+            close={() => {
+              setShowModal(false)
+              setCertificateDefaults(null)
+            }}
             notify={notify}
             user={user}
             runWithLoader={runWithLoader}
@@ -407,6 +477,7 @@ function Shell({ onLogout, user }) {
             close={() => setShowModal(false)}
             notify={notify}
             runWithLoader={runWithLoader}
+            user={user}
           />
         ))}
     </div>
@@ -436,20 +507,37 @@ const RoutedCertificationTasks = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const oemActive = searchParams.get('view') === 'oem'
   const catalogActive = searchParams.get('view') === 'catalog'
-  const isAdmin = context.user.role === 'admin'
+  const isAdmin = ['admin', 'council_member'].includes(context.user.role)
   return (
     <div className="compliance-workspace course-list-workspace">
-      {isAdmin && <nav className="compliance-view-toggle" aria-label="Course list views">
-        <button type="button" className={!oemActive && !catalogActive ? 'active' : ''} aria-pressed={!oemActive && !catalogActive} onClick={() => setSearchParams({})}>
-          <i className="bi bi-journal-bookmark" aria-hidden="true" /> Course list
-        </button>
-        <button type="button" className={catalogActive ? 'active' : ''} aria-pressed={catalogActive} onClick={() => setSearchParams({ view: 'catalog' })}>
-          <i className="bi bi-journal-check" aria-hidden="true" /> Certification catalog
-        </button>
-        <button type="button" className={oemActive ? 'active' : ''} aria-pressed={oemActive} onClick={() => setSearchParams({ view: 'oem' })}>
-          <i className="bi bi-shield-check" aria-hidden="true" /> OEM Overview
-        </button>
-      </nav>}
+      {isAdmin && (
+        <nav className="compliance-view-toggle" aria-label="Course list views">
+          <button
+            type="button"
+            className={!oemActive && !catalogActive ? 'active' : ''}
+            aria-pressed={!oemActive && !catalogActive}
+            onClick={() => setSearchParams({})}
+          >
+            <i className="bi bi-journal-bookmark" aria-hidden="true" /> Course list
+          </button>
+          <button
+            type="button"
+            className={catalogActive ? 'active' : ''}
+            aria-pressed={catalogActive}
+            onClick={() => setSearchParams({ view: 'catalog' })}
+          >
+            <i className="bi bi-journal-check" aria-hidden="true" /> Certification catalog
+          </button>
+          <button
+            type="button"
+            className={oemActive ? 'active' : ''}
+            aria-pressed={oemActive}
+            onClick={() => setSearchParams({ view: 'oem' })}
+          >
+            <i className="bi bi-shield-check" aria-hidden="true" /> OEM Overview
+          </button>
+        </nav>
+      )}
       {(!isAdmin || (!oemActive && !catalogActive)) && <CertificationTasksPage {...context} />}
       {isAdmin && oemActive && <CompliancePage {...context} />}
       {isAdmin && catalogActive && <LiveCatalogPage {...context} />}
@@ -462,14 +550,36 @@ const RoutedCompliance = () => <Navigate to="/task-assignments?view=oem" replace
 const RoutedSettings = () => <SettingsPage {...useOutletContext()} />
 const RoutedAccessManagement = () => <AccessManagementPage {...useOutletContext()} />
 const RoutedActivityHistory = () => <ActivityHistoryPage {...useOutletContext()} />
+const RoutedCouncilActivity = () => <CouncilActivityPage {...useOutletContext()} />
+const RoutedCouncilMemberDashboard = () => <CouncilMemberDashboardPage {...useOutletContext()} />
 const RoutedEmployeeRecord = () => <LiveEmployeeRecordPage {...useOutletContext()} />
 const AdminOnly = ({ children }) => {
+  const { user } = useOutletContext()
+  return ['admin', 'council_member'].includes(user.role) ? (
+    children
+  ) : (
+    <Navigate to="/dashboard" replace />
+  )
+}
+const AdministratorOnly = ({ children }) => {
   const { user } = useOutletContext()
   return user.role === 'admin' ? children : <Navigate to="/dashboard" replace />
 }
 const AdminOrProjectManager = ({ children }) => {
   const { user } = useOutletContext()
-  return ['admin', 'project_manager'].includes(user.role) ? children : <Navigate to="/dashboard" replace />
+  return ['admin', 'council_member', 'hr', 'project_manager'].includes(user.role) ? (
+    children
+  ) : (
+    <Navigate to="/dashboard" replace />
+  )
+}
+const AdminCouncilOrHr = ({ children }) => {
+  const { user } = useOutletContext()
+  return ['admin', 'council_member', 'hr'].includes(user.role) ? (
+    children
+  ) : (
+    <Navigate to="/dashboard" replace />
+  )
 }
 const UserOnly = ({ children }) => {
   const { user } = useOutletContext()
@@ -477,13 +587,14 @@ const UserOnly = ({ children }) => {
 }
 const UserOrProjectManager = ({ children }) => {
   const { user } = useOutletContext()
-  return ['user', 'project_manager'].includes(user.role) ? children : <Navigate to="/dashboard" replace />
+  return ['user', 'hr', 'project_manager'].includes(user.role) ? (
+    children
+  ) : (
+    <Navigate to="/dashboard" replace />
+  )
 }
 
 export default function App() {
-   const loginParameters = new URLSearchParams(window.location.search)
-  const isAzureCallback =
-    loginParameters.has('azure_code') || loginParameters.has('error')
   const [authenticated, setAuthenticated] = useState(() => {
     const lastActivity = Number(authStorage().getItem(LAST_ACTIVITY_KEY))
     const savedUser = readSessionUser()
@@ -495,7 +606,7 @@ export default function App() {
     )
   })
   const [user, setUser] = useState(readSessionUser)
-   useEffect(() => {
+  useEffect(() => {
     if (!currentTabId) return undefined
     const ownerKey = `${TAB_OWNER_PREFIX}${currentTabId}`
     const refreshOwnership = () => {
@@ -512,7 +623,7 @@ export default function App() {
         // Ignore storage cleanup failures while the page is closing.
       }
     }
- 
+
     refreshOwnership()
     const heartbeat = window.setInterval(refreshOwnership, 5000)
     window.addEventListener('pagehide', releaseOwnership)
@@ -525,13 +636,20 @@ export default function App() {
 
   const login = (signedInUser) => {
     const verifiedUser = normaliseUser(signedInUser)
-    if (!verifiedUser) return
+    if (!verifiedUser) return false
     authStorage().setItem(SESSION_KEY, 'active')
     authStorage().setItem(LAST_ACTIVITY_KEY, String(Date.now()))
+    authStorage().setItem(SESSION_CREATED_KEY, String(Date.now()))
     authStorage().setItem(SESSION_USER_KEY, JSON.stringify(verifiedUser))
     authStorage().removeItem(LAST_PRESENCE_KEY)
     setUser(verifiedUser)
     setAuthenticated(true)
+
+    if (currentTabId && 'BroadcastChannel' in window) {
+      const channel = new BroadcastChannel('certtrack-tab-sessions')
+      channel.postMessage({ type: 'tab-owner-claim', tabId: currentTabId, runtimeId: tabRuntimeId })
+    }
+    return true
   }
 
   const logout = () => {
@@ -539,17 +657,19 @@ export default function App() {
     authStorage().removeItem(LAST_ACTIVITY_KEY)
     authStorage().removeItem(SESSION_USER_KEY)
     authStorage().removeItem(LAST_PRESENCE_KEY)
+    authStorage().removeItem(SESSION_CREATED_KEY)
     setUser(null)
     setAuthenticated(false)
   }
 
-   useEffect(() => {
+  useEffect(() => {
     if (!currentTabId || !('BroadcastChannel' in window)) return undefined
- 
-    // A browser duplicate copies sessionStorage.  Ask other live tabs whether
-    // they already own this id instead of guessing from a page navigation.
-    // This keeps the original tab signed in after a Microsoft redirect.
+
     const channel = new BroadcastChannel('certtrack-tab-sessions')
+    let isCurrentTabOwner = true
+    let ownershipConfirmed = false
+    let channelClosed = false
+
     const clearCopiedSession = () => {
       authStorage().clear()
       authStorage().setItem(TAB_ID_KEY, randomId())
@@ -557,30 +677,65 @@ export default function App() {
       setAuthenticated(false)
       window.location.replace('/login')
     }
+
+    const safePostMessage = (message) => {
+      if (!channelClosed) {
+        try {
+          channel.postMessage(message)
+        } catch {
+          // Channel closed, ignore
+        }
+      }
+    }
+
     const handleMessage = ({ data }) => {
       if (!data || data.tabId !== currentTabId) return
+
       if (data.type === 'tab-owner-check' && data.runtimeId !== tabRuntimeId) {
-        channel.postMessage({
+        safePostMessage({
           type: 'tab-owner-present',
           tabId: currentTabId,
           targetRuntimeId: data.runtimeId,
           runtimeId: tabRuntimeId,
         })
       }
+
       if (
         data.type === 'tab-owner-present' &&
         data.targetRuntimeId === tabRuntimeId &&
         data.runtimeId !== tabRuntimeId
-      ) clearCopiedSession()
+      ) {
+        ownershipConfirmed = true
+        if (!isCurrentTabOwner) {
+          clearCopiedSession()
+        }
+      }
+
+      if (data.type === 'tab-owner-claim' && data.runtimeId !== tabRuntimeId) {
+        isCurrentTabOwner = false
+      }
     }
+
     channel.addEventListener('message', handleMessage)
-    channel.postMessage({ type: 'tab-owner-check', tabId: currentTabId, runtimeId: tabRuntimeId })
+
+    const claimOwnership = () => {
+      safePostMessage({ type: 'tab-owner-claim', tabId: currentTabId, runtimeId: tabRuntimeId })
+      setTimeout(() => {
+        if (!ownershipConfirmed) {
+          isCurrentTabOwner = true
+        }
+        safePostMessage({ type: 'tab-owner-check', tabId: currentTabId, runtimeId: tabRuntimeId })
+      }, 100)
+    }
+
+    claimOwnership()
+
     return () => {
+      channelClosed = true
       channel.removeEventListener('message', handleMessage)
       channel.close()
     }
   }, [])
- 
 
   useEffect(() => {
     if (!authenticated) return undefined
@@ -634,13 +789,16 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user.id, session_id: currentTabId }),
         keepalive: true,
-      }).then((response) => {
-        if (response.ok) authStorage().setItem(LAST_PRESENCE_KEY, String(Date.now()))
-      }).catch(() => {
-        // Presence is helpful metadata; it must never interrupt the employee's work.
-      }).finally(() => {
-        requestInFlight = false
       })
+        .then((response) => {
+          if (response.ok) authStorage().setItem(LAST_PRESENCE_KEY, String(Date.now()))
+        })
+        .catch(() => {
+          // Presence is helpful metadata; it must never interrupt the employee's work.
+        })
+        .finally(() => {
+          requestInFlight = false
+        })
     }
     heartbeat()
     const timer = window.setInterval(heartbeat, PRESENCE_INTERVAL_MS)
@@ -655,24 +813,28 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-      <Route
-  path="send-email"
-  element={
-<AdminOnly>
-<SendCustomEmailPage {...useOutletContext()} />
-</AdminOnly>
-  }
-/>
- 
+        <Route
+          path="send-email"
+          element={
+            <AdminOnly>
+              <SendCustomEmailPage {...useOutletContext()} />
+            </AdminOnly>
+          }
+        />
+
         <Route
           path="login"
           element={
-            authenticated ? <Navigate to="/dashboard" replace /> : <LoginPage onLogin={login} />
+            authenticated && user ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginPage onLogin={login} />
+            )
           }
         />
         <Route
           element={
-            authenticated && user && !isAzureCallback ? (
+            authenticated && user ? (
               <Shell onLogout={logout} user={user} />
             ) : (
               <LoginPage onLogin={login} />
@@ -682,21 +844,64 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<RoutedDashboard />} />
           <Route path="my-profile" element={<RoutedMyProfile />} />
-          <Route path="my-course-list" element={<AdminOnly><RoutedMyCourseList /></AdminOnly>} />
-          <Route path="completions" element={<AdminOnly><CompletionRecordsPage /></AdminOnly>} />
-          <Route path="exports" element={<AdminOrProjectManager><RoutedExportReports /></AdminOrProjectManager>} />
-          <Route path="top-certified-holders-mail" element={<AdminOnly><TopCertifiedHoldersMailPage /></AdminOnly>} />
-          <Route path="task-assignments" element={<AdminOnly><RoutedCertificationTasks /></AdminOnly>} />
-          <Route path="task-assignments/:taskId/completed-users" element={<AdminOnly><RoutedCompletedTaskUsers /></AdminOnly>} />
-          <Route path="certification-tasks" element={<UserOrProjectManager><RoutedCertificationTasks /></UserOrProjectManager>} />
           <Route
-            path="my-certificates"
-            element={<RoutedUserCertificates />}
+            path="my-course-list"
+            element={
+              <AdminOnly>
+                <RoutedMyCourseList />
+              </AdminOnly>
+            }
           />
           <Route
-            path="upcoming-renewals"
-            element={<RoutedUserRenewals />}
+            path="completions"
+            element={
+              <AdminOnly>
+                <CompletionRecordsPage />
+              </AdminOnly>
+            }
           />
+          <Route
+            path="exports"
+            element={
+              <AdminOrProjectManager>
+                <RoutedExportReports />
+              </AdminOrProjectManager>
+            }
+          />
+          <Route
+            path="top-certified-holders-mail"
+            element={
+              <AdminOnly>
+                <TopCertifiedHoldersMailPage />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="task-assignments"
+            element={
+              <AdminOnly>
+                <RoutedCertificationTasks />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="task-assignments/:taskId/completed-users"
+            element={
+              <AdminOnly>
+                <RoutedCompletedTaskUsers />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="certification-tasks"
+            element={
+              <UserOrProjectManager>
+                <RoutedCertificationTasks />
+              </UserOrProjectManager>
+            }
+          />
+          <Route path="my-certificates" element={<RoutedUserCertificates />} />
+          <Route path="upcoming-renewals" element={<RoutedUserRenewals />} />
           <Route
             path="employees"
             element={
@@ -734,16 +939,16 @@ export default function App() {
             path="catalog"
             element={
               <AdminOnly>
-                  <Navigate to="/task-assignments?view=catalog" replace />
+                <Navigate to="/task-assignments?view=catalog" replace />
               </AdminOnly>
             }
           />
           <Route
             path="access-management"
             element={
-              <AdminOnly>
+              <AdminCouncilOrHr>
                 <RoutedAccessManagement />
-              </AdminOnly>
+              </AdminCouncilOrHr>
             }
           />
           <Route
@@ -762,13 +967,36 @@ export default function App() {
               </AdminOnly>
             }
           />
-          <Route path="certificate-activity" element={<AdminOnly><Navigate to="/activity-history" replace /></AdminOnly>} />
+          <Route
+            path="access-history"
+            element={
+              <AdminOnly>
+                <Navigate to="/activity-history" replace />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="council-activity"
+            element={
+              <AdministratorOnly>
+                <RoutedCouncilActivity />
+              </AdministratorOnly>
+            }
+          />
+          <Route
+            path="council-member-dashboard"
+            element={
+              <AdministratorOnly>
+                <RoutedCouncilMemberDashboard />
+              </AdministratorOnly>
+            }
+          />
           <Route
             path="settings"
             element={
-              <AdminOnly>
+              <AdminCouncilOrHr>
                 <RoutedSettings />
-              </AdminOnly>
+              </AdminCouncilOrHr>
             }
           />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,15 +1,14 @@
 ﻿import { useEffect, useState } from 'react'
 import CompactSelect from './CompactSelect'
 import DatePicker from './DatePicker'
- 
+
 const apiUrl = process.env.REACT_APP_API_URL
 
 const MAX_CERTIFICATE_FILE_SIZE = 25 * 1024 * 1024
 const capitalizeCertificationName = (value) =>
   String(value || '').replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
- 
- 
-export default function AdminCertificateModal({ close, notify, runWithLoader }) {
+
+export default function AdminCertificateModal({ close, notify, runWithLoader, user }) {
   // Employee
   const [employees, setEmployees] = useState([])
   const [employeeId, setEmployeeId] = useState('')
@@ -45,7 +44,7 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
       return
     }
   }
- 
+
   // useEffect(() => {
   //   fetch(`${apiUrl}/employees?page=1&page_size=100`)
   //     .then((response) => response.json())
@@ -78,7 +77,7 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
   //     })
   //   return () => { active = false }
   // }, [])
- 
+
   // useEffect(() => {
   //   let active = true
   //   fetch(`${apiUrl}/access-options/oems`)
@@ -106,122 +105,128 @@ export default function AdminCertificateModal({ close, notify, runWithLoader }) 
   //   return () => { active = false }
   // }, [])
   // Employees — lazy search
-// Employees — lazy search + pagination
-useEffect(() => {
-  let active = true
-  const loadEmployees = async () => {
-    setLoadingEmployees(true)
+  // Employees — lazy search + pagination
+  useEffect(() => {
+    let active = true
+    const loadEmployees = async () => {
+      setLoadingEmployees(true)
+      try {
+        const params = new URLSearchParams({
+          page: '1',
+          page_size: '50',
+          search: employeeSearch,
+        })
+        const response = await fetch(`${apiUrl}/employees?${params}`)
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.detail || 'Unable to load employees')
+        if (!active) return
+        const items = result.items || []
+        const total = Number(result.total) || items.length
+        setEmployees(items)
+        setEmployeePage(1)
+        setEmployeeHasMore(items.length < total)
+      } catch {
+        if (active) {
+          setEmployees([])
+          setEmployeePage(1)
+          setEmployeeHasMore(false)
+        }
+      } finally {
+        if (active) setLoadingEmployees(false)
+      }
+    }
+    loadEmployees()
+    return () => {
+      active = false
+    }
+  }, [employeeSearch])
+
+  // OEMs — lazy search
+  useEffect(() => {
+    let active = true
+    const loadOems = async () => {
+      setLoadingOems(true)
+      try {
+        const response = await fetch(`${apiUrl}/access-options/oems`)
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.detail || 'Unable to load OEM directory')
+        const term = oemSearch.trim().toLowerCase()
+        const names = new Map()
+        ;(Array.isArray(result) ? result : []).forEach((oem) => {
+          const name = String(oem.name || '').trim()
+          if (!name) return
+          if (term && !name.toLowerCase().includes(term)) return
+          if (!names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
+        })
+        if (active) setOems([...names.values()].sort((a, b) => a.localeCompare(b)))
+      } catch {
+        if (active) setOems([])
+      } finally {
+        if (active) setLoadingOems(false)
+      }
+    }
+    loadOems()
+    return () => {
+      active = false
+    }
+  }, [oemSearch])
+
+  // Categories — lazy search
+  useEffect(() => {
+    let active = true
+    const loadCategories = async () => {
+      setLoadingCategories(true)
+      try {
+        const response = await fetch(`${apiUrl}/access-options/categories`)
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.detail || 'Unable to load categories')
+        const term = categorySearch.trim().toLowerCase()
+        const names = new Map()
+        ;(Array.isArray(result) ? result : []).forEach((category) => {
+          const name = String(category.name || '').trim()
+          if (!name) return
+          if (term && !name.toLowerCase().includes(term)) return
+          if (!names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
+        })
+        if (active) setCategories([...names.values()].sort((a, b) => a.localeCompare(b)))
+      } catch {
+        if (active) setCategories([])
+      } finally {
+        if (active) setLoadingCategories(false)
+      }
+    }
+    loadCategories()
+    return () => {
+      active = false
+    }
+  }, [categorySearch])
+  const loadMoreEmployees = async () => {
+    if (employeeLoadingMore || !employeeHasMore) return
+    setEmployeeLoadingMore(true)
+    const nextPage = employeePage + 1
     try {
       const params = new URLSearchParams({
-        page: '1',
+        page: String(nextPage),
         page_size: '50',
         search: employeeSearch,
       })
       const response = await fetch(`${apiUrl}/employees?${params}`)
       const result = await response.json()
       if (!response.ok) throw new Error(result.detail || 'Unable to load employees')
-      if (!active) return
       const items = result.items || []
-      const total = Number(result.total) || items.length
-      setEmployees(items)
-      setEmployeePage(1)
-      setEmployeeHasMore(items.length < total)
-    } catch {
-      if (active) {
-        setEmployees([])
-        setEmployeePage(1)
-        setEmployeeHasMore(false)
-      }
-    } finally {
-      if (active) setLoadingEmployees(false)
-    }
-  }
-  loadEmployees()
-  return () => { active = false }
-}, [employeeSearch])
-
-// OEMs — lazy search
-useEffect(() => {
-  let active = true
-  const loadOems = async () => {
-    setLoadingOems(true)
-    try {
-      const response = await fetch(`${apiUrl}/access-options/oems`)
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.detail || 'Unable to load OEM directory')
-      const term = oemSearch.trim().toLowerCase()
-      const names = new Map()
-      ;(Array.isArray(result) ? result : []).forEach((oem) => {
-        const name = String(oem.name || '').trim()
-        if (!name) return
-        if (term && !name.toLowerCase().includes(term)) return
-        if (!names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
+      setEmployees((current) => {
+        const seen = new Set(current.map((item) => item.id))
+        return [...current, ...items.filter((item) => !seen.has(item.id))]
       })
-      if (active) setOems([...names.values()].sort((a, b) => a.localeCompare(b)))
+      setEmployeePage(nextPage)
+      const total = Number(result.total) || 0
+      setEmployeeHasMore((current) => current.length + items.length < total || items.length === 50)
     } catch {
-      if (active) setOems([])
+      // Keep existing list; user can scroll again to retry.
     } finally {
-      if (active) setLoadingOems(false)
+      setEmployeeLoadingMore(false)
     }
   }
-  loadOems()
-  return () => { active = false }
-}, [oemSearch])
-
-// Categories — lazy search
-useEffect(() => {
-  let active = true
-  const loadCategories = async () => {
-    setLoadingCategories(true)
-    try {
-      const response = await fetch(`${apiUrl}/access-options/categories`)
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.detail || 'Unable to load categories')
-      const term = categorySearch.trim().toLowerCase()
-      const names = new Map()
-      ;(Array.isArray(result) ? result : []).forEach((category) => {
-        const name = String(category.name || '').trim()
-        if (!name) return
-        if (term && !name.toLowerCase().includes(term)) return
-        if (!names.has(name.toLowerCase())) names.set(name.toLowerCase(), name)
-      })
-      if (active) setCategories([...names.values()].sort((a, b) => a.localeCompare(b)))
-    } catch {
-      if (active) setCategories([])
-    } finally {
-      if (active) setLoadingCategories(false)
-    }
-  }
-  loadCategories()
-  return () => { active = false }
-}, [categorySearch])
-const loadMoreEmployees = async () => {
-  if (employeeLoadingMore || !employeeHasMore) return
-  setEmployeeLoadingMore(true)
-  const nextPage = employeePage + 1
-  try {
-    const params = new URLSearchParams({
-      page: String(nextPage),
-      page_size: '50',
-      search: employeeSearch,
-    })
-    const response = await fetch(`${apiUrl}/employees?${params}`)
-    const result = await response.json()
-    if (!response.ok) throw new Error(result.detail || 'Unable to load employees')
-    const items = result.items || []
-    setEmployees((current) => {
-      const seen = new Set(current.map((item) => item.id))
-      return [...current, ...items.filter((item) => !seen.has(item.id))]
-    })
-    setEmployeePage(nextPage)
-    const total = Number(result.total) || 0
-    setEmployeeHasMore((current) => current.length + items.length < total || items.length === 50)
-  } catch {
-    // Keep existing list; user can scroll again to retry.
-  } finally {
-    setEmployeeLoadingMore(false)
-  }
-}
 
   const submit = async (event) => {
     event.preventDefault()
@@ -249,15 +254,18 @@ const loadMoreEmployees = async () => {
             certificate_number: form.get('certificateNumber'),
             category: form.get('category'),
             total_ru_points: totalRuPoints === '' ? null : Number(totalRuPoints),
+            // issued_date: form.get('issuedDate'),
             issued_date: form.get('issuedDate') || null,
             validity_years: null,
             expires_on: validityMode === 'expires' ? form.get('expiresOn') : null,
             submission_source: 'admin',
+            requester_role: user?.role,
           }),
         }),
       )
       const result = await response.json()
       if (!response.ok) throw new Error(result.detail || 'Unable to add certificate')
+      // Upload verification file if provided (even for pending certificates)
       if (image instanceof File && image.size) {
         try {
           const imageData = new FormData()
@@ -269,13 +277,24 @@ const loadMoreEmployees = async () => {
             }),
           )
           const imageResult = await imageResponse.json()
-          if (!imageResponse.ok) throw new Error(imageResult.detail || 'Unable to upload certificate file')
+          if (!imageResponse.ok)
+            throw new Error(imageResult.detail || 'Unable to upload certificate file')
         } catch {
-          notify('Certificate saved, but its optional file could not be uploaded. Configure Firebase Storage to add it later.')
+          notify(
+            'Certificate saved, but its optional file could not be uploaded. Configure Firebase Storage to add it later.',
+          )
         }
       }
+      // Check if approval is required
+      if (result.status === 'pending') {
+        notify('Certificate submission request submitted for council approval')
+        close()
+        return
+      }
       window.dispatchEvent(new Event('certificates-updated'))
-      notify(`Submitted "${certificateName}" for ${employee.name}. It is assigned to that employee's profile.`)
+      notify(
+        `Submitted "${certificateName}" for ${employee.name}. It is assigned to that employee's profile.`,
+      )
       close()
     } catch (error) {
       notify(error.message || 'Unable to add certificate')
@@ -290,88 +309,114 @@ const loadMoreEmployees = async () => {
             <h2>Add certification</h2>
             <p>Record a completed employee certification.</p>
           </div>
-          <button type="button" onClick={close} aria-label="Close modal"><i className='bi bi-x-lg' aria-hidden='true' /></button>
+          <button type="button" onClick={close} aria-label="Close modal">
+            <i className="bi bi-x-lg" aria-hidden="true" />
+          </button>
         </header>
         <label>
-          Employee name <span className="required-field-mark" aria-hidden="true">*</span>
+          Employee name{' '}
+          <span className="required-field-mark" aria-hidden="true">
+            *
+          </span>
           <CompactSelect
-  required
-  searchable
-  value={employeeId}
-  onChange={(event) => {
-    const id = event.target.value
-    setEmployeeId(id)
-    setSelectedEmployee(employees.find((item) => item.id === id) || null)
-  }}
-  onSearch={setEmployeeSearch}
-  loading={loadingEmployees || employeeLoadingMore}
-  hasMore={employeeHasMore}
-  onLoadMore={loadMoreEmployees}
->
-  <option value="">Choose employee</option>
-  {selectedEmployee && !employees.some((item) => item.id === selectedEmployee.id) && (
-    <option value={selectedEmployee.id}>
-      {selectedEmployee.name}  -  {selectedEmployee.employeeId}
-    </option>
-  )}
-  {employees.map((employee) => (
-    <option key={employee.id} value={employee.id}>
-      {employee.name}  -  {employee.employeeId}
-    </option>
-  ))}
-</CompactSelect>
+            required
+            searchable
+            value={employeeId}
+            onChange={(event) => {
+              const id = event.target.value
+              setEmployeeId(id)
+              setSelectedEmployee(employees.find((item) => item.id === id) || null)
+            }}
+            onSearch={setEmployeeSearch}
+            loading={loadingEmployees || employeeLoadingMore}
+            hasMore={employeeHasMore}
+            onLoadMore={loadMoreEmployees}
+          >
+            <option value="">Choose employee</option>
+            {selectedEmployee && !employees.some((item) => item.id === selectedEmployee.id) && (
+              <option value={selectedEmployee.id}>
+                {selectedEmployee.name} - {selectedEmployee.employeeId}
+              </option>
+            )}
+            {employees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.name} - {employee.employeeId}
+              </option>
+            ))}
+          </CompactSelect>
           <small className="verification-image-help">
             The certificate and its count will belong to the selected employee's profile.
           </small>
         </label>
         <label>
-          OEM name <span className="required-field-mark" aria-hidden="true">*</span>
+          OEM name{' '}
+          <span className="required-field-mark" aria-hidden="true">
+            *
+          </span>
           <CompactSelect
-  name="vendorName"
-  required
-  searchable
-  value={oemName}
-  onChange={(event) => setOemName(event.target.value)}
-  onSearch={setOemSearch}
-  loading={loadingOems}
->
-  <option value="" disabled>
-    {oems.length ? 'Choose OEM' : 'No OEMs configured'}
-  </option>
-  {oemName && !oems.includes(oemName) && <option value={oemName}>{oemName}</option>}
-  {oems.map((oem) => <option key={oem} value={oem} title={oem}>{oem}</option>)}
-</CompactSelect>
-          <small className="verification-image-help">
-            Add or edit OEM names from Settings.
-          </small>
+            name="vendorName"
+            required
+            searchable
+            value={oemName}
+            onChange={(event) => setOemName(event.target.value)}
+            onSearch={setOemSearch}
+            loading={loadingOems}
+          >
+            <option value="" disabled>
+              {oems.length ? 'Choose OEM' : 'No OEMs configured'}
+            </option>
+            {oemName && !oems.includes(oemName) && <option value={oemName}>{oemName}</option>}
+            {oems.map((oem) => (
+              <option key={oem} value={oem} title={oem}>
+                {oem}
+              </option>
+            ))}
+          </CompactSelect>
+          <small className="verification-image-help">Add or edit OEM names from Settings.</small>
         </label>
         <label>
-          Certification name <span className="required-field-mark" aria-hidden="true">*</span>
+          Certification name{' '}
+          <span className="required-field-mark" aria-hidden="true">
+            *
+          </span>
           <input
             name="name"
             required
             placeholder="e.g. AVIXA CTS"
-            onBlur={(event) => { event.currentTarget.value = capitalizeCertificationName(event.currentTarget.value) }}
+            onBlur={(event) => {
+              event.currentTarget.value = capitalizeCertificationName(event.currentTarget.value)
+            }}
           />
-          <small className="verification-image-help">Enter the certification name exactly as shown on the certificate.</small>
+          <small className="verification-image-help">
+            Enter the certification name exactly as shown on the certificate.
+          </small>
         </label>
         <label>
-          Category <span className="required-field-mark" aria-hidden="true">*</span>
+          Category{' '}
+          <span className="required-field-mark" aria-hidden="true">
+            *
+          </span>
           <CompactSelect
-  name="category"
-  required
-  searchable
-  value={categoryName}
-  onChange={(event) => setCategoryName(event.target.value)}
-  onSearch={setCategorySearch}
-  loading={loadingCategories}
->
-  <option value="" disabled>
-    {categories.length ? 'Choose category' : 'No categories configured'}
-  </option>
-  {categoryName && !categories.includes(categoryName) && <option value={categoryName}>{categoryName}</option>}
-  {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-</CompactSelect>
+            name="category"
+            required
+            searchable
+            value={categoryName}
+            onChange={(event) => setCategoryName(event.target.value)}
+            onSearch={setCategorySearch}
+            loading={loadingCategories}
+          >
+            <option value="" disabled>
+              {categories.length ? 'Choose category' : 'No categories configured'}
+            </option>
+            {categoryName && !categories.includes(categoryName) && (
+              <option value={categoryName}>{categoryName}</option>
+            )}
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </CompactSelect>
           <small className="verification-image-help">Categories are managed in Settings.</small>
         </label>
         <label>
@@ -380,35 +425,76 @@ const loadMoreEmployees = async () => {
         </label>
         <label>
           Completion date (optional)
-          <DatePicker name="issuedDate" value={issuedDate} onChangeValue={setIssuedDate} label="Completion date" />
+          <DatePicker
+            name="issuedDate"
+            value={issuedDate}
+            onChangeValue={setIssuedDate}
+            label="Completion date"
+          />
         </label>
         <fieldset className="certificate-validity-choice">
-          <legend>Validity period <span className="required-field-mark" aria-hidden="true">*</span></legend>
+          <legend>
+            Validity period{' '}
+            <span className="required-field-mark" aria-hidden="true">
+              *
+            </span>
+          </legend>
           <label>
-            <input type="radio" name="validityMode" value="lifetime" checked={validityMode === 'lifetime'} onChange={(event) => {
-              setValidityMode(event.target.value)
-              setExpiresOn('')
-            }} />
+            <input
+              type="radio"
+              name="validityMode"
+              value="lifetime"
+              checked={validityMode === 'lifetime'}
+              onChange={(event) => {
+                setValidityMode(event.target.value)
+                setExpiresOn('')
+              }}
+            />
             <span>Lifetime (no renewal required)</span>
           </label>
           <label>
-            <input type="radio" name="validityMode" value="expires" checked={validityMode === 'expires'} onChange={(event) => setValidityMode(event.target.value)} />
+            <input
+              type="radio"
+              name="validityMode"
+              value="expires"
+              checked={validityMode === 'expires'}
+              onChange={(event) => setValidityMode(event.target.value)}
+            />
             <span>Expires on</span>
           </label>
-          {validityMode === 'expires' && <DatePicker name="expiresOn" value={expiresOn} onChangeValue={setExpiresOn} min={issuedDate} required label="Expiry date" />}
+          {validityMode === 'expires' && (
+            <DatePicker
+              name="expiresOn"
+              value={expiresOn}
+              onChangeValue={setExpiresOn}
+              min={issuedDate}
+              required
+              label="Expiry date"
+            />
+          )}
         </fieldset>
 
- 
         <label>
-          Certificate file for verification <span className="required-field-mark" aria-hidden="true">*</span>
+          Certificate file for verification{' '}
+          <span className="required-field-mark" aria-hidden="true">
+            *
+          </span>
           <input name="verificationImage" type="file" required onChange={validateCertificateFile} />
           <small className="verification-image-help">
-            Images and PDFs are optimized before storage while retaining a readable preview. Other files are stored unchanged. Maximum upload: 25 MB.
+            Images and PDFs are optimized before storage while retaining a readable preview. Other
+            files are stored unchanged. Maximum upload: 25 MB.
           </small>
         </label>
         <label className="total-ru-field">
-          Total RU points (optional) 
-          <input name="totalRuPoints" type="number" min="0" max="9999" step="0.1" placeholder="Enter total RU points" />
+          Total RU points (optional)
+          <input
+            name="totalRuPoints"
+            type="number"
+            min="0"
+            max="9999"
+            step="0.1"
+            placeholder="Enter total RU points"
+          />
         </label>
         <footer>
           <button type="button" onClick={close}>
@@ -420,11 +506,3 @@ const loadMoreEmployees = async () => {
     </div>
   )
 }
- 
- 
- 
- 
- 
- 
- 
- 

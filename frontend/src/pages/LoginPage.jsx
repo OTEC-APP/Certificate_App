@@ -1,10 +1,11 @@
 ﻿import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import apiUrl from '../api'
- 
+
 const readApiResponse = async (response) => {
   const responseText = await response.text()
   if (!responseText) return {}
- 
+
   try {
     return JSON.parse(responseText)
   } catch {
@@ -15,8 +16,9 @@ const readApiResponse = async (response) => {
     )
   }
 }
- 
+
 export default function LoginPage({ onLogin }) {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -25,7 +27,7 @@ export default function LoginPage({ onLogin }) {
   const [setupMode, setSetupMode] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
- 
+
   useEffect(() => {
     const loadSetupStatus = async () => {
       try {
@@ -40,25 +42,25 @@ export default function LoginPage({ onLogin }) {
     }
     loadSetupStatus()
   }, [])
- 
+
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search)
     const code = parameters.get('azure_code')
     const azureError = parameters.get('error')
     const invitedEmail = parameters.get('email')
     if (invitedEmail) setEmail(invitedEmail)
- 
+
     if (azureError) {
       setError(azureError.replaceAll('_', ' '))
       window.history.replaceState({}, '', window.location.pathname)
       return
     }
     if (!code) return
- 
+
     // The code is single-use. Clear it before the request so React Strict Mode
     // cannot submit it twice while developing locally.
     window.history.replaceState({}, '', window.location.pathname)
- 
+
     const exchangeMicrosoftSession = async () => {
       setSubmitting(true)
       setError('')
@@ -72,22 +74,26 @@ export default function LoginPage({ onLogin }) {
         if (!response.ok) {
           throw new Error(result.detail || 'Unable to complete Microsoft sign-in')
         }
-        onLogin(result.user)
-        window.history.replaceState({}, '', '/dashboard')
-        window.location.reload()
+        const sessionStarted = onLogin(result.user)
+        if (!sessionStarted) {
+          throw new Error(
+            'Your account does not have a valid application role. Please contact an administrator.',
+          )
+        }
+        navigate('/dashboard', { replace: true })
       } catch (exchangeError) {
         setError(exchangeError.message || 'Unable to complete Microsoft sign-in')
       } finally {
         setSubmitting(false)
       }
     }
- 
+
     exchangeMicrosoftSession()
   }, [onLogin])
- 
+
   const startMicrosoftSignIn = async (event) => {
     event.preventDefault()
- 
+
     if (!setupMode && !email.trim()) {
       setError('Enter your approved work email address.')
       return
@@ -100,7 +106,7 @@ export default function LoginPage({ onLogin }) {
       )
       return
     }
- 
+
     setSubmitting(true)
     setError('')
     try {
@@ -126,7 +132,7 @@ export default function LoginPage({ onLogin }) {
       setSubmitting(false)
     }
   }
- 
+
   return (
     <main className="login-page">
       <section className="login-shell">
@@ -138,8 +144,8 @@ export default function LoginPage({ onLogin }) {
             <b>OTEC CERTIFICATE MANAGEMENT</b>
             <h1>Keep every certification current and Achieved.</h1>
             <p>
-              Manage employee certificates, monitor expiry dates, and stay ready for OEM
-              compliance reviews from one secure workspace.
+              Manage employee certificates, monitor expiry dates, and stay ready for OEM compliance
+              reviews from one secure workspace.
             </p>
             <div className="login-story-features" aria-label="OTEC benefits">
               <span>
@@ -181,13 +187,13 @@ export default function LoginPage({ onLogin }) {
                   : 'Use your approved Microsoft work account to access your certificate workspace.'}
             </p>
           </div>
- 
+
           {setupMode && (
             <span className="login-security-status">
               <i className="bi bi-shield-lock" /> One-time secure administrator setup
             </span>
           )}
- 
+
           <form onSubmit={startMicrosoftSignIn}>
             {setupMode && (
               <div className="login-name-row">
@@ -224,7 +230,7 @@ export default function LoginPage({ onLogin }) {
                 </label>
               </div>
             )}
- 
+
             {!setupMode && (
               <label>
                 Email address
@@ -241,7 +247,7 @@ export default function LoginPage({ onLogin }) {
                 </span>
               </label>
             )}
- 
+
             {error && <p className="login-error">{error}</p>}
             <button
               type="submit"
@@ -256,7 +262,7 @@ export default function LoginPage({ onLogin }) {
                   : 'Sign in with Microsoft'}
             </button>
           </form>
- 
+
           {needsSetup && !setupMode && (
             <button type="button" className="login-create-admin" onClick={() => setSetupMode(true)}>
               <i className="bi bi-person-plus" /> Create first admin
@@ -275,9 +281,7 @@ export default function LoginPage({ onLogin }) {
             </button>
           )}
           <footer>Having trouble signing in? Contact your administrator.</footer>
-          <small className="login-note">
-            Only users created in Access Management can sign in.
-          </small>
+          <small className="login-note">Only users created in Access Management can sign in.</small>
           <small className="login-copyright">
             &copy; {new Date().getFullYear()} Office 2000 Solutions Pvt Ltd
           </small>
@@ -286,5 +290,3 @@ export default function LoginPage({ onLogin }) {
     </main>
   )
 }
- 
- 

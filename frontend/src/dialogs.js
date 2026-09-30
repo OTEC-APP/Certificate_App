@@ -1,6 +1,6 @@
-import Swal from 'sweetalert2';
-import 'sweetalert2/dist/sweetalert2.min.css';
-import './sweetalert-theme.css';
+import Swal from 'sweetalert2'
+import 'sweetalert2/dist/sweetalert2.min.css'
+import './sweetalert-theme.css'
 
 const baseOptions = {
   buttonsStyling: false,
@@ -15,7 +15,7 @@ const baseOptions = {
     cancelButton: 'certtrack-swal-cancel',
     input: 'certtrack-swal-input',
   },
-};
+}
 
 export async function confirmDelete({ name, itemLabel }) {
   const result = await Swal.fire({
@@ -27,8 +27,8 @@ export async function confirmDelete({ name, itemLabel }) {
     showCancelButton: true,
     confirmButtonText: 'Delete',
     cancelButtonText: 'Cancel',
-  });
-  return result.isConfirmed;
+  })
+  return result.isConfirmed
 }
 
 export async function confirmEmailAlertsChange(enabled) {
@@ -47,8 +47,8 @@ export async function confirmEmailAlertsChange(enabled) {
       ...baseOptions.customClass,
       confirmButton: enabled ? 'certtrack-swal-primary' : 'certtrack-swal-danger',
     },
-  });
-  return result.isConfirmed;
+  })
+  return result.isConfirmed
 }
 
 export async function confirmCertificateReview({ name, approve }) {
@@ -61,7 +61,9 @@ export async function confirmCertificateReview({ name, approve }) {
     input: approve ? undefined : 'textarea',
     inputLabel: approve ? undefined : 'Reason for rejection',
     inputPlaceholder: approve ? undefined : 'Explain what the employee needs to correct...',
-    inputValidator: approve ? undefined : (value) => !value?.trim() && 'Please enter the reason for rejection.',
+    inputValidator: approve
+      ? undefined
+      : (value) => !value?.trim() && 'Please enter the reason for rejection.',
     showCancelButton: true,
     confirmButtonText: approve ? 'Approve' : 'Reject',
     cancelButtonText: 'Cancel',
@@ -106,7 +108,10 @@ export function closeAlert() {
 }
 
 export function showToastAlert(message) {
-  const isError = /unable|failed|error|invalid|already(?: exists| been assigned)|not found|must(?: be| match)|denied|could not|too (?:large|big)|maximum file size/i.test(message)
+  const isError =
+    /unable|failed|error|invalid|already(?: exists| been assigned)|not found|must(?: be| match)|denied|could not|too (?:large|big)|maximum file size/i.test(
+      message,
+    )
   Swal.fire({
     toast: true,
     position: 'bottom-end',
@@ -123,7 +128,13 @@ export function showToastAlert(message) {
   })
 }
 
-export async function promptForName({ title, label, placeholder, initialValue = '', confirmButtonText = 'Add category' }) {
+export async function promptForName({
+  title,
+  label,
+  placeholder,
+  initialValue = '',
+  confirmButtonText = 'Add category',
+}) {
   const result = await Swal.fire({
     ...baseOptions,
     title,
@@ -137,13 +148,13 @@ export async function promptForName({ title, label, placeholder, initialValue = 
     cancelButtonText: 'Cancel',
     customClass: { ...baseOptions.customClass, confirmButton: 'certtrack-swal-primary' },
     preConfirm: (value) => {
-      const clean = value.trim();
+      const clean = value.trim()
       if (!clean) {
-        Swal.showValidationMessage('Enter a category name.');
-        return false;
+        Swal.showValidationMessage('Enter a category name.')
+        return false
       }
-      return clean;
+      return clean
     },
-  });
-  return result.isConfirmed ? result.value : null;
+  })
+  return result.isConfirmed ? result.value : null
 }

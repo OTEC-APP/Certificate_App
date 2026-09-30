@@ -9,10 +9,13 @@ const workspace = [
   ['exports', 'bi-file-earmark-arrow-down', 'Generate Report', 'Export reports'],
   // Project staffing is temporarily disabled.
 ]
- 
-
-
 const manage = [
+  ['access-management', 'bi-person-gear', 'Access management', 'User access'],
+  ['activity-history', 'bi-clock-history', 'Activity tracker', 'Activity history'],
+  ['settings', 'bi-gear', 'Settings', 'Categories and OEMs'],
+]
+
+const councilMemberManage = [
   ['access-management', 'bi-person-gear', 'Access management', 'User access'],
   ['activity-history', 'bi-clock-history', 'Activity tracker', 'Activity history'],
   ['settings', 'bi-gear', 'Settings', 'Categories and OEMs'],
@@ -33,6 +36,24 @@ const projectManagerWorkspace = [
   ['exports', 'bi-file-earmark-arrow-down', 'Generate Report', 'Export employee reports'],
 ]
 
+const hrWorkspace = [
+  ['dashboard', 'bi-grid-1x2', 'Dashboard', 'My overview'],
+  ['employees', 'bi-people', 'Employee details', 'Employee records'],
+]
+
+const hrManage = [
+  ['access-management', 'bi-person-gear', 'Access management', 'User access requests'],
+  ['settings', 'bi-gear', 'Settings', 'Categories and OEMs'],
+]
+
+const roleLabel = (role) =>
+  ({
+    admin: 'Administrator',
+    council_member: 'Council Member',
+    hr: 'HR',
+    project_manager: 'Project Manager',
+  })[role] || 'User'
+
 export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCount = 0 }) {
   const navigationRef = useRef(null)
 
@@ -44,12 +65,29 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
   const links = (items) =>
     items.map(([path, icon, label, description, children]) => (
       <div key={path} className="sidebar-nav-item">
-      <NavLink to={`/${path}`} onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip={description} title={description} aria-label={`${label}: ${description}`}>
-        <i className={`bi ${icon}`} />
-        {label}
-        {(path === 'alerts' || path === 'upcoming-renewals') && alertCount > 0 && <em aria-label={`${alertCount} alerts and renewals`}>{alertCount > 99 ? '99+' : alertCount}</em>}
-      </NavLink>
-      {children && <div className="sidebar-subnav" role="group" aria-label={`${label} pages`}>{links(children)}</div>}
+        <NavLink
+          to={`/${path}`}
+          onClick={() => {
+            clearFilter()
+            collapseNavigation()
+          }}
+          data-tooltip={description}
+          title={description}
+          aria-label={`${label}: ${description}`}
+        >
+          <i className={`bi ${icon}`} />
+          {label}
+          {(path === 'alerts' || path === 'upcoming-renewals') && alertCount > 0 && (
+            <em aria-label={`${alertCount} alerts and renewals`}>
+              {alertCount > 99 ? '99+' : alertCount}
+            </em>
+          )}
+        </NavLink>
+        {children && (
+          <div className="sidebar-subnav" role="group" aria-label={`${label} pages`}>
+            {links(children)}
+          </div>
+        )}
       </div>
     ))
 
@@ -75,22 +113,48 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
 
       <div className="er-nav-scroll" ref={navigationRef}>
         <label>WORKSPACE</label>
-        <nav>{links(user?.role === 'project_manager' ? projectManagerWorkspace : user?.role === 'user' ? userWorkspace : workspace)}</nav>
-        {user?.role === 'admin' && (
+        <nav>
+          {links(
+            user?.role === 'hr'
+                ? hrWorkspace
+                : user?.role === 'project_manager'
+                  ? projectManagerWorkspace
+                  : user?.role === 'user'
+                    ? userWorkspace
+                    : workspace,
+          )}
+        </nav>
+        {['admin', 'council_member', 'hr'].includes(user?.role) && (
           <>
             <label>MANAGE</label>
-            <nav>{links(manage)}</nav>
+            <nav>
+              {links(
+                user?.role === 'hr'
+                  ? hrManage
+                  : user?.role === 'council_member'
+                    ? councilMemberManage
+                    : manage,
+              )}
+            </nav>
           </>
         )}
-
       </div>
 
       <div className="sidebar-account">
-        <NavLink className="er-user er-user-fixed sidebar-profile-link" to={user?.role === 'admin' ? '/my-profile' : '/dashboard'} onClick={() => { clearFilter(); collapseNavigation() }} data-tooltip="My profile" title="My profile">
+        <NavLink
+          className="er-user er-user-fixed sidebar-profile-link"
+          to="/my-profile"
+          onClick={() => {
+            clearFilter()
+            collapseNavigation()
+          }}
+          data-tooltip="My profile"
+          title="My profile"
+        >
           <span>{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}` || 'U'}</span>
           <div>
             <b>{user ? `${user.firstName} ${user.lastName}` : 'Signed-in user'}</b>
-            <small>{user?.role === 'admin' ? 'Administrator' : user?.role === 'project_manager' ? 'Project Manager' : 'User'}</small>
+            <small>{roleLabel(user?.role)}</small>
           </div>
         </NavLink>
         <div className="sidebar-actions">

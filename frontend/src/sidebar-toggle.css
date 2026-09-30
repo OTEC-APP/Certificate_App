@@ -1,6 +1,8 @@
 @media (min-width: 1001px) {
   .er-side {
-    transition: width .22s ease, padding .22s ease;
+    transition:
+      width 0.22s ease,
+      padding 0.22s ease;
   }
   .sidebar-collapsed .er-side {
     width: 70px;
@@ -14,7 +16,7 @@
     place-items: center;
     width: 30px;
     height: 30px;
-    border: 1px solid rgba(167, 180, 207, .28);
+    border: 1px solid rgba(167, 180, 207, 0.28);
     border-radius: 8px;
     background: #1d2232;
     color: #c7ccda;
@@ -28,7 +30,10 @@
     justify-content: center;
     padding: 18px 0 20px;
   }
-  .sidebar-collapsed .er-brand > div:last-child, .sidebar-collapsed .er-side label, .sidebar-collapsed .er-side nav em, .sidebar-collapsed .er-user-fixed > div {
+  .sidebar-collapsed .er-brand > div:last-child,
+  .sidebar-collapsed .er-side label,
+  .sidebar-collapsed .er-side nav em,
+  .sidebar-collapsed .er-user-fixed > div {
     display: none;
   }
   .sidebar-collapsed .o2k {
@@ -65,7 +70,8 @@
   .sidebar-collapsed .er-side nav a.active {
     box-shadow: none;
   }
-  .sidebar-collapsed .er-side nav a::after, .sidebar-collapsed .sidebar-logout::after {
+  .sidebar-collapsed .er-side nav a::after,
+  .sidebar-collapsed .sidebar-logout::after {
     content: attr(data-tooltip);
     position: absolute;
     left: calc(100% + 12px);
@@ -75,18 +81,23 @@
     width: max-content;
     max-width: 180px;
     padding: 6px 9px;
-    border: 1px solid rgba(34, 211, 238, .28);
+    border: 1px solid rgba(34, 211, 238, 0.28);
     border-radius: 7px;
     background: #121a31;
     color: #e8f7ff;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
-    font: 500 12px Inter, sans-serif;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    font:
+      500 12px Inter,
+      sans-serif;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity .15s ease;
+    transition: opacity 0.15s ease;
   }
-  .sidebar-collapsed .er-side nav a:hover::after, .sidebar-collapsed .er-side nav a:focus-visible::after, .sidebar-collapsed .sidebar-logout:hover::after, .sidebar-collapsed .sidebar-logout:focus-visible::after {
+  .sidebar-collapsed .er-side nav a:hover::after,
+  .sidebar-collapsed .er-side nav a:focus-visible::after,
+  .sidebar-collapsed .sidebar-logout:hover::after,
+  .sidebar-collapsed .sidebar-logout:focus-visible::after {
     opacity: 1;
     visibility: visible;
   }
@@ -137,7 +148,7 @@
     width: 36px;
     height: 36px;
     color: #67e8f9;
-    border-color: rgba(34, 211, 238, .34);
+    border-color: rgba(34, 211, 238, 0.34);
   }
 }
 @media (max-width: 1000px) {
@@ -158,11 +169,13 @@
   justify-content: center;
   gap: 8px;
   min-height: 36px;
-  border: 1px solid rgba(167, 180, 207, .28);
+  border: 1px solid rgba(167, 180, 207, 0.28);
   border-radius: 8px;
   background: #1d2232;
   color: #c7ccda;
-  font: 600 12px Inter, sans-serif;
+  font:
+    600 12px Inter,
+    sans-serif;
   cursor: pointer;
 }
 .sidebar-logout i {
