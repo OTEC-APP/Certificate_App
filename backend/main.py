@@ -4251,8 +4251,9 @@ if __name__ == "__main__":
 
     import uvicorn
 
+    # Cloud Run sets PORT environment variable; fall back to API_PORT for local dev
     api_host = os.getenv("API_HOST", "0.0.0.0").strip() or "0.0.0.0"
-    api_port = int(os.getenv("API_PORT", "5000"))
+    api_port = int(os.getenv("PORT", os.getenv("API_PORT", "5000")))
 
     # Avoid Uvicorn's WinError 10048 when this API is already running. This is
     # common during local development when a terminal or IDE task owns port 5000.
