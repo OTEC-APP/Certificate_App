@@ -29,10 +29,12 @@ try:
     from .firebase_service import get_firestore_client
     from .email_alerts import send_email
     from .realtime import realtime_connections
+    from .api_errors import row_error
 except ImportError:
     from firebase_service import get_firestore_client
     from email_alerts import send_email
     from realtime import realtime_connections
+    from api_errors import row_error
 
 # Demo mode in-memory storage for HR activities
 demo_hr_activities: list[dict] = []
@@ -94,7 +96,7 @@ class AccessUserFields(BaseModel):
  
  
 class AccessUserCreate(AccessUserFields):
-    requester_role: str | None = Field(default=None, max_length=50)
+    pass
 
 
 class BulkRowNumbers(BaseModel):
@@ -614,7 +616,7 @@ def firestore_unavailable(error: Exception) -> HTTPException:
     logger.exception("Firestore access failed: %s", error)
     return HTTPException(
         status_code=503,
-        detail=f"Firestore access failed ({type(error).__name__}): {error}",
+        detail="The data store is temporarily unavailable. Please try again shortly.",
     )
  
  
@@ -954,11 +956,6 @@ def create_user(payload: AccessUserCreate):
         # Demo mode - default to requiring approval
         requires_approval = True
     
-    # Skip approval if requester is admin or council_member
-    requester_role = getattr(payload, 'requester_role', None)
-    if requester_role in ("admin", "council_member"):
-        requires_approval = False
-    
     if requires_approval:
         # Create HR activity for approval
         activity = {
@@ -1103,7 +1100,7 @@ def approve_bulk_users(upload_id: str):
     created = 0
     for item in valid_rows:
         try: payload = AccessUserCreate(**item["data"])
-        except Exception as error: raise HTTPException(status_code=400, detail=f"Row {item.get('row')}: {error}") from error
+        except Exception as error: raise row_error(item.get("row"), error) from error
         user = {**payload.model_dump(mode="json"), "auth_provider": "azure", "created_at": current_timestamp()}
         user_reference = users_collection().document(); user_reference.set(user); send_user_invitation(user); created += 1
     invalid_rows = [row for row in rows if row.get("errors")]
@@ -1215,7 +1212,7 @@ def approve_bulk_row(upload_id: str, row_number: int):
     try:
         payload = AccessUserCreate(**target["data"])
     except Exception as error:
-        raise HTTPException(status_code=400, detail=f"Row {target.get('row')}: {error}") from error
+        raise row_error(target.get("row"), error) from error
     user = {**payload.model_dump(mode="json"), "auth_provider": "azure", "created_at": current_timestamp()}
     user_ref = users_collection().document()
     user_ref.set(user)
@@ -1396,7 +1393,7 @@ def update_user(user_id: str, payload: AccessUserUpdate):
  
  
 @router.delete("/{user_id}")
-def delete_user(user_id: str, requester_role: str | None = None):
+def delete_user(user_id: str):
     """Offboard a user while retaining their audit snapshot for 30 days."""
     reference = users_collection().document(user_id)
     existing = reference.get()
@@ -1431,10 +1428,6 @@ def delete_user(user_id: str, requester_role: str | None = None):
     else:
         # Demo mode - check in-memory (default to True for demo)
         requires_approval = True
-    
-    # Skip approval if requester is admin or council_member
-    if requester_role in ("admin", "council_member"):
-        requires_approval = False
     
     if requires_approval:
         # Create HR activity for approval
@@ -1708,7 +1701,6 @@ def list_access_options(option_type: Literal["locations", "departments", "oems",
  
 class AccessOptionCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    requester_role: str | None = Field(default=None, max_length=50)
 
 
 @options_router.post("/{option_type}", status_code=201)
@@ -1719,8 +1711,10 @@ def create_access_option(
     
     # Check HR approval settings for add_category and add_oem
     db = get_firestore_client()
-    requires_approval = False
-    if option_type == "categories" or option_type == "oems":
+    # Categories and OEMs always start as approval-required; the settings can
+    # only relax that, never silently skip it.
+    requires_approval = option_type in {"categories", "oems"}
+    if option_type in {"categories", "oems"}:
         if db:
             try:
                 hr_settings = db.collection("app_settings").document("hr_approval").get()
@@ -1736,10 +1730,6 @@ def create_access_option(
         else:
             # Demo mode - default to requiring approval
             requires_approval = True
-    
-    # Skip approval if requester is admin or council_member
-    if payload.requester_role in ("admin", "council_member"):
-        requires_approval = False
     
     if requires_approval:
         # Create HR activity for approval
@@ -1851,12 +1841,14 @@ def update_access_option(
  
 @options_router.delete("/{option_type}/{option_id}")
 def delete_access_option(
-    option_type: Literal["locations", "departments", "oems", "categories"], option_id: str, requester_role: str | None = None
+    option_type: Literal["locations", "departments", "oems", "categories"], option_id: str
 ):
     """Delete a location or department option."""
     
     # Check HR approval settings for delete_category and delete_oem
-    requires_approval = False
+    # Categories and OEMs always start as approval-required; the settings can
+    # only relax that, never silently skip it.
+    requires_approval = option_type in {"categories", "oems"}
     if option_type in {"categories", "oems"}:
         db = get_firestore_client()
         if db:
@@ -1865,7 +1857,7 @@ def delete_access_option(
                 if hr_settings.exists:
                     settings = hr_settings.to_dict()
                     if settings.get("enabled", True):
-                        activity_key = f"delete_{option_type}"
+                        activity_key = "delete_category" if option_type == "categories" else "delete_oem"
                         requires_approval = settings.get("activities", {}).get(activity_key, True)
                     else:
                         requires_approval = False
@@ -1875,10 +1867,6 @@ def delete_access_option(
             # Demo mode - default to requiring approval
             requires_approval = True
         
-        # Skip approval if requester is admin or council_member
-        if requester_role in ("admin", "council_member"):
-            requires_approval = False
-    
     if requires_approval:
         # Create HR activity for approval
         reference = option_collection(option_type).document(option_id)
@@ -1888,10 +1876,11 @@ def delete_access_option(
         else:
             name = str(snapshot.to_dict().get("name", "")) if snapshot.exists else ""
         
+        option_label = {"categories": "Category", "oems": "OEM"}.get(option_type, option_type.capitalize())
         activity = {
-            "activity_type": f"delete_{option_type}",
-            "title": f"Delete {option_type.capitalize()}: {name}",
-            "details": f"Request to delete {option_type}: {name}",
+            "activity_type": "delete_category" if option_type == "categories" else "delete_oem",
+            "title": f"Delete {option_label}: {name}",
+            "details": f"Request to delete {option_label}: {name}",
             "requested_by": "admin",
             "requested_by_name": "Administrator",
             "status": "pending",
