@@ -1,5 +1,5 @@
 """Firestore API routes for access-management users."""
- 
+  
 import base64
 import json
 import logging
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from uuid import uuid4
 from zoneinfo import ZoneInfo
  
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
@@ -32,6 +33,9 @@ except ImportError:
     from firebase_service import get_firestore_client
     from email_alerts import send_email
     from realtime import realtime_connections
+
+# Demo mode in-memory storage for HR activities
+demo_hr_activities: list[dict] = []
  
  
  
@@ -79,7 +83,7 @@ class AccessUserFields(BaseModel):
     location: str = Field(min_length=1, max_length=100)
     department: str = Field(min_length=1, max_length=100)
     reportingManager: str = Field(min_length=1, max_length=160)
-    role: Literal["user", "admin", "project_manager"]
+    role: Literal["user", "admin", "council_member", "hr", "project_manager"]
 
     @field_validator("role", mode="before")
     @classmethod
@@ -90,7 +94,7 @@ class AccessUserFields(BaseModel):
  
  
 class AccessUserCreate(AccessUserFields):
-    pass
+    requester_role: str | None = Field(default=None, max_length=50)
 
 
 class BulkRowNumbers(BaseModel):
@@ -145,6 +149,64 @@ def users_collection():
     return db.collection("users")
 
 
+def demo_users():
+    """Fallback users for development when Firestore has no users."""
+    from datetime import date
+    return {
+        "admin@office-2000.com": {
+            "id": "demo-admin",
+            "firstName": "Admin",
+            "lastName": "User",
+            "employeeId": "1001",
+            "employeeEmail": "admin@office-2000.com",
+            "dateOfJoining": date.today().isoformat(),
+            "location": "Head Office",
+            "department": "Administration",
+            "reportingManager": "Self",
+            "role": "admin",
+            "auth_provider": "azure",
+        },
+        "council@office-2000.com": {
+            "id": "demo-council",
+            "firstName": "Council",
+            "lastName": "Member",
+            "employeeId": "1002",
+            "employeeEmail": "council@office-2000.com",
+            "dateOfJoining": date.today().isoformat(),
+            "location": "Head Office",
+            "department": "Administration",
+            "reportingManager": "Admin User",
+            "role": "admin",
+            "auth_provider": "azure",
+        },
+        "user@office-2000.com": {
+            "id": "demo-user",
+            "firstName": "Regular",
+            "lastName": "User",
+            "employeeId": "1003",
+            "employeeEmail": "user@office-2000.com",
+            "dateOfJoining": date.today().isoformat(),
+            "location": "Branch Office",
+            "department": "Engineering",
+            "reportingManager": "Admin User",
+            "role": "user",
+            "auth_provider": "azure",
+        },
+    }
+
+
+def all_users():
+    """Return all users (Firestore + demo fallback)."""
+    try:
+        firestore_users = list(users_collection().stream())
+        users = {s.id: s.to_dict() for s in firestore_users}
+        if users:
+            return users
+    except Exception:
+        pass
+    return demo_users()
+
+
 def bulk_uploads_collection():
     db = get_firestore_client()
     if not db:
@@ -156,14 +218,43 @@ def managed_option_names(option_type: str) -> set[str]:
     return {str(item.to_dict().get("name", "")).strip().lower() for item in option_collection(option_type).stream()}
  
  
+# Module-level in-memory storage for auth collections (persists across requests)
+_auth_memory_fallback = {}
+
 def auth_collection(name: str):
     """Return a Firestore collection used by the Microsoft sign-in flow."""
     db = get_firestore_client()
     if not db:
-        raise HTTPException(
-            status_code=503,
-            detail="Firebase is not configured. Set FIREBASE_SERVICE_ACCOUNT_PATH in backend/.env.",
-        )
+        # In-memory fallback for demo/development
+        global _auth_memory_fallback
+        if name not in _auth_memory_fallback:
+            _auth_memory_fallback[name] = {}
+        
+        class InMemoryDocRef:
+            def __init__(self, doc_id):
+                self.doc_id = doc_id
+            
+            def set(self, data):
+                _auth_memory_fallback[name][self.doc_id] = data
+            
+            def get(self):
+                class DocSnapshot:
+                    def __init__(self, exists, data):
+                        self.exists = exists
+                        self._data = data
+                    def to_dict(self):
+                        return self._data
+                data = _auth_memory_fallback[name].get(self.doc_id)
+                return DocSnapshot(self.doc_id in _auth_memory_fallback[name], data or {})
+            
+            def delete(self):
+                _auth_memory_fallback[name].pop(self.doc_id, None)
+        
+        class InMemoryCollection:
+            def document(self, doc_id):
+                return InMemoryDocRef(doc_id)
+        
+        return InMemoryCollection()
     return db.collection(name)
  
  
@@ -208,7 +299,7 @@ def frontend_login_redirect(**parameters: str) -> str:
 def invitation_email_html(user: dict) -> str:
     """Build the branded Microsoft SSO invitation sent to a newly onboarded user."""
     name = escape(f"{user['firstName']} {user['lastName']}".strip())
-    role = "Administrator" if user["role"] == "admin" else "Project Manager" if user["role"] == "project_manager" else "User"
+    role = {"admin": "Administrator", "council_member": "Council Member", "hr": "HR", "project_manager": "Project Manager"}.get(user["role"], "User")
     sign_in_url = frontend_login_redirect(email=user["employeeEmail"])
 
     return f"""
@@ -538,17 +629,17 @@ def all_user_snapshots():
 @auth_router.get("/setup-status")
 def setup_status():
     """Expose whether the system needs its one-time first administrator."""
-    return {"needs_setup": not bool(all_user_snapshots())}
- 
- 
+    return {"needs_setup": not bool(all_users())}
+
+
 @auth_router.post("/azure/start")
 def azure_start(payload: AzureStartRequest):
     """Validate onboarding and create a short-lived Microsoft authorization request."""
     tenant_id, client_id, _, redirect_uri = azure_settings()
     email = (payload.email or "").strip().lower()
- 
+
     if payload.setup:
-        if all_user_snapshots():
+        if all_users():
             raise HTTPException(status_code=409, detail="An administrator already exists")
         if not all([payload.firstName, payload.lastName, payload.employeeId]):
             raise HTTPException(
@@ -557,11 +648,12 @@ def azure_start(payload: AzureStartRequest):
     else:
         if not email:
             raise HTTPException(status_code=422, detail="Enter your work email address")
+        users = all_users()
         user_snapshot = next(
-            (
+(
                 item
-                for item in all_user_snapshots()
-                if str(item.to_dict().get("employeeEmail", "")).strip().lower()
+                for item in all_users().items()
+                if str(item[1].get("employeeEmail", "")).strip().lower()
                 == email
             ),
             None,
@@ -620,7 +712,7 @@ def azure_callback(code: str = "", state: str = ""):
         return RedirectResponse(
             frontend_login_redirect(error="Microsoft sign-in was cancelled")
         )
- 
+
     reference = auth_collection("oauth_states").document(state)
     snapshot = reference.get()
     reference.delete()
@@ -628,7 +720,7 @@ def azure_callback(code: str = "", state: str = ""):
         return RedirectResponse(
             frontend_login_redirect(error="Invalid or expired sign-in request")
         )
- 
+
     pending = snapshot.to_dict()
     tenant_id, client_id, client_secret, redirect_uri = azure_settings()
     try:
@@ -644,16 +736,23 @@ def azure_callback(code: str = "", state: str = ""):
                 "code_verifier": pending.get("code_verifier", ""),
             },
         )
+        logger.info("Token exchange successful")
         access_token = token.get("access_token")
         if not access_token:
-            raise HTTPException(status_code=502, detail="Microsoft token exchange failed")
+            error_detail = token.get("error_description", "Microsoft token exchange failed")
+            logger.error("Token exchange failed: %s", token)
+            raise HTTPException(status_code=502, detail=error_detail)
         profile = fetch_json(
             "https://graph.microsoft.com/v1.0/me?"
             "$select=mail,userPrincipalName,otherMails,givenName,surname",
             headers={"Authorization": f"Bearer {access_token}"},
         )
-    except HTTPException as error:
-        return RedirectResponse(frontend_login_redirect(error=str(error.detail)))
+        logger.info("Graph profile fetched: %s", profile.get("mail") or profile.get("userPrincipalName"))
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.exception("Azure callback failed during token/profile")
+        return RedirectResponse(frontend_login_redirect(error=f"Sign-in failed: {error}"))
  
     profile_emails = azure_profile_emails(profile)
     email = preferred_azure_email(profile, profile_emails)
@@ -670,17 +769,24 @@ def azure_callback(code: str = "", state: str = ""):
             frontend_login_redirect(error="Use your approved work account")
         )
  
-    snapshots = all_user_snapshots()
+    users = all_users()
     user_snapshot = next(
         (
             item
-            for item in snapshots
-            if str(item.to_dict().get("employeeEmail", "")).strip().lower()
+            for item in users.items()
+            if str(item[1].get("employeeEmail", "")).strip().lower()
             in profile_emails
         ),
         None,
     )
-    if not user_snapshot and pending.get("setup") and not snapshots:
+    if user_snapshot:
+        user_id, user = user_snapshot
+        user = {**user, "id": user_id}
+        user_snapshot = type('obj', (object,), {'to_dict': lambda self: user, 'id': user_id})()
+    else:
+        user_snapshot = None
+
+    if not user_snapshot and pending.get("setup") and not users:
         user = {
             "firstName": pending.get("firstName")
             or str(profile.get("givenName") or "Administrator"),
@@ -695,36 +801,44 @@ def azure_callback(code: str = "", state: str = ""):
             "auth_provider": "azure",
             "created_at": current_timestamp(),
         }
-        user_reference = users_collection().document()
-        user_reference.set(user)
-        user_snapshot = user_reference.get()
-        auth_collection("auth_settings").document("azure").set(
-            {
-                "allowed_domains": sorted(allowed_domains | {email_domain(email)}),
-                "tenant_id": tenant_id,
-                "updated_at": current_timestamp(),
-            }
-        )
-        record_history(
-            "bi-microsoft",
-            f"Created SSO administrator {user['firstName']} {user['lastName']}".strip(),
-            email,
-        )
- 
+        try:
+            user_reference = users_collection().document()
+            user_reference.set(user)
+            user_snapshot = user_reference.get()
+            auth_collection("auth_settings").document("azure").set(
+                {
+                    "allowed_domains": sorted(allowed_domains | {email_domain(email)}),
+                    "tenant_id": tenant_id,
+                    "updated_at": current_timestamp(),
+                }
+            )
+            record_history(
+                "bi-microsoft",
+                f"Created SSO administrator {user['firstName']} {user['lastName']}".strip(),
+                email,
+            )
+        except Exception as e:
+            logger.exception("Failed to create first admin user")
+            return RedirectResponse(frontend_login_redirect(error=f"Account setup failed: {e}"))
+
     if not user_snapshot:
         return RedirectResponse(
             frontend_login_redirect(error="This work account is not onboarded")
         )
- 
+
     user = user_snapshot.to_dict()
     session_code = secrets.token_urlsafe(32)
-    auth_collection("auth_sessions").document(session_code).set(
-        {
-            "expires_at": time.time() + 120,
-            "user_id": user_snapshot.id,
-            "user": public_user(user_snapshot.id, user),
-        }
-    )
+    try:
+        auth_collection("auth_sessions").document(session_code).set(
+            {
+                "expires_at": time.time() + 120,
+                "user_id": user_snapshot.id,
+                "user": public_user(user_snapshot.id, user),
+            }
+        )
+    except Exception as e:
+        logger.exception("Failed to create auth session")
+        return RedirectResponse(frontend_login_redirect(error=f"Session creation failed: {e}"))
     return RedirectResponse(frontend_login_redirect(azure_code=session_code))
  
  
@@ -803,6 +917,9 @@ def list_users(
 #     )
 #     realtime_connections.publish({"type": "access.updated"})
 #     return {**public_user(reference.id, user), "invitation_sent": invitation_sent}
+
+
+
 @router.post("", status_code=201)
 def create_user(payload: AccessUserCreate):
     """Create a Microsoft SSO access-management user in Firestore."""
@@ -819,6 +936,52 @@ def create_user(payload: AccessUserCreate):
         if new_employee_id and existing_employee_id == new_employee_id:
             raise HTTPException(status_code=409, detail="An employee with this employee ID already exists")
 
+    # Check HR approval settings for add_user
+    db = get_firestore_client()
+    requires_approval = True
+    if db:
+        try:
+            hr_settings = db.collection("app_settings").document("hr_approval").get()
+            if hr_settings.exists:
+                settings = hr_settings.to_dict()
+                if settings.get("enabled", True):
+                    requires_approval = settings.get("activities", {}).get("add_user", True)
+                else:
+                    requires_approval = False
+        except Exception:
+            pass
+    else:
+        # Demo mode - default to requiring approval
+        requires_approval = True
+    
+    # Skip approval if requester is admin or council_member
+    requester_role = getattr(payload, 'requester_role', None)
+    if requester_role in ("admin", "council_member"):
+        requires_approval = False
+    
+    if requires_approval:
+        # Create HR activity for approval
+        activity = {
+            "activity_type": "add_user",
+            "title": f"Add User: {payload.firstName} {payload.lastName}",
+            "details": f"Employee ID: {payload.employeeId}, Email: {payload.employeeEmail}, Department: {payload.department}, Role: {payload.role}",
+            "requested_by": payload.employeeEmail,
+            "requested_by_name": f"{payload.firstName} {payload.lastName}",
+            "status": "pending",
+            "created_at": current_timestamp(),
+            "payload": payload.model_dump(mode="json"),
+        }
+        if db:
+            reference = db.collection("hr_activities").document()
+            reference.set(activity)
+            activity["id"] = reference.id
+        else:
+            # Demo mode - use shared in-memory storage
+            activity["id"] = f"demo-{uuid4().hex[:8]}"
+            demo_hr_activities.append(activity)
+        realtime_connections.publish({"type": "hr-activities.updated"})
+        return {"id": activity["id"], "status": "pending", "message": "User creation request submitted for approval", **activity}
+    
     user = {
         **payload.model_dump(mode="json"),
         "auth_provider": "azure",
@@ -834,6 +997,8 @@ def create_user(payload: AccessUserCreate):
     )
     realtime_connections.publish({"type": "access.updated"})
     return {**public_user(reference.id, user), "invitation_sent": invitation_sent}
+ 
+ 
 
 
 @router.get("/bulk/template")
@@ -910,7 +1075,7 @@ def upload_bulk_users(file: UploadFile = File(...)):
         if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
         if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
         row["role"] = row["role"].casefold().replace(" ", "_")
-        if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
+        if row["role"].lower() not in {"user", "admin", "council_member", "hr", "project_manager"}: errors.append("Role must be user, hr, project_manager, council_member, or admin")
         if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
         email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
         if email in existing_emails: errors.append("Employee email already exists")
@@ -1021,7 +1186,7 @@ def validate_bulk_row(row_data):
     if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
     if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
     row["role"] = row["role"].casefold().replace(" ", "_")
-    if row["role"].lower() not in {"user", "admin", "project_manager"}: errors.append("Role must be user, project_manager, or admin")
+    if row["role"].lower() not in {"user", "admin", "council_member", "hr", "project_manager"}: errors.append("Role must be user, hr, project_manager, council_member, or admin")
     if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
     email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
     if email in existing_emails: errors.append("Employee email already exists")
@@ -1133,6 +1298,46 @@ def delete_bulk_rows(upload_id: str, payload: BulkRowNumbers):
     return {"deleted": len(target_rows)}
 
 
+# @router.put("/{user_id}")
+# def update_user(user_id: str, payload: AccessUserUpdate):
+#     """Replace an existing user while preserving its creation time."""
+#     reference = users_collection().document(user_id)
+#     existing = reference.get()
+#     if not existing.exists:
+#         raise HTTPException(status_code=404, detail="User not found")
+ 
+#     existing_data = existing.to_dict()
+#     user_data = payload.model_dump(mode="json", exclude_none=True)
+#     is_demoting_last_admin = (
+#         str(existing_data.get("role") or "").casefold() == "admin"
+#         and str(user_data.get("role") or "").casefold() != "admin"
+#     )
+#     if is_demoting_last_admin:
+#         has_another_admin = any(
+#             snapshot.id != user_id and str(snapshot.to_dict().get("role") or "").casefold() == "admin"
+#             for snapshot in all_user_snapshots()
+#         )
+#         if not has_another_admin:
+#             raise HTTPException(
+#                 status_code=409,
+#                 detail="Assign another user as Admin before changing the final administrator's role.",
+#             )
+#     user = {
+#         **user_data,
+#         "dateOfJoining": user_data.get("dateOfJoining", existing_data.get("dateOfJoining")),
+#         "auth_provider": "azure",
+#         "created_at": existing_data.get("created_at"),
+#         "updated_at": current_timestamp(),
+#     }
+#     reference.set(user, merge=True)
+#     record_history(
+#         "bi-pencil-square",
+#         f"Updated {user['firstName']} {user['lastName']}",
+#         f"{user['employeeId']} · {user['role']} · {user['department']}",
+#     )
+#     realtime_connections.publish({"type": "access.updated"})
+#     return public_user(user_id, user)
+
 @router.put("/{user_id}")
 def update_user(user_id: str, payload: AccessUserUpdate):
     """Replace an existing user while preserving its creation time."""
@@ -1143,7 +1348,7 @@ def update_user(user_id: str, payload: AccessUserUpdate):
  
     existing_data = existing.to_dict()
     user_data = payload.model_dump(mode="json", exclude_none=True)
-
+ 
     # Reject updates that would collide with a different existing user.
     new_email = str(user_data.get("employeeEmail") or "").strip().casefold()
     new_employee_id = str(user_data.get("employeeId") or "").strip().casefold()
@@ -1157,7 +1362,7 @@ def update_user(user_id: str, payload: AccessUserUpdate):
             raise HTTPException(status_code=409, detail="Another employee already uses this email")
         if new_employee_id and other_employee_id == new_employee_id:
             raise HTTPException(status_code=409, detail="Another employee already uses this employee ID")
-
+ 
     is_demoting_last_admin = (
         str(existing_data.get("role") or "").casefold() == "admin"
         and str(user_data.get("role") or "").casefold() != "admin"
@@ -1189,8 +1394,9 @@ def update_user(user_id: str, payload: AccessUserUpdate):
     return public_user(user_id, user)
  
  
-@router.delete("/{user_id}", status_code=204)
-def delete_user(user_id: str):
+ 
+@router.delete("/{user_id}")
+def delete_user(user_id: str, requester_role: str | None = None):
     """Offboard a user while retaining their audit snapshot for 30 days."""
     reference = users_collection().document(user_id)
     existing = reference.get()
@@ -1207,6 +1413,51 @@ def delete_user(user_id: str):
                 status_code=409,
                 detail="Assign another user as Admin before deleting the final administrator.",
             )
+    
+    # Check HR approval settings for delete_user
+    db = get_firestore_client()
+    requires_approval = True
+    if db:
+        try:
+            hr_settings = db.collection("app_settings").document("hr_approval").get()
+            if hr_settings.exists:
+                settings = hr_settings.to_dict()
+                if settings.get("enabled", True):
+                    requires_approval = settings.get("activities", {}).get("delete_user", True)
+                else:
+                    requires_approval = False
+        except Exception:
+            pass
+    else:
+        # Demo mode - check in-memory (default to True for demo)
+        requires_approval = True
+    
+    # Skip approval if requester is admin or council_member
+    if requester_role in ("admin", "council_member"):
+        requires_approval = False
+    
+    if requires_approval:
+        # Create HR activity for approval
+        activity = {
+            "activity_type": "delete_user",
+            "title": f"Delete User: {user.get('firstName', '')} {user.get('lastName', '')}".strip(),
+            "details": f"Employee ID: {user.get('employeeId', '')}, Email: {user.get('employeeEmail', '')}, Department: {user.get('department', '')}",
+            "requested_by": "admin",
+            "requested_by_name": "Administrator",
+            "status": "pending",
+            "created_at": current_timestamp(),
+            "payload": {"user_id": user_id, "user_data": user},
+        }
+        if db:
+            activity_ref = db.collection("hr_activities").document()
+            activity_ref.set(activity)
+            activity["id"] = activity_ref.id
+        else:
+            activity["id"] = f"demo-{uuid4().hex[:8]}"
+            demo_hr_activities.append(activity)
+        realtime_connections.publish({"type": "hr-activities.updated"})
+        return {"id": activity.get("id"), "status": "pending", "message": "User deletion request submitted for approval", **activity}
+    
     left_at = datetime.now(INDIA_TIMEZONE)
     email = str(user.get("employeeEmail", "")).strip().lower()
     db = get_firestore_client()
@@ -1455,11 +1706,64 @@ def list_access_options(option_type: Literal["locations", "departments", "oems",
     return sorted(options, key=lambda option: option["name"].lower())
  
  
+class AccessOptionCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    requester_role: str | None = Field(default=None, max_length=50)
+
+
 @options_router.post("/{option_type}", status_code=201)
 def create_access_option(
     option_type: Literal["locations", "departments", "oems", "categories"], payload: AccessOptionCreate
 ):
     """Create a location or department option."""
+    
+    # Check HR approval settings for add_category and add_oem
+    db = get_firestore_client()
+    requires_approval = False
+    if option_type == "categories" or option_type == "oems":
+        if db:
+            try:
+                hr_settings = db.collection("app_settings").document("hr_approval").get()
+                if hr_settings.exists:
+                    settings = hr_settings.to_dict()
+                    if settings.get("enabled", True):
+                        activity_key = "add_category" if option_type == "categories" else "add_oem"
+                        requires_approval = settings.get("activities", {}).get(activity_key, True)
+                    else:
+                        requires_approval = False
+            except Exception:
+                pass
+        else:
+            # Demo mode - default to requiring approval
+            requires_approval = True
+    
+    # Skip approval if requester is admin or council_member
+    if payload.requester_role in ("admin", "council_member"):
+        requires_approval = False
+    
+    if requires_approval:
+        # Create HR activity for approval
+        activity = {
+            "activity_type": "add_category" if option_type == "categories" else "add_oem",
+            "title": f"Add {option_type.capitalize()}: {payload.name.strip()}",
+            "details": f"New {option_type[:-1]} request: {payload.name.strip()}",
+            "requested_by": "admin",
+            "requested_by_name": "Administrator",
+            "status": "pending",
+            "created_at": current_timestamp(),
+            "payload": {"option_type": option_type, "name": payload.name.strip()},
+        }
+        if db:
+            reference = db.collection("hr_activities").document()
+            reference.set(activity)
+            activity["id"] = reference.id
+        else:
+            # Demo mode - use shared in-memory storage
+            activity["id"] = f"demo-{uuid4().hex[:8]}"
+            demo_hr_activities.append(activity)
+        realtime_connections.publish({"type": "hr-activities.updated"})
+        return {"id": activity["id"], "status": "pending", "message": f"{option_type.capitalize()} creation request submitted for approval", **activity}
+    
     option = {
         "name": payload.name.strip(),
         "created_at": current_timestamp(),
@@ -1545,11 +1849,61 @@ def update_access_option(
     return {"id": option_id, **option}
  
  
-@options_router.delete("/{option_type}/{option_id}", status_code=204)
+@options_router.delete("/{option_type}/{option_id}")
 def delete_access_option(
-    option_type: Literal["locations", "departments", "oems", "categories"], option_id: str
+    option_type: Literal["locations", "departments", "oems", "categories"], option_id: str, requester_role: str | None = None
 ):
     """Delete a location or department option."""
+    
+    # Check HR approval settings for delete_category and delete_oem
+    requires_approval = False
+    if option_type in {"categories", "oems"}:
+        db = get_firestore_client()
+        if db:
+            try:
+                hr_settings = db.collection("app_settings").document("hr_approval").get()
+                if hr_settings.exists:
+                    settings = hr_settings.to_dict()
+                    if settings.get("enabled", True):
+                        activity_key = f"delete_{option_type}"
+                        requires_approval = settings.get("activities", {}).get(activity_key, True)
+                    else:
+                        requires_approval = False
+            except Exception:
+                pass
+        else:
+            # Demo mode - default to requiring approval
+            requires_approval = True
+        
+        # Skip approval if requester is admin or council_member
+        if requester_role in ("admin", "council_member"):
+            requires_approval = False
+    
+    if requires_approval:
+        # Create HR activity for approval
+        reference = option_collection(option_type).document(option_id)
+        snapshot = reference.get()
+        if option_type == "oems":
+            name = clean_oem_name(str(snapshot.to_dict().get("name", "")) if snapshot.exists else option_id)
+        else:
+            name = str(snapshot.to_dict().get("name", "")) if snapshot.exists else ""
+        
+        activity = {
+            "activity_type": f"delete_{option_type}",
+            "title": f"Delete {option_type.capitalize()}: {name}",
+            "details": f"Request to delete {option_type}: {name}",
+            "requested_by": "admin",
+            "requested_by_name": "Administrator",
+            "status": "pending",
+            "created_at": current_timestamp(),
+            "payload": {"option_type": option_type, "option_id": option_id, "name": name},
+        }
+        activity_ref = db.collection("hr_activities").document()
+        activity_ref.set(activity)
+        activity["id"] = activity_ref.id
+        realtime_connections.publish({"type": "hr-activities.updated"})
+        return {"id": activity_ref.id, "status": "pending", "message": f"{option_type.capitalize()} deletion request submitted for approval", **activity}
+    
     try:
         reference = option_collection(option_type).document(option_id)
         snapshot = reference.get()

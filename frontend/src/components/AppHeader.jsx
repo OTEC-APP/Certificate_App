@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 export const pageMeta = {
   'my-profile': ['My profile', 'Your certification records and renewal overview'],
-  
+
   'my-certificates': ['My certificates', 'Your completed certification records'],
   // 'upcoming-renewals': ['Alerts & renewals', 'Certificates that need your attention soon'],
   'upcoming-renewals': ['Upcoming renewals', 'Certificates that need your attention soon'],
@@ -21,7 +21,10 @@ export const pageMeta = {
   'certificate-activity': ['Certificate activity', 'Certificate changes and verification activity'],
   'activity-history': ['Activity history', 'Access and certificate audit records'],
   settings: ['Settings', 'Manage certification categories and OEMs'],
-  'project-staffing': ['Project staffing', 'Match project requirements to primary and backup employees'],
+  'project-staffing': [
+    'Project staffing',
+    'Match project requirements to primary and backup employees',
+  ],
   completions: ['Certificate records', 'Validated certification records and credential holders'],
 }
 
@@ -70,11 +73,25 @@ const notificationTime = (value) => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Time unavailable'
   return new Intl.DateTimeFormat('en-US', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(date)
 }
 
-export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertCount = 0, notifications = [], onMarkNotificationRead, onMarkAllNotificationsRead }) {
+export default function AppHeader({
+  query,
+  setQuery,
+  onAdd,
+  onMenu,
+  user,
+  alertCount = 0,
+  notifications = [],
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+}) {
   const location = useLocation()
   const navigate = useNavigate()
   const pathname = location.pathname
@@ -83,7 +100,8 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
   // visually hidden on desktop where Dashboard is the home destination.
   const showBack = true
   const isUser = ['user', 'project_manager'].includes(user?.role)
-  const isPersonalWorkspace = isUser || ['my-profile', 'my-certificates', 'upcoming-renewals'].includes(key)
+  const isPersonalWorkspace =
+    isUser || ['my-profile', 'my-certificates', 'upcoming-renewals'].includes(key)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const notificationRef = useRef(null)
 
@@ -106,12 +124,20 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
 
   return (
     <header className={`er-top${isUser ? ' user-topbar' : ''}`}>
-      <button className="mobile-menu-button" type="button" onClick={onMenu} aria-label="Open navigation">
+      <button
+        className="mobile-menu-button"
+        type="button"
+        onClick={onMenu}
+        aria-label="Open navigation"
+      >
         <i className="bi bi-list" />
       </button>
       <div className="top-brand" aria-label="OTEC by Office 2000 Solutions">
         <img src="/o2k-logo.png" alt="" />
-        <span><b>OTEC</b><small>Certificate Management</small></span>
+        <span>
+          <b>OTEC</b>
+          <small>Certificate Management</small>
+        </span>
       </div>
       {key !== 'dashboard' && (
         <div className="er-search">
@@ -119,7 +145,12 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={searchPlaceholders[key] || (isPersonalWorkspace ? 'Search my certificates' : `Search ${pageMeta[key]?.[0]?.toLowerCase() || 'records'}`)}
+            placeholder={
+              searchPlaceholders[key] ||
+              (isPersonalWorkspace
+                ? 'Search my certificates'
+                : `Search ${pageMeta[key]?.[0]?.toLowerCase() || 'records'}`)
+            }
             aria-label={`Search records on ${pageMeta[key]?.[0] || 'this page'}`}
           />
         </div>
@@ -140,21 +171,55 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
           <section className="notification-dropdown" aria-label="Notifications">
             <header>
               <b>Notifications</b>
-              {alertCount > 0
-                ? <button type="button" onClick={() => { Promise.resolve(onMarkAllNotificationsRead?.()).catch(() => {}) }}>Mark all as read</button>
-                : <small>0 unread</small>}
+              {alertCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    Promise.resolve(onMarkAllNotificationsRead?.()).catch(() => {})
+                  }}
+                >
+                  Mark all as read
+                </button>
+              ) : (
+                <small>0 unread</small>
+              )}
             </header>
             <div className="notification-dropdown-list">
-              {notifications.length ? notifications.map((notification) => (
-                <article className="unread" key={notification.key}>
-                  <i className={`bi ${notification.key.startsWith('pending:') ? 'bi-patch-exclamation' : 'bi-patch-check'}`} />
-                  <div><b>{notification.title}</b><p>{notification.message}</p><time dateTime={notification.time || undefined}>{notificationTime(notification.time)}</time></div>
-                  <footer>
-                    {!notification.read && <button type="button" onClick={() => { Promise.resolve(onMarkNotificationRead?.(notification.key)).catch(() => {}) }}>Mark as read</button>}
-                    <button type="button" onClick={() => openNotification(notification)}>Open</button>
-                  </footer>
-                </article>
-              )) : <p className="notification-empty">You have no notifications.</p>}
+              {notifications.length ? (
+                notifications.map((notification) => (
+                  <article className="unread" key={notification.key}>
+                    <i
+                      className={`bi ${notification.key.startsWith('pending:') ? 'bi-patch-exclamation' : 'bi-patch-check'}`}
+                    />
+                    <div>
+                      <b>{notification.title}</b>
+                      <p>{notification.message}</p>
+                      <time dateTime={notification.time || undefined}>
+                        {notificationTime(notification.time)}
+                      </time>
+                    </div>
+                    <footer>
+                      {!notification.read && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            Promise.resolve(onMarkNotificationRead?.(notification.key)).catch(
+                              () => {},
+                            )
+                          }}
+                        >
+                          Mark as read
+                        </button>
+                      )}
+                      <button type="button" onClick={() => openNotification(notification)}>
+                        Open
+                      </button>
+                    </footer>
+                  </article>
+                ))
+              ) : (
+                <p className="notification-empty">You have no notifications.</p>
+              )}
             </div>
           </section>
         )}
@@ -162,20 +227,29 @@ export default function AppHeader({ query, setQuery, onAdd, onMenu, user, alertC
       <button
         className="global-profile-button"
         type="button"
-        onClick={() => navigate(user?.role === 'admin' ? '/my-profile' : '/dashboard')}
+        onClick={() => navigate('/my-profile')}
         aria-label="Open my profile"
         title="My profile"
       >
-        <span aria-hidden="true">{`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U'}</span>
+        <span aria-hidden="true">
+          {`${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U'}
+        </span>
       </button>
-      <button className="er-add" onClick={onAdd} aria-label={isPersonalWorkspace ? 'Add my certificate' : 'Add certification'}>
-        <i className="bi bi-plus-lg" /> {isPersonalWorkspace ? 'Add my certificate' : 'Add certification'}
+      <button
+        className="er-add"
+        onClick={onAdd}
+        aria-label={isPersonalWorkspace ? 'Add my certificate' : 'Add certification'}
+      >
+        <i className="bi bi-plus-lg" />{' '}
+        {isPersonalWorkspace ? 'Add my certificate' : 'Add certification'}
       </button>
       {showBack && (
         <button
           className={`global-back-button${key === 'dashboard' ? ' dashboard-back-button' : ''}`}
           type="button"
-          onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/dashboard', { replace: true })}
+          onClick={() =>
+            window.history.length > 1 ? navigate(-1) : navigate('/dashboard', { replace: true })
+          }
           aria-label="Go to previous page"
         >
           <i className="bi bi-arrow-left" aria-hidden="true" />

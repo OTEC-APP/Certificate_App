@@ -1,9 +1,11 @@
 /* Keep the app background continuous and scroll the workspace, not the browser page. */
-html, body, #root {
+html,
+body,
+#root {
   min-height: 100%;
   margin: 0;
 }
-body:has(.exact-react[data-theme="dark"]) {
+body:has(.exact-react[data-theme='dark']) {
   background: #0e1015;
 }
 .exact-react > main {

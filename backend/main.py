@@ -25,19 +25,19 @@ from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Reques
 
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud.firestore_v1 import Query as FirestoreQuery
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field,field_validator
 
 if __package__:
     # Package import: `from backend import app` or `uvicorn backend.main:app`
     from .firebase_service import get_firestore_client, get_storage_bucket
-    from .access_management import auth_router,callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router
+    from .access_management import auth_router, callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router, send_user_invitation, record_history, mark_settings_updated, clean_oem_name, departed_employees_collection, demo_hr_activities, current_timestamp
     from .email_alerts import send_email
     from .realtime import realtime_connections
     from .employee_activity import latest_certificate_at
 else:
     # Direct execution: `python main.py`
     from firebase_service import get_firestore_client, get_storage_bucket
-    from access_management import auth_router,callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router
+    from access_management import auth_router, callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router, send_user_invitation, record_history, mark_settings_updated, clean_oem_name, departed_employees_collection, demo_hr_activities, current_timestamp
     from email_alerts import send_email
     from realtime import realtime_connections
     from employee_activity import latest_certificate_at
@@ -51,7 +51,7 @@ configured_origins = {
     if origin.strip()
 }
 allowed_origins = sorted(
-    configured_origins | {"http://localhost:3000", "http://127.0.0.1:3000"}
+    configured_origins | {"http://localhost:3001", "http://127.0.0.1:3000", "http://192.168.0.40:3000"}
 )
 
 
@@ -459,19 +459,20 @@ class CertificateCreate(BaseModel):
     validity_years: int | None = Field(default=None, ge=1, le=3)
     expires_on: date | None = None
     reminder_days_before: int = Field(default=90, ge=1, le=90)
-    # Completion date is optional: a certificate can be recorded before the
-    # exact completion date is known.
     issued_date: date | None = None
     submission_source: Literal["user", "admin"] = "user"
+    requester_role: str | None = Field(default=None, max_length=50)
 
     @field_validator("issued_date", mode="before")
     @classmethod
     def _blank_issued_date_is_none(cls, value):
         return None if value in ("", None) else value
+ 
 
 class StatusUpdate(BaseModel):
     status: Literal["issued", "revoked"]
     reviewed_by: str = Field(min_length=2, max_length=100)
+    reviewer_role: str = Field(default="", max_length=50)
     remarks: str = Field(default="", max_length=1000)
     matched_course_id: str | None = Field(default=None, max_length=100)
     matched_course_name: str | None = Field(default=None, max_length=160)
@@ -479,8 +480,6 @@ class StatusUpdate(BaseModel):
     verified_ru_points: float | None = Field(default=None, ge=0, le=9999)
 
 
-# class CertificateApprovalDetailsUpdate(BaseModel):
-#     course_name: str = Field(min_length=2, max_length=160)
 class CertificateApprovalDetailsUpdate(BaseModel):
     course_name: str | None = Field(default=None, min_length=2, max_length=160)
     vendor_name: str | None = Field(default=None, min_length=2, max_length=100)
@@ -490,6 +489,8 @@ class CertificateApprovalDetailsUpdate(BaseModel):
     validity_years: int | None = Field(default=None, ge=1, le=3)
     expires_on: date | None = None
     total_ru_points: float | None = Field(default=None, ge=0, le=9999)
+ 
+ 
 
 
 class TopHolderEmailRequest(BaseModel):
@@ -508,6 +509,11 @@ class CustomGroupEmailRequest(BaseModel):
 
 class EmailAlertsSettings(BaseModel):
     enabled: bool
+
+
+class HRApprovalSettings(BaseModel):
+    enabled: bool
+    activities: dict[str, bool] = Field(default_factory=dict)
 
 
 class CertificateUpdate(CertificateCreate):
@@ -666,10 +672,12 @@ def certificate_expiry(certificate: dict) -> date | None:
     years = certificate_validity_years(certificate)
     if not years:
         return None
+    # issued = date.fromisoformat(str(certificate.get("issued_date")))
     issued_value = certificate.get("issued_date")
     if not issued_value:
         return None
     issued = date.fromisoformat(str(issued_value))
+ 
     try:
         return issued.replace(year=issued.year + years)
     except ValueError:  # 29 February in a non-leap expiry year
@@ -829,6 +837,30 @@ def admin_email_addresses() -> list[str]:
         return configured_admins
  
  
+def approval_reviewer_email_addresses() -> list[str]:
+    """Return every administrator and council member who can review approvals."""
+    def clean_email(value: object) -> str:
+        email = str(value or "").strip().lower()
+        return email if email.count("@") == 1 and all(part.strip() for part in email.split("@")) else ""
+
+    configured_council = [
+        email for value in os.getenv("COUNCIL_ALERT_EMAILS", "").split(",")
+        if (email := clean_email(value))
+    ]
+    if not db:
+        return sorted(set(admin_email_addresses() + configured_council))
+    try:
+        reviewers = [
+            email
+            for snapshot in db.collection("users").stream()
+            if str(snapshot.to_dict().get("role", "")).strip().lower() in {"admin", "council_member"}
+            if (email := clean_email(snapshot.to_dict().get("employeeEmail")))
+        ]
+        return sorted(set(configured_council + reviewers))
+    except Exception:
+        return sorted(set(admin_email_addresses() + configured_council))
+
+
  
 def employee_email_details(certificate: dict) -> dict:
     """Return the employee information to show in certificate notification emails."""
@@ -1171,15 +1203,18 @@ def _digest_email_html(title: str, summary: str, section_title: str, body_html: 
     </div></body></html>"""
 
 
-def send_daily_certificate_review_digest() -> None:
+def send_daily_certificate_review_digest(*, manual: bool = False) -> None:
     """Daily digest:
-       - Admins: list of certificates still pending approval.
+       - Administrators and council members: pending certificate and HR approvals.
        - Employees: today's approved count and rejected count with reasons.
     """
     today = datetime.now(INDIA_TIMEZONE).date()
     history_key = f"certificate-review-digest-{today.isoformat()}"
     history_ref = db.collection("scheduled_email_history").document(history_key) if db else None
-    if (history_ref and history_ref.get().exists) or (not db and history_key in demo_monthly_top_five_periods):
+    if not manual and (
+        (history_ref and history_ref.get().exists)
+        or (not db and history_key in demo_monthly_top_five_periods)
+    ):
         return
 
     decisions, pending = [], []
@@ -1195,6 +1230,19 @@ def send_daily_certificate_review_digest() -> None:
             continue
         if reviewed.date() == today and certificate.get("status") in {"issued", "revoked"}:
             decisions.append(certificate)
+
+    if db:
+        try:
+            pending_hr_activities = [
+                {"id": snapshot.id, **snapshot.to_dict()}
+                for snapshot in db.collection("hr_activities").where("status", "==", "pending").stream()
+            ]
+        except Exception:
+            pending_hr_activities = []
+    else:
+        pending_hr_activities = [
+            activity for activity in demo_hr_activities if activity.get("status") == "pending"
+        ]
 
     # -------- Admin email: pending approvals only --------
     if pending:
@@ -1221,6 +1269,24 @@ def send_daily_certificate_review_digest() -> None:
         "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Certificate no.</th>"
         f"</tr></thead><tbody>{pending_rows}</tbody></table>"
     )
+    hr_pending_rows = "".join(
+        "<tr>"
+        f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(item.get('title') or item.get('activity_type') or 'HR request'))}</td>"
+        f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(item.get('requested_by_name') or item.get('requested_by') or 'Not recorded'))}</td>"
+        f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(item.get('details') or '—'))}</td>"
+        "</tr>"
+        for item in pending_hr_activities
+    ) or "<tr><td colspan='3' style='padding:11px 14px;color:#555'>No HR activities are pending approval.</td></tr>"
+    hr_pending_body = (
+        f"<h3 style='margin:22px 0 10px;font-size:16px;color:#222'>Pending HR approvals: {len(pending_hr_activities)}</h3>"
+        "<table class='digest-table' role='presentation' width='100%' cellpadding='0' cellspacing='0' "
+        "style='width:100%;table-layout:fixed;border-collapse:collapse;font-size:14px'>"
+        "<thead><tr style='background:#fff'>"
+        "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Request</th>"
+        "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Requested by</th>"
+        "<th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Details</th>"
+        f"</tr></thead><tbody>{hr_pending_rows}</tbody></table>"
+    )
     decision_rows = "".join(
         "<tr>"
         f"<td style='padding:11px 14px;border-bottom:1px solid #e9edf2;color:#333;word-break:break-word'>{escape(str(item.get('recipient_name') or 'Employee'))}</td>"
@@ -1236,18 +1302,19 @@ def send_daily_certificate_review_digest() -> None:
         "<thead><tr style='background:#fff'><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Employee</th><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Certificate</th><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Status</th><th style='text-align:left;padding:10px 14px;border-bottom:2px solid #df2c35;color:#222'>Reason</th>"
         f"</tr></thead><tbody>{decision_rows}</tbody></table>"
     )
-    if pending:
+    if pending or pending_hr_activities:
         send_email(
-            admin_email_addresses(),
-            "Certificate approvals pending",
+            approval_reviewer_email_addresses(),
+            "Approvals pending",
             _digest_email_html(
-                "Certificate approvals pending",
-                f"There are {len(pending)} certificate approval request(s) waiting for review.",
+                "Approvals pending",
+                f"There are {len(pending)} certificate and {len(pending_hr_activities)} HR approval request(s) waiting for review.",
                 "Pending approvals",
-                admin_body,
+                admin_body + hr_pending_body,
                 "/dashboard",
             ),
             BRAND_LOGO_PATH,
+            respect_alert_setting=not manual,
         )
     if decisions:
         send_email(
@@ -1330,6 +1397,7 @@ def send_daily_certificate_review_digest() -> None:
         history_ref.set({
             "sent_at": datetime.now(timezone.utc).isoformat(),
             "pending_count": len(pending),
+            "pending_hr_activity_count": len(pending_hr_activities),
             "decision_count": len(decisions),
         })
     else:
@@ -1435,6 +1503,450 @@ def update_email_alerts_settings(payload: EmailAlertsSettings):
         return {"enabled": payload.enabled}
     except Exception as error:
         raise HTTPException(status_code=503, detail="Unable to update email alert settings") from error
+
+
+@app.get("/api/settings/hr-approval")
+def get_hr_approval_settings():
+    """Get the HR activities approval settings."""
+    default_activities = {
+        "add_certificate": True,
+        "add_user": True,
+        "delete_user": True,
+        "add_category": True,
+        "add_oem": True,
+    }
+    if not db:
+        return {"enabled": True, "activities": default_activities}
+    try:
+        snapshot = db.collection("app_settings").document("hr_approval").get()
+        settings = snapshot.to_dict() if snapshot.exists else {}
+        activities = settings.get("activities", default_activities)
+        # Ensure all default activities are present
+        for key, value in default_activities.items():
+            if key not in activities:
+                activities[key] = value
+        return {
+            "enabled": bool(settings.get("enabled", True)),
+            "activities": activities
+        }
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="Unable to load HR approval settings") from error
+
+
+@app.put("/api/settings/hr-approval")
+def update_hr_approval_settings(payload: HRApprovalSettings):
+    """Persist the HR activities approval settings."""
+    if not db:
+        return {"enabled": payload.enabled, "activities": payload.activities}
+    try:
+        updated_at = datetime.now(timezone.utc).isoformat()
+        db.collection("app_settings").document("hr_approval").set({
+            "enabled": payload.enabled,
+            "activities": payload.activities,
+            "updated_at": updated_at,
+        }, merge=True)
+        db.collection("app_settings").document("settings_last_updated").set({
+            "hr_approval": updated_at,
+        }, merge=True)
+        return {"enabled": payload.enabled, "activities": payload.activities}
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="Unable to update HR approval settings") from error
+
+
+class HRActivityCreate(BaseModel):
+    activity_type: str = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=1, max_length=200)
+    details: str = Field(default="", max_length=2000)
+    requested_by: str = Field(min_length=1, max_length=200)
+    requested_by_name: str = Field(min_length=1, max_length=200)
+
+
+class HRActivityUpdate(BaseModel):
+    status: Literal["pending", "approved", "rejected"] | None = None
+    reviewed_by: str = Field(min_length=1, max_length=200)
+    review_remarks: str = Field(default="", max_length=1000)
+
+
+@app.get("/api/hr-activities")
+def list_hr_activities(
+    activity_type: str = Query(""),
+    status: str = Query(""),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+):
+    """List HR activities pending approval."""
+    # Demo mode - use in-memory storage
+    if not db:
+        filtered = demo_hr_activities
+        if activity_type:
+            filtered = [a for a in filtered if a.get("activity_type") == activity_type]
+        if status:
+            filtered = [a for a in filtered if a.get("status") == status]
+        # Sort by created_at desc
+        filtered = sorted(filtered, key=lambda x: x.get("created_at", ""), reverse=True)
+        total = len(filtered)
+        start = (page - 1) * page_size
+        return {"items": filtered[start:start + page_size], "total": total, "page": page, "page_size": page_size}
+    try:
+        # First query without order_by to avoid composite index requirement
+        query = db.collection("hr_activities")
+        if activity_type:
+            query = query.where("activity_type", "==", activity_type)
+        if status:
+            query = query.where("status", "==", status)
+        
+        # Fetch all matching docs and sort in memory
+        activities = []
+        for snapshot in query.stream():
+            activity = snapshot.to_dict()
+            activity["id"] = snapshot.id
+            activities.append(activity)
+        
+        # Sort by created_at desc
+        activities.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        total = len(activities)
+        start = (page - 1) * page_size
+        return {"items": activities[start:start + page_size], "total": total, "page": page, "page_size": page_size}
+    except Exception as error:
+        # If it's a missing index error, return empty list instead of 503
+        error_msg = str(error).lower()
+        if "index" in error_msg or "failed-precondition" in error_msg:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size}
+        raise HTTPException(status_code=503, detail="Unable to load HR activities") from error
+
+
+@app.post("/api/hr-activities", status_code=201)
+def create_hr_activity(payload: HRActivityCreate, background_tasks: BackgroundTasks):
+    """Create a new HR activity requiring approval."""
+    # Check if this activity type requires approval
+    requires_approval = True
+    if db:
+        try:
+            hr_settings = db.collection("app_settings").document("hr_approval").get()
+            if hr_settings.exists:
+                settings = hr_settings.to_dict()
+                if settings.get("enabled", True):
+                    requires_approval = settings.get("activities", {}).get(payload.activity_type, True)
+                else:
+                    requires_approval = False
+        except Exception:
+            pass
+    else:
+        # Demo mode - check in-memory settings
+        # For demo, default to requiring approval
+        requires_approval = True
+    
+    initial_status = "pending" if requires_approval else "approved"
+    
+    activity = {
+        **payload.model_dump(mode="json"),
+        "status": initial_status,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if not requires_approval:
+        activity["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+        activity["reviewed_by"] = "Auto-approved (HR approval disabled)"
+    
+    if db:
+        reference = db.collection("hr_activities").document()
+        reference.set(activity)
+        activity["id"] = reference.id
+    else:
+        # Demo mode - use in-memory storage
+        activity["id"] = f"demo-{uuid4().hex[:8]}"
+        demo_hr_activities.append(activity)
+    
+    # Broadcast real-time update
+    background_tasks.add_task(realtime_connections.publish, {"type": "hr-activities.updated"})
+    
+    return activity
+
+
+@app.post("/api/hr-activities/{activity_id}/approve")
+def approve_hr_activity(activity_id: str, payload: HRActivityUpdate, background_tasks: BackgroundTasks):
+    """Approve an HR activity and create the corresponding resource."""
+    
+    # Get activity from Firestore or demo storage
+    activity = None
+    if db:
+        reference = db.collection("hr_activities").document(activity_id)
+        snapshot = reference.get()
+        if not snapshot.exists:
+            raise HTTPException(status_code=404, detail="HR activity not found")
+        activity = snapshot.to_dict()
+    else:
+        # Demo mode - find in memory
+        activity = next((a for a in demo_hr_activities if a.get("id") == activity_id), None)
+        if not activity:
+            # Debug: log available activities
+            print(f"Demo activities available: {[a.get('id') for a in demo_hr_activities]}")
+            print(f"Looking for: {activity_id}")
+            raise HTTPException(status_code=404, detail="HR activity not found")
+    
+    if activity.get("status") != "pending":
+        raise HTTPException(status_code=409, detail="Activity is not pending approval")
+    
+    activity_type = activity.get("activity_type")
+    activity_payload = activity.get("payload", {})
+    
+    # Process the approval based on activity type
+    try:
+        if activity_type == "add_user" and activity_payload:
+            user_data = {
+                **activity_payload,
+                "auth_provider": "azure",
+                "created_at": current_timestamp(),
+            }
+            if db:
+                user_ref = db.collection("users").document()
+                user_ref.set(user_data)
+                invitation_sent = send_user_invitation(user_data)
+                record_history(
+                    "bi-person-plus",
+                    f"Created {user_data['firstName']} {user_data['lastName']}",
+                    f"{user_data['employeeId']} · {user_data['role']} · {user_data['department']}",
+                )
+                realtime_connections.publish({"type": "access.updated"})
+            else:
+                # Demo mode - could add to demo users
+                pass
+        
+        elif activity_type == "add_category" and activity_payload.get("name"):
+            cat_data = {
+                "name": activity_payload["name"],
+                "color": "#d84457",
+                "created_at": current_timestamp(),
+                "updated_at": current_timestamp(),
+            }
+            if db:
+                cat_ref = db.collection("certification_categories").document()
+                cat_ref.set(cat_data)
+                mark_settings_updated("categories")
+                realtime_connections.publish({"type": "access.updated"})
+            else:
+                pass
+        
+        elif activity_type == "add_oem" and activity_payload.get("name"):
+            oem_name = clean_oem_name(activity_payload["name"])
+            oem_data = {
+                "name": oem_name,
+                "created_at": current_timestamp(),
+                "updated_at": current_timestamp(),
+            }
+            if db:
+                oem_ref = db.collection("certification_oems").document()
+                oem_ref.set(oem_data)
+                mark_settings_updated("oems")
+                realtime_connections.publish({"type": "access.updated"})
+            else:
+                pass
+        
+        elif activity_type == "delete_user" and activity_payload.get("user_id"):
+            # Actually delete the user
+            user_id = activity_payload["user_id"]
+            user_data = activity_payload.get("user_data", {})
+            if db:
+                # Get user data if not in payload
+                if not user_data:
+                    user_ref = db.collection("users").document(user_id)
+                    user_snap = user_ref.get()
+                    if user_snap.exists:
+                        user_data = user_snap.to_dict()
+                
+                left_at = datetime.now(INDIA_TIMEZONE)
+                email = str(user_data.get("employeeEmail", "")).strip().lower()
+                certificates = []
+                for snapshot in db.collection("certificates").stream():
+                    certificate = snapshot.to_dict()
+                    if str(certificate.get("email", "")).strip().lower() != email:
+                        continue
+                    certificates.append({"id": snapshot.id, **certificate})
+                    snapshot.reference.update({"employee_left_at": left_at.isoformat()})
+                
+                departed_employees_collection().document(user_id).set({
+                    **user_data,
+                    "original_user_id": user_id,
+                    "left_at": left_at.isoformat(),
+                    "retain_until": (left_at + timedelta(days=30)).isoformat(),
+                    "certificate_count": len(certificates),
+                    "active_certificate_count": sum(item.get("status") == "issued" for item in certificates),
+                    "certificates": certificates,
+                })
+                db.collection("users").document(user_id).delete()
+                record_history(
+                    "bi-person-dash",
+                    f"Employee left: {user_data.get('firstName', '')} {user_data.get('lastName', '')}".strip(),
+                    f"{user_data.get('employeeId', 'Employee')} ({user_data.get('employeeEmail', '')}) offboarded; {len(certificates)} certificate record(s) retained for 30 days.",
+                )
+                realtime_connections.publish({"type": "access.updated"})
+            else:
+                pass
+        
+        elif activity_type == "delete_category" and activity_payload.get("option_id"):
+            # Actually delete the category
+            option_id = activity_payload["option_id"]
+            if db:
+                reference = db.collection("certification_categories").document(option_id)
+                snapshot = reference.get()
+                if snapshot.exists:
+                    reference.delete()
+                    mark_settings_updated("categories")
+                    realtime_connections.publish({"type": "access.updated"})
+            else:
+                pass
+        
+        elif activity_type == "delete_oem" and activity_payload.get("option_id"):
+            # Actually delete the OEM
+            option_id = activity_payload["option_id"]
+            if db:
+                reference = db.collection("certification_oems").document(option_id)
+                snapshot = reference.get()
+                if snapshot.exists:
+                    name = clean_oem_name(str(snapshot.to_dict().get("name", "")))
+                    oem_deletion_collection().document(oem_deletion_id(name)).set({
+                        "name": name,
+                        "name_key": name.casefold(),
+                        "deleted_at": current_timestamp(),
+                    })
+                    reference.delete()
+                    mark_settings_updated("oems")
+                    realtime_connections.publish({"type": "access.updated"})
+            else:
+                pass
+        
+        else:
+            # Unknown activity type
+            raise HTTPException(status_code=400, detail=f"Unknown activity type: {activity_type}")
+    
+    except Exception as e:
+        print(f"Error processing {activity_type} approval: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process approval: {str(e)}")
+    
+    # Update activity status
+    updates = {
+        "status": "approved",
+        "reviewed_by": payload.reviewed_by,
+        "review_remarks": payload.review_remarks,
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    if db:
+        reference = db.collection("hr_activities").document(activity_id)
+        reference.update(updates)
+    else:
+        # Demo mode - update in memory
+        activity.update(updates)
+    
+    # Broadcast real-time update
+    background_tasks.add_task(realtime_connections.publish, {"type": "hr-activities.updated"})
+    
+    return {"id": activity_id, **activity, **updates}
+
+
+@app.post("/api/hr-activities/{activity_id}/reject")
+def reject_hr_activity(activity_id: str, payload: HRActivityUpdate, background_tasks: BackgroundTasks):
+    """Reject an HR activity."""
+    
+    # Get activity from Firestore or demo storage
+    activity = None
+    if db:
+        reference = db.collection("hr_activities").document(activity_id)
+        snapshot = reference.get()
+        if not snapshot.exists:
+            raise HTTPException(status_code=404, detail="HR activity not found")
+        activity = snapshot.to_dict()
+    else:
+        # Demo mode - find in memory
+        activity = next((a for a in demo_hr_activities if a.get("id") == activity_id), None)
+        if not activity:
+            print(f"Demo activities available: {[a.get('id') for a in demo_hr_activities]}")
+            print(f"Looking for: {activity_id}")
+            raise HTTPException(status_code=404, detail="HR activity not found")
+    
+    if activity.get("status") != "pending":
+        raise HTTPException(status_code=409, detail="Activity is not pending approval")
+    
+    updates = {
+        "status": "rejected",
+        "reviewed_by": payload.reviewed_by,
+        "review_remarks": payload.review_remarks,
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    if db:
+        reference = db.collection("hr_activities").document(activity_id)
+        reference.update(updates)
+    else:
+        # Demo mode - update in memory
+        activity.update(updates)
+    
+    # Broadcast real-time update
+    background_tasks.add_task(realtime_connections.publish, {"type": "hr-activities.updated"})
+    
+    return {"id": activity_id, **activity, **updates}
+
+
+@app.get("/api/council-member-stats")
+def get_council_member_stats(
+    member_name: str = Query(""),
+    start_date: str = Query(""),
+    end_date: str = Query(""),
+):
+    """Get council member activity stats - certificate approvals and HR activity approvals."""
+    if not db:
+        return {
+            "certificate_approvals": 0,
+            "certificate_rejections": 0,
+            "hr_activity_approvals": 0,
+            "total_actions": 0,
+        }
+    try:
+        # Build query for hr_activities where reviewed_by matches the member
+        query = db.collection("hr_activities")
+        
+        if member_name:
+            query = query.where("reviewed_by", "==", member_name)
+        
+        # Apply date filters if provided
+        if start_date:
+            query = query.where("reviewed_at", ">=", start_date)
+        if end_date:
+            query = query.where("reviewed_at", "<=", end_date + "T23:59:59")
+        
+        activities = []
+        for snapshot in query.stream():
+            activity = snapshot.to_dict()
+            activity["id"] = snapshot.id
+            activities.append(activity)
+        
+        # Filter for completed actions (approved/rejected)
+        completed = [a for a in activities if a.get("status") in ("approved", "rejected")]
+        
+        # Count certificate approvals/rejections (council_activity type)
+        cert_actions = [a for a in completed if a.get("activity_type") == "council_activity"]
+        cert_approved = sum(1 for a in cert_actions if a.get("status") == "approved")
+        cert_rejected = sum(1 for a in cert_actions if a.get("status") == "rejected")
+        
+        # Count HR activity approvals (other types with approved status)
+        hr_actions = [a for a in completed if a.get("activity_type") != "council_activity"]
+        hr_approved = sum(1 for a in hr_actions if a.get("status") == "approved")
+        
+        return {
+            "certificate_approvals": cert_approved,
+            "certificate_rejections": cert_rejected,
+            "hr_activity_approvals": hr_approved,
+            "total_actions": len(completed),
+        }
+    except Exception as error:
+        error_msg = str(error).lower()
+        if "index" in error_msg or "failed-precondition" in error_msg:
+            return {
+                "certificate_approvals": 0,
+                "certificate_rejections": 0,
+                "hr_activity_approvals": 0,
+                "total_actions": 0,
+            }
+        raise HTTPException(status_code=503, detail="Unable to load council member stats") from error
 
 
 def notification_read_document_id(user_key: str) -> str:
@@ -2167,6 +2679,28 @@ def list_certificates(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
+    # Pending-review screens are opened frequently (including the notification
+    # badge).  Do not load every active user and every issued certificate just
+    # to find this small subset.  Firestore reads only matching pending docs.
+    if db and status == "pending" and not search.strip():
+        try:
+            collection = db.collection("certificates").where("status", "==", "pending")
+            results = []
+            for snapshot in collection.stream():
+                certificate = snapshot.to_dict()
+                if not certificate.get("employee_left_at"):
+                    results.append({"id": snapshot.id, **certificate})
+            results.sort(
+                key=lambda item: item.get("created_at") or f"{item.get('issued_date') or '1970-01-01'}T00:00:00",
+                reverse=True,
+            )
+            # We already read the small pending subset to retain its existing
+            # newest-first ordering, and this also excludes offboarded users.
+            total = len(results)
+            start = (page - 1) * page_size
+            return {"items": results[start : start + page_size], "total": total, "page": page, "page_size": page_size}
+        except Exception as error:
+            raise HTTPException(status_code=503, detail=f"Unable to load pending certificates: {error}") from error
     # Expired certificates are retained for audit in the employee profile, but
     # must not appear in general certificate pages or active reporting.
     results = [item for item in get_all() if item.get("status") != "issued" or certificate_is_current(item)]
@@ -2183,7 +2717,10 @@ def list_certificates(
     total = len(results)
     start = (page - 1) * page_size
     return {"items": results[start : start + page_size], "total": total, "page": page, "page_size": page_size}
-
+ 
+ 
+ 
+ 
 
 @app.get("/api/reports/certificates")
 def report_certificates(
@@ -2272,7 +2809,7 @@ def report_certificates(
         ):
             continue
         results.append(row)
-    results.sort(key=lambda item: item.get("created_at") or f"{item.get('issued_date') or '1970-01-01'}T00:00:00", reverse=True)
+    results.sort(key=lambda item: item.get("created_at") or f"{item.get('issued_date', '1970-01-01')}T00:00:00", reverse=True)
     total = len(results)
     start = (page - 1) * page_size
     return {"items": results[start : start + page_size], "total": total, "page": page, "page_size": page_size}
@@ -2440,6 +2977,152 @@ def certificate_activity(
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Unable to load certificate activity: {error}") from error
     return {"items": logs, "total": total, "page": page, "page_size": page_size}
+
+
+@app.get("/api/council-activity")
+def council_activity(
+    status: Literal["overall", "approved", "rejected", "pending"] = Query("overall"),
+    activity_scope: Literal["all", "hr"] = Query("all"),
+    reviewer: str = Query(""),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+):
+    """Provide the approval workload and completed review audit trail for administrators."""
+    certificates = get_all()
+    reviewed = [
+        item for item in certificates
+        if item.get("status") in {"issued", "revoked"} and item.get("reviewed_by")
+    ]
+    if reviewer:
+        reviewed = [item for item in reviewed if str(item.get("reviewed_by") or "").strip() == reviewer.strip()]
+    reviewed.sort(key=lambda item: str(item.get("reviewed_at") or ""), reverse=True)
+
+    if db and status == "pending":
+        try:
+            collection = db.collection("certificates").where("status", "==", "pending")
+            pending = []
+            for snapshot in collection.stream():
+                certificate = snapshot.to_dict()
+                if not certificate.get("employee_left_at"):
+                    pending.append({"id": snapshot.id, **certificate})
+            pending.sort(key=lambda item: item.get("created_at") or f"{item.get('issued_date') or '1970-01-01'}T00:00:00", reverse=True)
+        except Exception as error:
+            raise HTTPException(status_code=503, detail=f"Unable to load pending certificates: {error}") from error
+    else:
+        pending = [item for item in certificates if item.get("status") == "pending"]
+
+    # Fetch HR activities
+    hr_activities = []
+    hr_pending = []
+    hr_reviewed = []
+    if db:
+        try:
+            query = db.collection("hr_activities")
+            if reviewer:
+                query = query.where("reviewed_by", "==", reviewer)
+            for snapshot in query.stream():
+                activity = snapshot.to_dict()
+                activity["id"] = snapshot.id
+                if activity.get("status") == "pending":
+                    hr_pending.append(activity)
+                elif activity.get("status") in ("approved", "rejected") and activity.get("reviewed_by"):
+                    hr_reviewed.append(activity)
+            hr_pending.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            hr_reviewed.sort(key=lambda x: x.get("reviewed_at", ""), reverse=True)
+        except Exception:
+            pass
+    else:
+        # Demo mode
+        for a in demo_hr_activities:
+            if reviewer and str(a.get("reviewed_by") or "").strip() != reviewer.strip():
+                continue
+            if a.get("status") == "pending":
+                hr_pending.append(a)
+            elif a.get("status") in ("approved", "rejected") and a.get("reviewed_by"):
+                hr_reviewed.append(a)
+        hr_pending.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        hr_reviewed.sort(key=lambda x: x.get("reviewed_at", ""), reverse=True)
+
+    # Preserve the collection each record came from. Certificate records can also
+    # contain an activity_type field, so that field is not a reliable source marker.
+    certificate_pending = [{**item, "_review_source": "certificate"} for item in pending]
+    hr_pending_items = [{**item, "_review_source": "hr"} for item in hr_pending]
+    certificate_reviewed = [{**item, "_review_source": "certificate"} for item in reviewed]
+    hr_reviewed_items = [{**item, "_review_source": "hr"} for item in hr_reviewed]
+
+    # Merge pending certificates and HR activities
+    all_pending = certificate_pending + hr_pending_items
+    all_pending.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+    # Merge reviewed certificates and HR activities
+    all_reviewed = certificate_reviewed + hr_reviewed_items
+    all_reviewed.sort(key=lambda x: x.get("reviewed_at", ""), reverse=True)
+
+    if status == "pending":
+        filtered_reviews = all_pending
+    else:
+        status_values = {
+            "approved": {"issued", "approved"},
+            "rejected": {"revoked", "rejected"},
+        }
+        filtered_reviews = (
+            all_reviewed
+            if status == "overall"
+            else [item for item in all_reviewed if item.get("status") in status_values[status]]
+        )
+
+    if activity_scope == "hr":
+        filtered_reviews = [
+            item
+            for item in filtered_reviews
+            if item.get("_review_source") == "hr"
+        ]
+    
+    validators: dict[str, dict[str, int]] = {}
+    for certificate in reviewed:
+        reviewer_name = str(certificate.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
+        if reviewer_name not in validators:
+            validators[reviewer_name] = {"validated": 0, "rejected": 0}
+        if certificate.get("status") == "issued":
+            validators[reviewer_name]["validated"] += 1
+        elif certificate.get("status") == "revoked":
+            validators[reviewer_name]["rejected"] += 1
+    for activity in hr_reviewed:
+        reviewer_name = str(activity.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
+        if reviewer_name not in validators:
+            validators[reviewer_name] = {"validated": 0, "rejected": 0}
+        if activity.get("status") == "approved":
+            validators[reviewer_name]["validated"] += 1
+        elif activity.get("status") == "rejected":
+            validators[reviewer_name]["rejected"] += 1
+
+    return {
+        "pending_count": len(all_pending),
+        "validated_count": sum(item.get("status") == "issued" for item in reviewed) + sum(1 for item in hr_reviewed if item.get("status") == "approved"),
+        "revoked_count": sum(item.get("status") == "revoked" for item in reviewed) + sum(1 for item in hr_reviewed if item.get("status") == "rejected"),
+        "validators": [
+            {"name": name, "validated_count": counts["validated"], "rejected_count": counts["rejected"]}
+            for name, counts in sorted(validators.items(), key=lambda item: (-(item[1]["validated"] + item[1]["rejected"]), item[0].casefold()))
+        ],
+        "recent_reviews": [
+            {
+                "id": item.get("id"),
+                "course_name": item.get("course_name") or item.get("activity_type", "HR Activity"),
+                "recipient_name": item.get("recipient_name") or item.get("payload", {}).get("firstName", "") + " " + item.get("payload", {}).get("lastName", "") or item.get("payload", {}).get("name", "User"),
+                "status": item.get("status"),
+                "reviewed_by": item.get("reviewed_by"),
+                "reviewed_at": item.get("reviewed_at"),
+                "submitted_by": item.get("submitted_by"),
+                "created_at": item.get("created_at"),
+                "activity_type": item.get("activity_type"),
+                "is_hr_activity": item.get("_review_source") == "hr",
+            }
+            for item in filtered_reviews[(page - 1) * page_size:page * page_size]
+        ],
+        "review_total": len(filtered_reviews),
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @app.get("/api/employees")
@@ -2678,7 +3361,7 @@ def employee_profile(employee_id: str):
         )
     ]
     certificates = [certificate for certificate in all_certificates if certificate.get("status") == "issued"]
-    certificates.sort(key=lambda certificate: certificate.get("issued_date") or "", reverse=True)
+    certificates.sort(key=lambda certificate: certificate.get("issued_date", ""), reverse=True)
     return {
         "id": snapshot.id,
         "name": f"{access_user.get('firstName', '')} {access_user.get('lastName', '')}".strip(),
@@ -2822,8 +3505,165 @@ def update_compliance_requirement(payload: ComplianceRequirementUpdate):
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"required": payload.required}
- 
- 
+
+
+@app.get("/api/partner-compliance/oem/{vendor}/certifications")
+def get_oem_certifications(
+    vendor: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    search: str = Query(""),
+):
+    """Get paginated certifications for a specific OEM."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase not configured")
+    
+    requirements = {}
+    employee_ids = {}
+    try:
+        requirements = {
+            snapshot.id: snapshot.to_dict().get("required", 1)
+            for snapshot in db.collection("compliance_requirements").stream()
+        }
+        employee_ids = {
+            str(snapshot.to_dict().get("employeeEmail", "")).lower(): snapshot.id
+            for snapshot in db.collection("users").stream()
+        }
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=f"Unable to load compliance data: {error}") from error
+    
+    vendor_key = compliance_vendor_name(vendor)
+    certifications_data = []
+    
+    for certificate in get_all():
+        if not certificate_is_current(certificate):
+            continue
+        cert_vendor = compliance_vendor_name(certificate.get("vendor_name"))
+        if cert_vendor != vendor_key:
+            continue
+        course = (certificate.get("course_name") or "Untitled certificate").strip()
+        email = str(certificate.get("email", "")).strip().lower()
+        holder_key = email or certificate.get("id", "")
+        
+        # Find or create course group
+        course_group = None
+        for c in certifications_data:
+            if c["name"] == course:
+                course_group = c
+                break
+        if not course_group:
+            course_group = {"name": course, "holders": {}}
+            certifications_data.append(course_group)
+        
+        holder = {
+            "certificate_id": certificate.get("id"),
+            "employee_id": employee_ids.get(email),
+            "name": certificate.get("recipient_name") or "Unknown employee",
+            "email": certificate.get("email") or "",
+            "issued_date": certificate.get("issued_date"),
+            "certificate_number": certificate.get("certificate_number") or "",
+        }
+        course_group["holders"][email or certificate.get("id", "")] = holder
+    
+    # Convert to list with holders as array
+    certifications = []
+    for c in certifications_data:
+        holders_list = sorted(c["holders"].values(), key=lambda h: h["name"].lower())
+        requirement_key = compliance_requirement_id(vendor_key, c["name"])
+        certifications.append({
+            "name": c["name"],
+            "holders": holders_list,
+            "completed": len(holders_list),
+            "required": int(requirements.get(compliance_requirement_id(vendor_key, c["name"]), 1)),
+        })
+    
+    # Apply search filter
+    term = search.strip().casefold()
+    if term:
+        certifications = [
+            c for c in certifications
+            if term in c["name"].casefold()
+        ]
+    
+    total = len(certifications)
+    certifications.sort(key=lambda c: c["name"].lower())
+    start = (page - 1) * page_size
+    return {
+        "certifications": certifications[start:start + page_size],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@app.get("/api/partner-compliance/oem/{vendor}/certification/{certification}/holders")
+def get_certification_holders(
+    vendor: str,
+    certification: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    search: str = Query(""),
+):
+    """Get paginated holders for a specific certification within an OEM."""
+    if not db:
+        raise HTTPException(status_code=503, detail="Firebase not configured")
+    
+    employee_ids = {}
+    try:
+        employee_ids = {
+            str(snapshot.to_dict().get("employeeEmail", "")).lower(): snapshot.id
+            for snapshot in db.collection("users").stream()
+        }
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=f"Unable to load compliance data: {error}") from error
+    
+    vendor_key = compliance_vendor_name(vendor)
+    cert_key = certification
+    holders = []
+    
+    for certificate in get_all():
+        if not certificate_is_current(certificate):
+            continue
+        cert_vendor = compliance_vendor_name(certificate.get("vendor_name"))
+        if cert_vendor != vendor_key:
+            continue
+        course = (certificate.get("course_name") or "Untitled certificate").strip()
+        if course != cert_key:
+            continue
+        
+        email = str(certificate.get("email", "")).strip().lower()
+        holders.append({
+            "certificate_id": certificate.get("id"),
+            "employee_id": employee_ids.get(email),
+            "name": certificate.get("recipient_name") or "Unknown employee",
+            "email": certificate.get("email") or "",
+            "issued_date": certificate.get("issued_date"),
+            "certificate_number": certificate.get("certificate_number") or "",
+        })
+    
+    # Apply search filter
+    term = search.strip().casefold()
+    if term:
+        holders = [
+            h for h in holders
+            if term in " ".join([
+                h["name"].casefold(),
+                h["email"].casefold(),
+                str(h.get("certificate_number", "")).casefold()
+            ])
+        ]
+    
+    holders.sort(key=lambda h: h["name"].lower())
+    total = len(holders)
+    start = (page - 1) * page_size
+    return {
+        "holders": holders[start:start + page_size],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
 @app.get("/api/projects")
 def list_projects():
     """Return saved staffing requirements with fresh recommendations."""
@@ -2944,14 +3784,42 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
         str(item.get("certificate_number") or "").strip().casefold() == certificate_number.casefold()
         for item in get_all()
     ):
+
         raise HTTPException(status_code=409, detail="A certificate with this certificate number already exists")
     submitted_by_user = payload.submission_source == "user"
+    requester_role = getattr(payload, 'requester_role', None)
+    
+    # Check HR approval settings for add_certificate
+    requires_approval = True
+    if db:
+        try:
+            hr_settings = db.collection("app_settings").document("hr_approval").get()
+            if hr_settings.exists:
+                settings = hr_settings.to_dict()
+                if settings.get("enabled", True):
+                    requires_approval = settings.get("activities", {}).get("add_certificate", True)
+                else:
+                    requires_approval = False
+        except Exception:
+            pass  # Default to requiring approval on error
+    
+    # Skip approval only if requester is admin
+    if requester_role == "admin":
+        requires_approval = False
+    
+    initial_status = "pending" if requires_approval else "issued"
+    
     certificate = {
         **payload.model_dump(mode="json"),
         "certificate_number": certificate_number,
-        "status": "pending",
+        "status": initial_status,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "submitted_by": "User" if submitted_by_user else "Administrator",
+        "submitted_by_role": requester_role if not submitted_by_user else "user",
     }
+    if not requires_approval:
+        certificate["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+        certificate["reviewed_by"] = "Auto-approved (HR approval disabled)"
     certificate.update(avixa_course_suggestion(payload.course_name, payload.vendor_name, payload.total_ru_points))
     if db:
         reference = db.collection("certificates").document()
@@ -2981,6 +3849,7 @@ async def update_certificate(certificate_id: str, payload: CertificateUpdate, ba
         and str(item.get("certificate_number") or "").strip().casefold() == certificate_number.casefold()
         for item in get_all()
     ):
+ 
         raise HTTPException(status_code=409, detail="A certificate with this certificate number already exists")
     existing = next((item for item in get_all() if item.get("id") == certificate_id), None)
     if not existing:
@@ -2997,7 +3866,27 @@ async def update_certificate(certificate_id: str, payload: CertificateUpdate, ba
         # A revised expiry calculation starts a fresh renewal reminder sequence.
         updates["renewal_alerts_sent"] = {}
     if submitted_by_user:
-        updates.update({"status": "pending", "reviewed_at": None, "reviewed_by": None})
+        # Check HR approval settings for add_certificate (resubmission follows same rule)
+        requires_approval = True
+        if db:
+            try:
+                hr_settings = db.collection("app_settings").document("hr_approval").get()
+                if hr_settings.exists:
+                    settings = hr_settings.to_dict()
+                    if settings.get("enabled", True):
+                        requires_approval = settings.get("activities", {}).get("add_certificate", True)
+                    else:
+                        requires_approval = False
+            except Exception:
+                pass
+        requester_role = getattr(payload, 'requester_role', None)
+        if requires_approval:
+            updates.update({"status": "pending", "reviewed_at": None, "reviewed_by": None, "submitted_by": "User", "submitted_by_role": requester_role if not submitted_by_user else "user"})
+        else:
+            updates.update({"status": "issued", "reviewed_at": datetime.now(timezone.utc).isoformat(), "reviewed_by": "Auto-approved (HR approval disabled)"})
+    else:
+        requester_role = getattr(payload, 'requester_role', None)
+        updates.update({"submitted_by": "Administrator", "submitted_by_role": requester_role})
     if db:
         reference = db.collection("certificates").document(certificate_id)
         reference.update(updates)
@@ -3127,10 +4016,14 @@ def get_verification_image(certificate_id: str):
     try:
         blob = bucket.blob(image_path)
         blob.reload()
+        filename = Path(image_path).name
         return Response(
             content=blob.download_as_bytes(),
             media_type=blob.content_type or "application/octet-stream",
-            headers={"Cache-Control": "private, max-age=300"},
+            headers={
+                "Cache-Control": "private, max-age=300",
+                "Content-Disposition": f'inline; filename="{filename}"',
+            },
         )
     except Exception as error:
         raise HTTPException(status_code=404, detail="Verification image is unavailable") from error
@@ -3168,7 +4061,7 @@ def get_verification_file(certificate_id: str, request: Request):
         raise HTTPException(status_code=503, detail="Verification file is unavailable") from error
 
 
-# @app.patch("/api/certificates/{certificate_id}/approval-details")
+@app.patch("/api/certificates/{certificate_id}/approval-details")
 # async def update_certificate_approval_details(
 #     certificate_id: str,
 #     payload: CertificateApprovalDetailsUpdate,
@@ -3209,9 +4102,9 @@ async def update_certificate_approval_details(
         raise HTTPException(status_code=404, detail="Certificate not found")
     if certificate.get("status") != "pending":
         raise HTTPException(status_code=409, detail="Only under-review certificates can be corrected")
-
+ 
     updates: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
-
+ 
     if payload.course_name is not None:
         updates["course_name"] = payload.course_name.strip()
     if payload.vendor_name is not None:
@@ -3237,22 +4130,22 @@ async def update_certificate_approval_details(
         updates["validity_years"] = None
     if payload.total_ru_points is not None:
         updates["total_ru_points"] = payload.total_ru_points
-
+ 
     if any(k in updates for k in ("course_name", "vendor_name", "total_ru_points")):
         updates.update(avixa_course_suggestion(
             updates.get("course_name", certificate.get("course_name", "")),
             updates.get("vendor_name", certificate.get("vendor_name", "")),
             updates.get("total_ru_points", certificate.get("total_ru_points")),
         ))
-
+ 
     if any(k in updates for k in ("issued_date", "expires_on", "validity_years")):
         updates["renewal_alerts_sent"] = {}
-
+ 
     if db:
         db.collection("certificates").document(certificate_id).update(updates)
     else:
         certificate.update(updates)
-
+ 
     record_certificate_activity(
         "bi-pencil-square",
         "Certificate details corrected during approval",
@@ -3260,8 +4153,10 @@ async def update_certificate_approval_details(
     )
     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
     return {"id": certificate_id, **certificate, **updates}
-
-
+ 
+ 
+ 
+ 
 
 @app.patch("/api/certificates/{certificate_id}/status")
 async def update_status(certificate_id: str, payload: StatusUpdate, background_tasks: BackgroundTasks):
@@ -3270,6 +4165,16 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
         raise HTTPException(status_code=404, detail="Certificate not found")
     if certificate.get("status") != "pending":
         raise HTTPException(status_code=409, detail="Only under-review certificates can be reviewed")
+
+    # Approval rules:
+    # - Admin uploads → approved by admin OR council_member
+    # - Council member uploads → approved by admin ONLY
+    # - User uploads → approved by admin OR council_member
+    submitter_role = certificate.get("submitted_by_role", "user")
+    reviewer_role = (payload.reviewer_role or "").lower()
+    if submitter_role == "council_member" and reviewer_role != "admin":
+        raise HTTPException(status_code=403, detail="Certificates submitted by council members require admin approval")
+
     remarks = payload.remarks.strip()
     if payload.status == "revoked" and not remarks:
         raise HTTPException(status_code=422, detail="Rejection remarks are required")
@@ -3291,6 +4196,40 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
         f"Certificate {action} by {updates['reviewed_by']}",
         f"{certificate.get('course_name', 'Certificate')} - {certificate.get('recipient_name', 'user')}",
     )
+    # Create council activity record for tracking
+    if db:
+        council_activity = {
+            "activity_type": "council_activity",
+            "title": f"Certificate {action.title()}: {certificate.get('course_name', 'Certificate')}",
+            "details": f"Certificate {action} for {certificate.get('recipient_name', 'user')} by {updates['reviewed_by']}",
+            "requested_by": updates['reviewed_by'],
+            "requested_by_name": updates['reviewed_by'],
+            "status": "approved" if payload.status == "issued" else "rejected",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_by": updates['reviewed_by'],
+            "payload": {"certificate_id": certificate_id, "action": action},
+        }
+        council_ref = db.collection("hr_activities").document()
+        council_ref.set(council_activity)
+        realtime_connections.publish({"type": "hr-activities.updated"})
+    else:
+        council_activity = {
+            "activity_type": "council_activity",
+            "title": f"Certificate {action.title()}: {certificate.get('course_name', 'Certificate')}",
+            "details": f"Certificate {action} for {certificate.get('recipient_name', 'user')} by {updates['reviewed_by']}",
+            "requested_by": updates['reviewed_by'],
+            "requested_by_name": updates['reviewed_by'],
+            "status": "approved" if payload.status == "issued" else "rejected",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_by": updates['reviewed_by'],
+            "payload": {"certificate_id": certificate_id, "action": action},
+        }
+        council_activity["id"] = f"demo-{uuid4().hex[:8]}"
+        demo_hr_activities.append(council_activity)
+        realtime_connections.publish({"type": "hr-activities.updated"})
+    
     # Review decisions are included in the single daily 10 AM IST digest.
     await realtime_connections.broadcast({"type": "certificate.updated", "certificate_id": certificate_id})
     return {"id": certificate_id, **updates}

@@ -111,9 +111,6 @@
 //   )
 // }
 
-
-
-
 import { Children, useEffect, useMemo, useRef, useState } from 'react'
 
 const optionText = (value) => {
@@ -150,14 +147,18 @@ export default function CompactSelect({
     () => Children.toArray(children).filter((child) => child?.type === 'option'),
     [children],
   )
-  const selected = options.find((option) => String(option.props.value ?? option.props.children) === String(currentValue))
+  const selected = options.find(
+    (option) => String(option.props.value ?? option.props.children) === String(currentValue),
+  )
 
   const visibleOptions = useMemo(() => {
     const enabled = options.filter((option) => !option.props.disabled)
     if (onSearch) return enabled
     const term = query.trim().toLowerCase()
     if (!term) return enabled
-    return enabled.filter((option) => optionText(option.props.children).toLowerCase().includes(term))
+    return enabled.filter((option) =>
+      optionText(option.props.children).toLowerCase().includes(term),
+    )
   }, [options, query, onSearch])
 
   useEffect(() => {
@@ -235,7 +236,9 @@ export default function CompactSelect({
           if (!open) {
             setQuery('')
             onSearch?.('')
-            window.dispatchEvent(new CustomEvent('compact-select-open', { detail: selectId.current }))
+            window.dispatchEvent(
+              new CustomEvent('compact-select-open', { detail: selectId.current }),
+            )
           }
           setOpen(!open)
         }}

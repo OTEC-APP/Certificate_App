@@ -6,9 +6,13 @@ const RED = [189, 41, 66]
 const TEXT = [75, 39, 48]
 const MUTED = [125, 83, 92]
 
-const safeFileName = (value) => String(value || 'employee').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')
+const safeFileName = (value) =>
+  String(value || 'employee')
+    .trim()
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-|-$/g, '')
 
-const roleFor = (role) => String(role || '').toLowerCase() === 'admin' ? 'Administrator' : 'User'
+const roleFor = (role) => (String(role || '').toLowerCase() === 'admin' ? 'Administrator' : 'User')
 
 const validityYearsFor = (certificate) => {
   if (Object.prototype.hasOwnProperty.call(certificate, 'validity_years')) {
@@ -20,7 +24,8 @@ const validityYearsFor = (certificate) => {
 }
 
 const expiryFor = (certificate) => {
-  if (certificate.expires_on) return new Date(`${String(certificate.expires_on).slice(0, 10)}T00:00:00`)
+  if (certificate.expires_on)
+    return new Date(`${String(certificate.expires_on).slice(0, 10)}T00:00:00`)
   const years = validityYearsFor(certificate)
   if (!years) return null
   const expiry = new Date(`${certificate.issued_date}T00:00:00`)
@@ -78,7 +83,11 @@ const certificateValue = (certificate, field) => {
     category: certificate.category || 'Other',
     certificateNumber: certificate.certificate_number || 'Not recorded',
     completed: certificate.issued_date || 'Not recorded',
-    validity: certificate.expires_on ? 'Expiry date set' : expiry ? `${validityYearsFor(certificate)} years` : 'Lifetime',
+    validity: certificate.expires_on
+      ? 'Expiry date set'
+      : expiry
+        ? `${validityYearsFor(certificate)} years`
+        : 'Lifetime',
     expiry: expiry ? expiry.toLocaleDateString('en-US') : 'Lifetime',
     daysRemaining: days === null ? '—' : `${days} days`,
     ruPoints: Number.isFinite(ruPoints) ? String(ruPoints) : '—',
@@ -89,20 +98,33 @@ export async function exportEmployeePdf(employee, options) {
   const document = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
   const activeCertificates = (employee.certificates || []).filter((certificate) => {
     if (!isCurrentCertificate(certificate)) return false
-    const oemMatches = !options.oem || options.oem === 'all' ||
+    const oemMatches =
+      !options.oem ||
+      options.oem === 'all' ||
       (certificate.vendor_name || 'OEM not recorded') === options.oem
-    const categoryMatches = !options.category || options.category === 'all' ||
+    const categoryMatches =
+      !options.category ||
+      options.category === 'all' ||
       (certificate.category || 'Other') === options.category
     return oemMatches && categoryMatches
   })
   const selectedEmployeeFields = options.employeeFields || []
   const selectedCertificateFields = options.certificateFields || []
   const detailValues = employeeDetails(employee, activeCertificates)
-  const details = selectedEmployeeFields.filter((field) => detailValues[field]).map((field) => detailValues[field])
-  const certificateColumns = options.certificateColumns.filter((column) => selectedCertificateFields.includes(column.key))
+  const details = selectedEmployeeFields
+    .filter((field) => detailValues[field])
+    .map((field) => detailValues[field])
+  const certificateColumns = options.certificateColumns.filter((column) =>
+    selectedCertificateFields.includes(column.key),
+  )
 
   const logoData = await loadCompanyLogo()
-  const header = { title: employee.name || 'Employee record', subtitle: [roleFor(employee.role), employee.location, employee.department].filter(Boolean).join(' · ') }
+  const header = {
+    title: employee.name || 'Employee record',
+    subtitle: [roleFor(employee.role), employee.location, employee.department]
+      .filter(Boolean)
+      .join(' · '),
+  }
   drawPdfHeader(document, logoData, header)
 
   if (details.length) {
@@ -118,7 +140,10 @@ export async function exportEmployeePdf(employee, options) {
       theme: 'plain',
       body: detailRows,
       styles: { fontSize: 9, cellPadding: 2.5, textColor: TEXT },
-      columnStyles: { 0: { fontStyle: 'bold', textColor: MUTED }, 2: { fontStyle: 'bold', textColor: MUTED } },
+      columnStyles: {
+        0: { fontStyle: 'bold', textColor: MUTED },
+        2: { fontStyle: 'bold', textColor: MUTED },
+      },
       willDrawPage: (data) => {
         if (data.pageNumber > 1) drawPdfHeader(document, logoData, header)
       },
@@ -134,7 +159,9 @@ export async function exportEmployeePdf(employee, options) {
       startY: certificateStart + 4,
       margin: { top: 34 },
       head: [certificateColumns.map((column) => column.label)],
-      body: activeCertificates.map((certificate) => certificateColumns.map((column) => certificateValue(certificate, column.key))),
+      body: activeCertificates.map((certificate) =>
+        certificateColumns.map((column) => certificateValue(certificate, column.key)),
+      ),
       theme: 'grid',
       headStyles: { fillColor: RED, textColor: 255, fontSize: 7.5 },
       styles: { fontSize: 7.5, cellPadding: 2, overflow: 'linebreak', textColor: TEXT },
@@ -149,7 +176,12 @@ export async function exportEmployeePdf(employee, options) {
     document.setPage(page)
     document.setFontSize(8)
     document.setTextColor(...MUTED)
-    document.text(`Generated ${new Date().toLocaleDateString('en-US')} · Page ${page} of ${pages}`, 196, 290, { align: 'right' })
+    document.text(
+      `Generated ${new Date().toLocaleDateString('en-US')} · Page ${page} of ${pages}`,
+      196,
+      290,
+      { align: 'right' },
+    )
   }
   document.save(`${safeFileName(employee.name)}-certification-report.pdf`)
 }

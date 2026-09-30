@@ -6,7 +6,9 @@ export default function VerificationFileButton({ certificateId, hasFile, notify,
   const preview = async () => {
     try {
       const request = () => fetch(`${apiUrl}/certificates/${certificateId}/verification-file`)
-      const response = runWithLoader ? await runWithLoader('Opening verification file', request) : await request()
+      const response = runWithLoader
+        ? await runWithLoader('Opening verification file', request)
+        : await request()
       const result = await response.json()
       if (!response.ok) throw new Error(result.detail || 'Unable to open verification file')
       window.open(result.url, '_blank', 'noopener,noreferrer')
@@ -17,6 +19,9 @@ export default function VerificationFileButton({ certificateId, hasFile, notify,
     }
   }
 
-  return <button type="button" className="verification-file-preview" onClick={preview}><i className="bi bi-box-arrow-up-right" /> Preview</button>
+  return (
+    <button type="button" className="verification-file-preview" onClick={preview}>
+      <i className="bi bi-box-arrow-up-right" /> Preview
+    </button>
+  )
 }
-
