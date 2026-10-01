@@ -1430,13 +1430,22 @@ def delete_user(user_id: str):
         requires_approval = True
     
     if requires_approval:
+        if db:
+            existing_pending = db.collection("hr_activities").where("activity_type", "==", "delete_user").where("payload.user_id", "==", user_id).where("status", "==", "pending").limit(1).stream()
+            if any(True for _ in existing_pending):
+                raise HTTPException(status_code=409, detail="User deletion request already submitted for approval")
+        else:
+            for act in demo_hr_activities:
+                if act.get("activity_type") == "delete_user" and act.get("payload", {}).get("user_id") == user_id and act.get("status") == "pending":
+                    raise HTTPException(status_code=409, detail="User deletion request already submitted for approval")
+        
         # Create HR activity for approval
         activity = {
             "activity_type": "delete_user",
             "title": f"Delete User: {user.get('firstName', '')} {user.get('lastName', '')}".strip(),
             "details": f"Employee ID: {user.get('employeeId', '')}, Email: {user.get('employeeEmail', '')}, Department: {user.get('department', '')}",
-            "requested_by": "admin",
-            "requested_by_name": "Administrator",
+            "requested_by": "hr",
+            "requested_by_name": "HR",
             "status": "pending",
             "created_at": current_timestamp(),
             "payload": {"user_id": user_id, "user_data": user},
@@ -1732,16 +1741,27 @@ def create_access_option(
             requires_approval = True
     
     if requires_approval:
+        name_stripped = payload.name.strip()
+        if db:
+            existing_pending = db.collection("hr_activities").where("activity_type", "==", "add_category" if option_type == "categories" else "add_oem").where("payload.name", "==", name_stripped).where("status", "==", "pending").limit(1).stream()
+            if any(True for _ in existing_pending):
+                raise HTTPException(status_code=409, detail=f"{option_type.capitalize()} creation request already submitted for approval")
+        else:
+            activity_type = "add_category" if option_type == "categories" else "add_oem"
+            for act in demo_hr_activities:
+                if act.get("activity_type") == activity_type and act.get("payload", {}).get("name") == name_stripped and act.get("status") == "pending":
+                    raise HTTPException(status_code=409, detail=f"{option_type.capitalize()} creation request already submitted for approval")
+        
         # Create HR activity for approval
         activity = {
             "activity_type": "add_category" if option_type == "categories" else "add_oem",
-            "title": f"Add {option_type.capitalize()}: {payload.name.strip()}",
-            "details": f"New {option_type[:-1]} request: {payload.name.strip()}",
-            "requested_by": "admin",
-            "requested_by_name": "Administrator",
+            "title": f"Add {option_type.capitalize()}: {name_stripped}",
+            "details": f"New {option_type[:-1]} request: {name_stripped}",
+            "requested_by": "hr",
+            "requested_by_name": "HR",
             "status": "pending",
             "created_at": current_timestamp(),
-            "payload": {"option_type": option_type, "name": payload.name.strip()},
+            "payload": {"option_type": option_type, "name": name_stripped},
         }
         if db:
             reference = db.collection("hr_activities").document()
@@ -1876,13 +1896,23 @@ def delete_access_option(
         else:
             name = str(snapshot.to_dict().get("name", "")) if snapshot.exists else ""
         
+        if db:
+            existing_pending = db.collection("hr_activities").where("activity_type", "==", "delete_category" if option_type == "categories" else "delete_oem").where("payload.option_id", "==", option_id).where("status", "==", "pending").limit(1).stream()
+            if any(True for _ in existing_pending):
+                raise HTTPException(status_code=409, detail=f"{option_type.capitalize()} deletion request already submitted for approval")
+        else:
+            activity_type = "delete_category" if option_type == "categories" else "delete_oem"
+            for act in demo_hr_activities:
+                if act.get("activity_type") == activity_type and act.get("payload", {}).get("option_id") == option_id and act.get("status") == "pending":
+                    raise HTTPException(status_code=409, detail=f"{option_type.capitalize()} deletion request already submitted for approval")
+        
         option_label = {"categories": "Category", "oems": "OEM"}.get(option_type, option_type.capitalize())
         activity = {
             "activity_type": "delete_category" if option_type == "categories" else "delete_oem",
             "title": f"Delete {option_label}: {name}",
             "details": f"Request to delete {option_label}: {name}",
-            "requested_by": "admin",
-            "requested_by_name": "Administrator",
+            "requested_by": "hr",
+            "requested_by_name": "HR",
             "status": "pending",
             "created_at": current_timestamp(),
             "payload": {"option_type": option_type, "option_id": option_id, "name": name},
