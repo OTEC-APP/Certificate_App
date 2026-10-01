@@ -151,9 +151,10 @@ const normaliseUser = (savedUser) => {
       council: 'council_member',
       councilmember: 'council_member',
       projectmanager: 'project_manager',
+      certificateapprover: 'certificate_approver',
       employee: 'user',
     }[storedRole] || storedRole
-  if (!['admin', 'council_member', 'hr', 'project_manager', 'user'].includes(role)) return null
+  if (!['admin', 'council_member', 'certificate_approver', 'hr', 'project_manager', 'user'].includes(role)) return null
 
   return { ...savedUser, role }
 }
@@ -248,7 +249,8 @@ function Shell({ onLogout, user }) {
     let active = true
     const loadAlertCount = async () => {
       try {
-        const approvalUrl = ['admin', 'council_member'].includes(user?.role)
+        const canReviewCertificates = ['admin', 'council_member', 'certificate_approver'].includes(user?.role)
+        const approvalUrl = canReviewCertificates
           ? `${apiUrl}/certificates?status=pending&page=1&page_size=100`
           : `${apiUrl}/certificates?search=${encodeURIComponent(user.employeeEmail || '')}&page=1&page_size=100`
         const requests = [
@@ -258,7 +260,7 @@ function Shell({ onLogout, user }) {
             { cache: 'no-store' },
           ),
         ]
-        // Add HR activities for council/admin
+        // Only admins and council members see HR approvals; certificate approvers stay focused on certificate review.
         if (['admin', 'council_member'].includes(user?.role)) {
           requests.push(
             fetch(`${apiUrl}/hr-activities?status=pending&page=1&page_size=100`, {
@@ -277,7 +279,7 @@ function Shell({ onLogout, user }) {
         // Certificate approvals
         const certificateItems = (data[0].items || []).filter(
           (item) =>
-            ['admin', 'council_member'].includes(user?.role) ||
+            canReviewCertificates ||
             (String(item.email || '').toLowerCase() ===
               String(user.employeeEmail || '').toLowerCase() &&
               item.reviewed_at &&
@@ -285,7 +287,7 @@ function Shell({ onLogout, user }) {
         )
         nextNotifications.push(
           ...certificateItems.map((item) => {
-            const isAdminRequest = ['admin', 'council_member'].includes(user?.role)
+            const isAdminRequest = canReviewCertificates
             const key = isAdminRequest
               ? `pending:${item.id}`
               : `review:${item.id}:${item.status}:${item.reviewed_at}`
@@ -507,7 +509,7 @@ const RoutedCertificationTasks = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const oemActive = searchParams.get('view') === 'oem'
   const catalogActive = searchParams.get('view') === 'catalog'
-  const isAdmin = ['admin', 'council_member'].includes(context.user.role)
+  const isAdmin = ['admin', 'council_member', 'certificate_approver'].includes(context.user.role)
   return (
     <div className="compliance-workspace course-list-workspace">
       {isAdmin && (
@@ -555,7 +557,7 @@ const RoutedCouncilMemberDashboard = () => <CouncilMemberDashboardPage {...useOu
 const RoutedEmployeeRecord = () => <LiveEmployeeRecordPage {...useOutletContext()} />
 const AdminOnly = ({ children }) => {
   const { user } = useOutletContext()
-  return ['admin', 'council_member'].includes(user.role) ? (
+  return ['admin', 'council_member', 'certificate_approver'].includes(user.role) ? (
     children
   ) : (
     <Navigate to="/dashboard" replace />
@@ -567,7 +569,7 @@ const AdministratorOnly = ({ children }) => {
 }
 const AdminOrProjectManager = ({ children }) => {
   const { user } = useOutletContext()
-  return ['admin', 'council_member', 'hr', 'project_manager'].includes(user.role) ? (
+  return ['admin', 'council_member', 'certificate_approver', 'hr', 'project_manager'].includes(user.role) ? (
     children
   ) : (
     <Navigate to="/dashboard" replace />
@@ -575,7 +577,7 @@ const AdminOrProjectManager = ({ children }) => {
 }
 const AdminCouncilOrHr = ({ children }) => {
   const { user } = useOutletContext()
-  return ['admin', 'council_member', 'hr'].includes(user.role) ? (
+  return ['admin', 'council_member', 'certificate_approver', 'hr'].includes(user.role) ? (
     children
   ) : (
     <Navigate to="/dashboard" replace />
@@ -811,7 +813,7 @@ export default function App() {
   }, [authenticated, user?.id])
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route
           path="send-email"

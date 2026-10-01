@@ -23,7 +23,7 @@ export default function CertificationTasksPage({
   personalMode = false,
 }) {
   // Council members manage the same organisation-wide course assignments as administrators.
-  const isAdmin = ['admin', 'council_member'].includes(user?.role) && !personalMode
+  const isAdmin = ['admin', 'council_member', 'certificate_approver'].includes(user?.role) && !personalMode
   const navigate = useNavigate()
   const email = user?.employeeEmail || user?.email || ''
   const [tasks, setTasks] = useState([])

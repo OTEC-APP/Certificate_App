@@ -85,7 +85,7 @@ class AccessUserFields(BaseModel):
     location: str = Field(min_length=1, max_length=100)
     department: str = Field(min_length=1, max_length=100)
     reportingManager: str = Field(min_length=1, max_length=160)
-    role: Literal["user", "admin", "council_member", "hr", "project_manager"]
+    role: Literal["user", "admin", "council_member", "hr", "project_manager", "certificate_approver"]
 
     @field_validator("role", mode="before")
     @classmethod
@@ -1072,7 +1072,7 @@ def upload_bulk_users(file: UploadFile = File(...)):
         if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
         if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
         row["role"] = row["role"].casefold().replace(" ", "_")
-        if row["role"].lower() not in {"user", "admin", "council_member", "hr", "project_manager"}: errors.append("Role must be user, hr, project_manager, council_member, or admin")
+        if row["role"].lower() not in {"user", "admin", "council_member", "hr", "project_manager", "certificate_approver"}: errors.append("Role must be user, hr, project_manager, council_member, certificate_approver, or admin")
         if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
         email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
         if email in existing_emails: errors.append("Employee email already exists")
@@ -1183,7 +1183,7 @@ def validate_bulk_row(row_data):
     if row["location"].lower() in location_options: row["location"] = location_options[row["location"].lower()]
     if row["department"].lower() in department_options: row["department"] = department_options[row["department"].lower()]
     row["role"] = row["role"].casefold().replace(" ", "_")
-    if row["role"].lower() not in {"user", "admin", "council_member", "hr", "project_manager"}: errors.append("Role must be user, hr, project_manager, council_member, or admin")
+    if row["role"].lower() not in {"user", "admin", "council_member", "hr", "project_manager", "certificate_approver"}: errors.append("Role must be user, hr, project_manager, council_member, certificate_approver, or admin")
     if not row["dateOfJoining"] or len(row["dateOfJoining"]) != 10: errors.append("Date of joining must be MM/DD/YYYY or YYYY-MM-DD")
     email, employee_id = row["employeeEmail"].lower(), row["employeeId"]
     if email in existing_emails: errors.append("Employee email already exists")

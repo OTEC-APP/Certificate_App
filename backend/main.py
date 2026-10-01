@@ -470,7 +470,9 @@ class CertificateCreate(BaseModel):
     expires_on: date | None = None
     reminder_days_before: int = Field(default=90, ge=1, le=90)
     issued_date: date | None = None
-    submission_source: Literal["user", "admin"] = "user"
+    submission_source: Literal["user", "admin", "council_member", "hr"] = "user"
+    submitted_by_id: str = Field(default="", max_length=100)
+    submitted_by_name: str = Field(default="", max_length=200)
 
     @field_validator("issued_date", mode="before")
     @classmethod
@@ -848,7 +850,7 @@ def admin_email_addresses() -> list[str]:
  
  
 def approval_reviewer_email_addresses() -> list[str]:
-    """Return every administrator and council member who can review approvals."""
+    """Return every administrator, council member, and certificate approver who can review certificate approvals."""
     def clean_email(value: object) -> str:
         email = str(value or "").strip().lower()
         return email if email.count("@") == 1 and all(part.strip() for part in email.split("@")) else ""
@@ -863,7 +865,7 @@ def approval_reviewer_email_addresses() -> list[str]:
         reviewers = [
             email
             for snapshot in db.collection("users").stream()
-            if str(snapshot.to_dict().get("role", "")).strip().lower() in {"admin", "council_member"}
+            if str(snapshot.to_dict().get("role", "")).strip().lower() in {"admin", "council_member", "certificate_approver"}
             if (email := clean_email(snapshot.to_dict().get("employeeEmail")))
         ]
         return sorted(set(configured_council + reviewers))
@@ -1578,6 +1580,15 @@ class HRActivityUpdate(BaseModel):
     review_remarks: str = Field(default="", max_length=1000)
 
 
+def is_certificate_activity_mirror(activity: dict) -> bool:
+    activity_type = "".join(
+        character
+        for character in str(activity.get("activity_type") or "").casefold()
+        if character.isalnum()
+    )
+    return activity_type == "councilactivity"
+
+
 @app.get("/api/hr-activities")
 def list_hr_activities(
     activity_type: str = Query(""),
@@ -1588,7 +1599,7 @@ def list_hr_activities(
     """List HR activities pending approval."""
     # Demo mode - use in-memory storage
     if not db:
-        filtered = demo_hr_activities
+        filtered = [a for a in demo_hr_activities if not is_certificate_activity_mirror(a)]
         if activity_type:
             filtered = [a for a in filtered if a.get("activity_type") == activity_type]
         if status:
@@ -1610,6 +1621,8 @@ def list_hr_activities(
         activities = []
         for snapshot in query.stream():
             activity = snapshot.to_dict()
+            if is_certificate_activity_mirror(activity):
+                continue
             activity["id"] = snapshot.id
             activities.append(activity)
         
@@ -3063,6 +3076,71 @@ def council_activity(
         if item.get("status") in {"issued", "revoked"} and item.get("reviewed_by")
         and item.get("reviewed_by") != "Auto-approved (HR approval disabled)"
     ]
+    reviewer_profiles_by_id: dict[str, dict[str, str]] = {}
+    reviewer_profiles_by_name: dict[str, dict[str, str]] = {}
+
+    def normalize_reviewer_name(value: object) -> str:
+        return " ".join(str(value or "").split()).casefold()
+
+    if db:
+        try:
+            for snapshot in db.collection("users").stream():
+                user = snapshot.to_dict() or {}
+                role = str(user.get("role") or "").strip().lower()
+                if role not in {"admin", "council_member", "certificate_approver"}:
+                    continue
+                profile_name = " ".join(
+                    str(value or "").strip()
+                    for value in (user.get("firstName"), user.get("lastName"))
+                    if str(value or "").strip()
+                )
+                canonical_id = str(snapshot.id or user.get("employeeId") or user.get("employee_id") or "").strip().casefold()
+                profile = {
+                    "identity": f"user:{canonical_id}" if canonical_id else "",
+                    "name": profile_name,
+                    "role": role,
+                }
+                for reviewer_id in (
+                    snapshot.id,
+                    user.get("id"),
+                    user.get("uid"),
+                    user.get("employeeId"),
+                    user.get("employee_id"),
+                    user.get("employeeEmail"),
+                    user.get("email"),
+                ):
+                    if reviewer_id:
+                        reviewer_profiles_by_id[str(reviewer_id).strip().casefold()] = profile
+                normalized_name = normalize_reviewer_name(profile_name)
+                if normalized_name:
+                    reviewer_profiles_by_name[normalized_name] = profile
+        except Exception:
+            pass
+
+    def reviewer_profile_for(item: dict) -> dict[str, str]:
+        reviewer_id = str(item.get("reviewed_by_id") or "").strip().casefold()
+        if reviewer_id:
+            return reviewer_profiles_by_id.get(reviewer_id, {})
+        reviewer_name = normalize_reviewer_name(item.get("reviewed_by"))
+        return reviewer_profiles_by_name.get(reviewer_name, {})
+
+    def reviewer_identity_for(item: dict) -> str:
+        profile = reviewer_profile_for(item)
+        if profile.get("identity"):
+            return profile["identity"]
+        reviewer_id = str(item.get("reviewed_by_id") or "").strip().casefold()
+        if reviewer_id:
+            return f"id:{reviewer_id}"
+        return f"name:{normalize_reviewer_name(item.get('reviewed_by')) or 'not recorded'}"
+
+    def reviewer_role_for(item: dict) -> str:
+        saved_role = str(item.get("reviewer_role") or "").strip().lower()
+        if saved_role in {"admin", "council_member", "certificate_approver"}:
+            return saved_role
+        return reviewer_profile_for(item).get("role", "")
+
+    for item in reviewed:
+        item["reviewer_role"] = reviewer_role_for(item)
     if reviewer:
         reviewed = [item for item in reviewed if str(item.get("reviewed_by") or "").strip() == reviewer.strip()]
     reviewed.sort(key=lambda item: str(item.get("reviewed_at") or ""), reverse=True)
@@ -3085,6 +3163,7 @@ def council_activity(
     hr_activities = []
     hr_pending = []
     hr_reviewed = []
+
     if db:
         try:
             query = db.collection("hr_activities")
@@ -3092,6 +3171,8 @@ def council_activity(
                 query = query.where("reviewed_by", "==", reviewer)
             for snapshot in query.stream():
                 activity = snapshot.to_dict()
+                if is_certificate_activity_mirror(activity):
+                    continue
                 activity["id"] = snapshot.id
                 if activity.get("status") == "pending":
                     hr_pending.append(activity)
@@ -3104,6 +3185,8 @@ def council_activity(
     else:
         # Demo mode
         for a in demo_hr_activities:
+            if is_certificate_activity_mirror(a):
+                continue
             if reviewer and str(a.get("reviewed_by") or "").strip() != reviewer.strip():
                 continue
             if a.get("status") == "pending":
@@ -3155,48 +3238,64 @@ def council_activity(
     
     validators: dict[str, dict] = {}
     for certificate in reviewed:
-        reviewer_id = str(certificate.get("reviewed_by_id") or "").strip()
-        reviewer_name = str(certificate.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
-        if not reviewer_id:
-            reviewer_id = f"name:{reviewer_name}"
+        reviewer_id = reviewer_identity_for(certificate)
+        profile = reviewer_profile_for(certificate)
+        reviewer_name = profile.get("name") or str(certificate.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
         if reviewer_id not in validators:
-            validators[reviewer_id] = {"name": reviewer_name, "validated": 0, "rejected": 0}
+            validators[reviewer_id] = {"name": reviewer_name, "role": reviewer_role_for(certificate), "validated": 0, "rejected": 0}
         else:
             validators[reviewer_id]["name"] = reviewer_name
+            validators[reviewer_id]["role"] = reviewer_role_for(certificate) or validators[reviewer_id]["role"]
         if certificate.get("status") == "issued":
             validators[reviewer_id]["validated"] += 1
         elif certificate.get("status") == "revoked":
             validators[reviewer_id]["rejected"] += 1
     for activity in hr_reviewed:
-        reviewer_id = str(activity.get("reviewed_by_id") or "").strip()
-        reviewer_name = str(activity.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
-        if not reviewer_id:
-            reviewer_id = f"name:{reviewer_name}"
+        reviewer_id = reviewer_identity_for(activity)
+        profile = reviewer_profile_for(activity)
+        reviewer_name = profile.get("name") or str(activity.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
         if reviewer_id not in validators:
-            validators[reviewer_id] = {"name": reviewer_name, "validated": 0, "rejected": 0}
+            validators[reviewer_id] = {"name": reviewer_name, "role": reviewer_role_for(activity), "validated": 0, "rejected": 0}
         else:
             validators[reviewer_id]["name"] = reviewer_name
+            validators[reviewer_id]["role"] = reviewer_role_for(activity) or validators[reviewer_id]["role"]
         if activity.get("status") == "approved":
             validators[reviewer_id]["validated"] += 1
         elif activity.get("status") == "rejected":
             validators[reviewer_id]["rejected"] += 1
+
+    def review_subject_for(item: dict) -> str:
+        payload = item.get("payload") or {}
+        employee_name = " ".join(
+            str(value or "").strip()
+            for value in (payload.get("firstName"), payload.get("lastName"))
+            if str(value or "").strip()
+        )
+        return (
+            str(item.get("recipient_name") or "").strip()
+            or employee_name
+            or str(payload.get("name") or "").strip()
+            or str(item.get("requested_by_name") or item.get("requested_by") or "").strip()
+            or "Not recorded"
+        )
 
     return {
         "pending_count": len(all_pending),
         "validated_count": sum(item.get("status") == "issued" for item in reviewed) + sum(1 for item in hr_reviewed if item.get("status") == "approved"),
         "revoked_count": sum(item.get("status") == "revoked" for item in reviewed) + sum(1 for item in hr_reviewed if item.get("status") == "rejected"),
         "validators": [
-            {"id": vid, "name": v["name"], "validated_count": v["validated"], "rejected_count": v["rejected"]}
+            {"id": vid, "name": v["name"], "reviewer_role": v["role"], "validated_count": v["validated"], "rejected_count": v["rejected"]}
             for vid, v in sorted(validators.items(), key=lambda item: (-(item[1]["validated"] + item[1]["rejected"]), item[1]["name"].casefold()))
         ],
         "recent_reviews": [
             {
                 "id": item.get("id"),
-                "course_name": item.get("course_name") or item.get("activity_type", "HR Activity"),
-                "recipient_name": item.get("recipient_name") or item.get("payload", {}).get("firstName", "") + " " + item.get("payload", {}).get("lastName", "") or item.get("payload", {}).get("name", "User"),
+                "course_name": item.get("course_name") or (item.get("activity_type") if item.get("_review_source") == "hr" else "Certificate approval"),
+                "recipient_name": review_subject_for(item),
                 "status": item.get("status"),
                 "reviewed_by": item.get("reviewed_by"),
                 "reviewed_by_id": item.get("reviewed_by_id"),
+                "reviewer_role": reviewer_role_for(item),
                 "reviewed_at": item.get("reviewed_at"),
                 "submitted_by": item.get("submitted_by"),
                 "created_at": item.get("created_at"),
@@ -3873,6 +3972,12 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
 
         raise HTTPException(status_code=409, detail="A certificate with this certificate number already exists")
     submitted_by_user = payload.submission_source == "user"
+    submitted_by_role = {
+        "user": "user",
+        "admin": "admin",
+        "council_member": "council_member",
+        "hr": "hr",
+    }[payload.submission_source]
     
     # Check HR approval settings for add_certificate
     requires_approval = True
@@ -3895,8 +4000,17 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
         "certificate_number": certificate_number,
         "status": initial_status,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "submitted_by": "User" if submitted_by_user else "Administrator",
-        "submitted_by_role": "user" if submitted_by_user else "admin",
+        "submitted_by": (
+            "User" if submitted_by_user else payload.submitted_by_name.strip() or
+            (
+                "Council Member" if submitted_by_role == "council_member"
+                else "HR" if submitted_by_role == "hr"
+                else "Administrator"
+            )
+        ),
+        "submitted_by_role": submitted_by_role,
+        "submitted_by_id": payload.submitted_by_id.strip() if not submitted_by_user else "",
+        "submitted_by_name": payload.submitted_by_name.strip() if not submitted_by_user else "",
     }
     if not requires_approval:
         certificate["reviewed_at"] = datetime.now(timezone.utc).isoformat()
@@ -4245,14 +4359,31 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
     if certificate.get("status") != "pending":
         raise HTTPException(status_code=409, detail="Only under-review certificates can be reviewed")
 
-    # Approval rules:
-    # - Admin uploads → approved by admin OR council_member
-    # - Council member uploads → approved by admin ONLY
-    # - User uploads → approved by admin OR council_member
-    submitter_role = certificate.get("submitted_by_role", "user")
-    reviewer_role = (payload.reviewer_role or "").lower()
-    if submitter_role == "council_member" and reviewer_role != "admin":
-        raise HTTPException(status_code=403, detail="Certificates submitted by council members require admin approval")
+    # HR and Council Member uploads require review by an Administrator,
+    # Council Member, or Certificate Approver.
+    submitter_role = str(certificate.get("submitted_by_role", "user")).strip().lower().replace(" ", "_")
+    reviewer_role = (payload.reviewer_role or "").strip().lower()
+    allowed_council_upload_reviewers = {"admin", "council_member", "certificate_approver"}
+    if submitter_role in {"council_member", "hr"} and reviewer_role not in allowed_council_upload_reviewers:
+        raise HTTPException(status_code=403, detail="This certificate requires review by an Administrator, Council Member, or Certificate Approver")
+    if submitter_role == "council_member":
+        submitted_by_id = str(certificate.get("submitted_by_id") or "").strip().casefold()
+        reviewer_id = str(payload.reviewed_by_id or "").strip().casefold()
+        submitted_by_name = " ".join(str(certificate.get("submitted_by_name") or "").split()).casefold()
+        reviewer_name = " ".join(payload.reviewed_by.split()).casefold()
+        same_council_reviewer = (
+            reviewer_role == "council_member"
+            and (
+                (submitted_by_id and reviewer_id and submitted_by_id == reviewer_id)
+                or (
+                    not (submitted_by_id and reviewer_id)
+                    and submitted_by_name
+                    and submitted_by_name == reviewer_name
+                )
+            )
+        )
+        if same_council_reviewer:
+            raise HTTPException(status_code=403, detail="Council Members cannot approve their own certificate submissions")
 
     remarks = payload.remarks.strip()
     if payload.status == "revoked" and not remarks:
@@ -4262,6 +4393,7 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
         "reviewed_at": datetime.now(timezone.utc).isoformat(),
         "reviewed_by": payload.reviewed_by.strip(),
         "reviewed_by_id": (payload.reviewed_by_id or "").strip(),
+        "reviewer_role": reviewer_role if reviewer_role in {"admin", "council_member", "certificate_approver"} else "",
         "review_remarks": remarks if payload.status == "revoked" else None,
     }
     updates.update({"ru_verified": False})

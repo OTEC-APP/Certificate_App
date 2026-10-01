@@ -258,8 +258,14 @@ export default function AdminCertificateModal({ close, notify, runWithLoader, us
             issued_date: form.get('issuedDate') || null,
             validity_years: null,
             expires_on: validityMode === 'expires' ? form.get('expiresOn') : null,
-            submission_source: 'admin',
-            requester_role: user?.role,
+            submission_source:
+              user?.role === 'council_member'
+                ? 'council_member'
+                : user?.role === 'hr'
+                  ? 'hr'
+                  : 'admin',
+            submitted_by_id: user?.employeeId || user?.id || '',
+            submitted_by_name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
           }),
         }),
       )

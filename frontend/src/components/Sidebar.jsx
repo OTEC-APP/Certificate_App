@@ -41,6 +41,8 @@ const hrWorkspace = [
   ['employees', 'bi-people', 'Employee details', 'Employee records'],
 ]
 
+const certificateApproverWorkspace = workspace
+
 const hrManage = [
   ['access-management', 'bi-person-gear', 'Access management', 'User access requests'],
   ['settings', 'bi-gear', 'Settings', 'Categories and OEMs'],
@@ -50,6 +52,7 @@ const roleLabel = (role) =>
   ({
     admin: 'Administrator',
     council_member: 'Council Member',
+    certificate_approver: 'Certificate Approver',
     hr: 'HR',
     project_manager: 'Project Manager',
   })[role] || 'User'
@@ -117,21 +120,23 @@ export default function Sidebar({ clearFilter, onClose, onLogout, user, alertCou
           {links(
             user?.role === 'hr'
                 ? hrWorkspace
-                : user?.role === 'project_manager'
-                  ? projectManagerWorkspace
-                  : user?.role === 'user'
-                    ? userWorkspace
-                    : workspace,
+                : user?.role === 'certificate_approver'
+                  ? certificateApproverWorkspace
+                  : user?.role === 'project_manager'
+                    ? projectManagerWorkspace
+                    : user?.role === 'user'
+                      ? userWorkspace
+                      : workspace,
           )}
         </nav>
-        {['admin', 'council_member', 'hr'].includes(user?.role) && (
+        {['admin', 'council_member', 'certificate_approver', 'hr'].includes(user?.role) && (
           <>
             <label>MANAGE</label>
             <nav>
               {links(
                 user?.role === 'hr'
                   ? hrManage
-                  : user?.role === 'council_member'
+                  : user?.role === 'council_member' || user?.role === 'certificate_approver'
                     ? councilMemberManage
                     : manage,
               )}
