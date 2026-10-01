@@ -10,6 +10,13 @@ const displayDate = (value) => {
     : date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+const reviewerRoleLabel = (role) =>
+  ({
+    admin: 'Administrator',
+    council_member: 'Council Member',
+    certificate_approver: 'Certificate Approver',
+  })[role] || 'Not recorded'
+
 export default function CouncilActivityPage({ notify }) {
   const [data, setData] = useState(null)
   const [stats, setStats] = useState({})
@@ -62,8 +69,8 @@ export default function CouncilActivityPage({ notify }) {
       <header className="council-activity-hero">
         <div>
           <small>ADMIN WORKSPACE</small>
-          <h2>Council activity</h2>
-          <p>Review approval workload and see validation decisions in one focused view.</p>
+          <h2>Approval activity</h2>
+          <p>Track certificate decisions by Council Members and Certificate Approvers, alongside HR approvals.</p>
         </div>
         <div className="council-hero-actions">
           <i className="bi bi-shield-check" aria-hidden="true" />
@@ -82,7 +89,7 @@ export default function CouncilActivityPage({ notify }) {
         >
           <small>Pending approvals</small>
           <b>{data.pending_count}</b>
-          <span>Certificates awaiting Council review</span>
+          <span>Certificates awaiting review</span>
         </article>
         <article
           className="clickable"
@@ -131,8 +138,8 @@ export default function CouncilActivityPage({ notify }) {
         <section className="er-card">
           <header>
             <div>
-              <h3>Validated by</h3>
-              <p>Completed certificate decisions by reviewer.</p>
+              <h3>Certificate reviewers</h3>
+              <p>Completed decisions by reviewer and role.</p>
             </div>
           </header>
           {data.validators.length ? (
@@ -141,6 +148,7 @@ export default function CouncilActivityPage({ notify }) {
                 <thead>
                   <tr>
                     <th>Reviewer</th>
+                    <th>Role</th>
                     <th>Validated</th>
                     <th>Rejected</th>
                   </tr>
@@ -158,6 +166,7 @@ export default function CouncilActivityPage({ notify }) {
                         </span>
                         {validator.name}
                       </td>
+                      <td>{reviewerRoleLabel(validator.reviewer_role)}</td>
                       <td>{validator.validated_count}</td>
                       <td>{validator.rejected_count}</td>
                     </tr>
@@ -166,7 +175,7 @@ export default function CouncilActivityPage({ notify }) {
               </table>
             </div>
           ) : (
-            <p className="user-empty">No Council validations have been recorded yet.</p>
+            <p className="user-empty">No certificate review decisions have been recorded yet.</p>
           )}
         </section>
         <section className="er-card">
@@ -260,7 +269,7 @@ export default function CouncilActivityPage({ notify }) {
                   <thead>
                     <tr>
                       <th>Item</th>
-                      <th>Employee</th>
+                      <th>Employee / requester</th>
                       <th>Type</th>
                       {status === 'pending' ? (
                         <>
@@ -271,6 +280,7 @@ export default function CouncilActivityPage({ notify }) {
                       ) : (
                         <>
                           <th>Validated by</th>
+                          <th>Reviewer role</th>
                           <th>Decision</th>
                           <th>Date</th>
                         </>
@@ -284,7 +294,7 @@ export default function CouncilActivityPage({ notify }) {
                         ? review.activity_type
                             ?.replace(/_/g, ' ')
                             .replace(/\b\w/g, (l) => l.toUpperCase())
-                        : review.course_name
+                        : review.course_name || 'Certificate approval'
                       const itemType = isHR ? 'HR Activity' : 'Certificate'
                       return (
                         <tr key={review.id}>
@@ -306,6 +316,7 @@ export default function CouncilActivityPage({ notify }) {
                           ) : (
                             <>
                               <td>{review.reviewed_by || 'Not recorded'}</td>
+                              <td>{reviewerRoleLabel(review.reviewer_role)}</td>
                               <td>
                                 <span className={`council-status ${review.status}`}>
                                   {review.status === 'issued' || review.status === 'approved'

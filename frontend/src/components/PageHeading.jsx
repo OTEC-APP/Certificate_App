@@ -13,7 +13,7 @@ export default function PageHeading({ user, filter }) {
   const isUserDashboard = user?.role === 'user' && key === 'dashboard'
   const isProfile = key === 'my-profile'
   const displayName = user?.firstName || user?.name?.split(' ')[0] || 'User'
-  const isAdminAlerts = key === 'alerts' && ['admin', 'council_member'].includes(user?.role)
+  const isAdminAlerts = key === 'alerts' && ['admin', 'council_member', 'certificate_approver'].includes(user?.role)
   const isUserRenewals = key === 'alerts' && params.get('section') === 'renewals'
 
   const contextualTitle =
@@ -43,7 +43,7 @@ export default function PageHeading({ user, filter }) {
           : defaultSubtitle
   // const eyebrow = isProfile ? 'Personal workspace' : key.replaceAll('-', ' ')
   const eyebrowLabels = {
-    alerts: ['admin', 'council_member'].includes(user?.role) ? 'Approvals' : 'Upcoming renewals',
+    alerts: ['admin', 'council_member', 'certificate_approver'].includes(user?.role) ? 'Approvals' : 'Upcoming renewals',
     'my-certificates': 'My certificates',
     'my-profile': 'Personal workspace',
   }
@@ -53,11 +53,13 @@ export default function PageHeading({ user, filter }) {
       ? 'Council Member'
       : user?.role === 'admin'
         ? 'Administrator'
-        : user?.role === 'hr'
-          ? 'HR'
-          : user?.role === 'project_manager'
-            ? 'Project Manager'
-            : 'User'
+        : user?.role === 'certificate_approver'
+          ? 'Certificate Approver'
+          : user?.role === 'hr'
+            ? 'HR'
+            : user?.role === 'project_manager'
+              ? 'Project Manager'
+              : 'User'
   const icon = isEmployeeRecord ? 'bi-person-vcard' : pageIcons[key] || 'bi-grid-1x2'
 
   // These routes already introduce themselves with a richer in-page hero.
@@ -75,6 +77,7 @@ export default function PageHeading({ user, filter }) {
     'my-certificates',
     'my-course-list',
     'council-member-dashboard',
+    'council-activity',
     'top-certified-holders-mail',
   ])
   // User alerts already start with their Alerts / Renewals tabs and card heading.

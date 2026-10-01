@@ -54,6 +54,7 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
   const [loadingSettings, setLoadingSettings] = useState(true)
   const [savingSettings, setSavingSettings] = useState(false)
   const [activities, setActivities] = useState({})
+  const [activityTotals, setActivityTotals] = useState({})
   const [loadingActivities, setLoadingActivities] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [page, setPage] = useState(1)
@@ -82,25 +83,95 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
     setLoadingActivities(true)
     setError('')
     try {
-      const typeParam = activeTab === 'overview' ? '' : activeTab
-      const response = await fetch(
-        `${apiUrl}/hr-activities?status=pending&activity_type=${typeParam}&page=${page}&page_size=${pageSize}`,
-      )
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.detail || 'Unable to load HR activities')
-
       if (activeTab === 'overview') {
-        const allResponse = await fetch(`${apiUrl}/hr-activities?status=pending&page=1&page_size=100`)
-        const allResult = await allResponse.json()
+        const [allResponse, certificateResponse] = await Promise.all([
+          fetch(`${apiUrl}/hr-activities?status=pending&page=1&page_size=100`),
+          fetch(`${apiUrl}/certificates?status=pending&page=1&page_size=100`),
+        ])
+        const [allResult, certificateResult] = await Promise.all([
+          allResponse.json(),
+          certificateResponse.json(),
+        ])
+        if (!allResponse.ok) throw new Error(allResult.detail || 'Unable to load HR activities')
+        if (!certificateResponse.ok)
+          throw new Error(certificateResult.detail || 'Unable to load pending certificates')
         const grouped = {}
         ;(allResult.items || []).forEach((item) => {
           if (!grouped[item.activity_type]) grouped[item.activity_type] = []
           grouped[item.activity_type].push(item)
         })
+        const certificateItems = (certificateResult.items || []).map((certificate) => ({
+          ...certificate,
+          activity_type: 'add_certificate',
+          is_certificate_submission: true,
+          title: certificate.course_name || 'Certificate approval',
+          details: [
+            certificate.recipient_name,
+            certificate.vendor_name,
+            certificate.certificate_number && `Certificate no. ${certificate.certificate_number}`,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          requested_by_name:
+            certificate.submitted_by_name || certificate.submitted_by || 'Employee',
+        }))
+        grouped.add_certificate = [
+          ...(grouped.add_certificate || []),
+          ...certificateItems,
+        ].sort((first, second) => (Date.parse(second.created_at) || 0) - (Date.parse(first.created_at) || 0))
+        const totals = Object.fromEntries(
+          Object.entries(grouped).map(([type, items]) => [type, items.length]),
+        )
+        totals.add_certificate =
+          (totals.add_certificate || 0) + (certificateResult.total || 0) - certificateItems.length
         setActivities(grouped)
-        setTotalItems(allResult.total || 0)
+        setActivityTotals(totals)
+        setTotalItems((allResult.total || 0) + (certificateResult.total || 0))
+      } else if (activeTab === 'add_certificate') {
+        const [activityResponse, certificateResponse] = await Promise.all([
+          fetch(`${apiUrl}/hr-activities?status=pending&activity_type=add_certificate&page=1&page_size=100`),
+          fetch(`${apiUrl}/certificates?status=pending&page=1&page_size=100`),
+        ])
+        const [activityResult, certificateResult] = await Promise.all([
+          activityResponse.json(),
+          certificateResponse.json(),
+        ])
+        if (!activityResponse.ok)
+          throw new Error(activityResult.detail || 'Unable to load certificate requests')
+        if (!certificateResponse.ok)
+          throw new Error(certificateResult.detail || 'Unable to load pending certificates')
+        const certificateItems = (certificateResult.items || []).map((certificate) => ({
+          ...certificate,
+          activity_type: 'add_certificate',
+          is_certificate_submission: true,
+          title: certificate.course_name || 'Certificate approval',
+          details: [
+            certificate.recipient_name,
+            certificate.vendor_name,
+            certificate.certificate_number && `Certificate no. ${certificate.certificate_number}`,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          requested_by_name:
+            certificate.submitted_by_name || certificate.submitted_by || 'Employee',
+        }))
+        const combined = [...(activityResult.items || []), ...certificateItems].sort(
+          (first, second) => (Date.parse(second.created_at) || 0) - (Date.parse(first.created_at) || 0),
+        )
+        const total = (activityResult.total || 0) + (certificateResult.total || 0)
+        setActivities({
+          add_certificate: combined.slice((page - 1) * pageSize, page * pageSize),
+        })
+        setActivityTotals((current) => ({ ...current, add_certificate: total }))
+        setTotalItems(total)
       } else {
+        const response = await fetch(
+          `${apiUrl}/hr-activities?status=pending&activity_type=${activeTab}&page=${page}&page_size=${pageSize}`,
+        )
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.detail || 'Unable to load HR activities')
         setActivities({ [activeTab]: result.items || [] })
+        setActivityTotals((current) => ({ ...current, [activeTab]: result.total || 0 }))
         setTotalItems(result.total || 0)
       }
     } catch (error) {
@@ -165,24 +236,40 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
   }
 
   const getActivityItems = (type) => activities[type] || []
-  const getActivityCount = (type) => getActivityItems(type).length
-  const getTotalCount = () => Object.values(activities).flat().length
+  const getActivityCount = (type) => activityTotals[type] ?? getActivityItems(type).length
+  const getTotalCount = () => Object.values(activityTotals).reduce((total, count) => total + count, 0)
 
   if (loadingSettings || loadingActivities) {
     return <p className="user-empty">Loading HR activities...</p>
   }
 
-  const handleApprove = (activityId, activityType) => {
+  const handleApprove = (activity, activityType) => {
     runWithLoader('Approving request', async () => {
-      const response = await fetch(`${apiUrl}/hr-activities/${activityId}/approve`, {
-        method: 'POST',
+      const isCertificateSubmission = activity.is_certificate_submission
+      const response = await fetch(
+        isCertificateSubmission
+          ? `${apiUrl}/certificates/${activity.id}/status`
+          : `${apiUrl}/hr-activities/${activity.id}/approve`,
+        {
+        method: isCertificateSubmission ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
-          reviewed_by_id: user.employeeId || user.id || '',
-          review_remarks: '',
-        }),
-      })
+        body: JSON.stringify(
+          isCertificateSubmission
+            ? {
+                status: 'issued',
+                reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
+                reviewed_by_id: user.employeeId || user.id || '',
+                reviewer_role: user.role,
+                remarks: '',
+              }
+            : {
+                reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
+                reviewed_by_id: user.employeeId || user.id || '',
+                review_remarks: '',
+              },
+        ),
+        },
+      )
       if (!response.ok) {
         const err = await response.json()
         throw new Error(err.detail || 'Failed to approve')
@@ -199,17 +286,33 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
     })
   }
 
-  const handleReject = (activityId) => {
+  const handleReject = (activity) => {
     runWithLoader('Rejecting request', async () => {
-      const response = await fetch(`${apiUrl}/hr-activities/${activityId}/reject`, {
-        method: 'POST',
+      const isCertificateSubmission = activity.is_certificate_submission
+      const response = await fetch(
+        isCertificateSubmission
+          ? `${apiUrl}/certificates/${activity.id}/status`
+          : `${apiUrl}/hr-activities/${activity.id}/reject`,
+        {
+        method: isCertificateSubmission ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
-          reviewed_by_id: user.employeeId || user.id || '',
-          review_remarks: 'Rejected by council member',
-        }),
-      })
+        body: JSON.stringify(
+          isCertificateSubmission
+            ? {
+                status: 'revoked',
+                reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
+                reviewed_by_id: user.employeeId || user.id || '',
+                reviewer_role: user.role,
+                remarks: 'Rejected during certificate review',
+              }
+            : {
+                reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
+                reviewed_by_id: user.employeeId || user.id || '',
+                review_remarks: 'Rejected by council member',
+              },
+        ),
+        },
+      )
       if (!response.ok) {
         const err = await response.json()
         throw new Error(err.detail || 'Failed to reject')
@@ -231,6 +334,9 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
     const date = new Date(isoString)
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
   }
+  const canReviewCertificates = ['admin', 'council_member', 'certificate_approver'].includes(
+    user?.role,
+  )
 
   return (
     <section className="er-card hr-activities-card">
@@ -370,15 +476,21 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
                     </td>
                     <td className="activity-datetime">{formatDate(activity.created_at)}</td>
                     <td className="activity-actions">
-                      <button
-                        className="approve"
-                        onClick={() => handleApprove(activity.id, activeTab)}
-                      >
-                        Approve
-                      </button>
-                      <button className="reject" onClick={() => handleReject(activity.id)}>
-                        Reject
-                      </button>
+                      {activity.is_certificate_submission && !canReviewCertificates ? (
+                        <span>Certificate reviewer required</span>
+                      ) : (
+                        <>
+                          <button
+                            className="approve"
+                            onClick={() => handleApprove(activity, activeTab)}
+                          >
+                            Approve
+                          </button>
+                          <button className="reject" onClick={() => handleReject(activity)}>
+                            Reject
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

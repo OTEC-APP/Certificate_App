@@ -136,6 +136,7 @@ function UserForm({ user, locations, departments, onSave, onClose }) {
               <option value="project_manager">Project Manager</option>
               <option value="admin">Admin</option>
               <option value="council_member">Council Member</option>
+              <option value="certificate_approver">Certificate Approver</option>
               <option value="hr">HR</option>
             </select>
           </label>
@@ -734,7 +735,7 @@ export default function AccessManagementPage({
       fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: option.name, requester_role: user?.role }),
+        body: JSON.stringify({ name: option.name }),
       }),
     )
     const result = await response.json()
@@ -797,7 +798,7 @@ export default function AccessManagementPage({
   const saveUser = async (form) => {
     try {
       const isCreate = editing.mode === 'create'
-      const payload = { ...form, requester_role: user?.role }
+      const payload = { ...form }
       // Legacy administrator accounts can legitimately have no joining date.
       // Omit the empty value so the API preserves the stored record instead of
       // attempting to parse an empty string as a date.
@@ -892,7 +893,7 @@ export default function AccessManagementPage({
       return
     try {
       const response = await runWithLoader('Offboarding employee', () =>
-        fetch(`${apiUrl}/users/${targetUser.id}?requester_role=${user?.role}`, {
+        fetch(`${apiUrl}/users/${targetUser.id}`, {
           method: 'DELETE',
         }),
       )

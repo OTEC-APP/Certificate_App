@@ -353,11 +353,13 @@ export default function DashboardPage({ openEmployees, goTo, user, realtimeVersi
       ? 'Council Member'
       : user?.role === 'admin'
         ? 'Administrator'
-        : user?.role === 'hr'
-          ? 'HR'
-          : user?.role === 'project_manager'
-            ? 'Project Manager'
-            : 'User'
+        : user?.role === 'certificate_approver'
+          ? 'Certificate Approver'
+          : user?.role === 'hr'
+            ? 'HR'
+            : user?.role === 'project_manager'
+              ? 'Project Manager'
+              : 'User'
 
   return (
     <>
@@ -428,8 +430,8 @@ export default function DashboardPage({ openEmployees, goTo, user, realtimeVersi
         {user?.role === 'admin' ? (
           <button
             className="pending-approvals-kpi"
-            onClick={() => goTo('council-member-dashboard')}
-            title="Open Council activity"
+            onClick={() => goTo(user?.role === 'admin' ? 'council-activity' : 'alerts')}
+            title={user?.role === 'admin' ? 'Open approval activity' : 'Open certificate approvals'}
           >
             <span>
               Pending approvals
@@ -437,7 +439,11 @@ export default function DashboardPage({ openEmployees, goTo, user, realtimeVersi
             </span>
             <b>{liveDashboard?.pending ?? 0}</b>
             <small className={(liveDashboard?.pending ?? 0) ? 'red' : 'green'}>
-              {(liveDashboard?.pending ?? 0) ? 'Open Council activity →' : 'No approvals waiting'}
+              {(liveDashboard?.pending ?? 0)
+                ? user?.role === 'admin'
+                  ? 'Open approval activity →'
+                  : 'Review certificates →'
+                : 'No approvals waiting'}
             </small>
           </button>
         ) : (
