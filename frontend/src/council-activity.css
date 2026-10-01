@@ -467,9 +467,62 @@
 .council-kpis {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.council-kpis .council-kpi-button {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  align-content: stretch;
+  justify-items: start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 132px;
+  padding: 16px 18px;
+  border: 1px solid rgba(216, 68, 87, 0.2);
+  border-radius: 12px;
+  color: #542b34;
+  font: inherit;
+  text-align: left;
+  white-space: normal;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 18px rgba(101, 42, 52, 0.06);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.council-kpi-button small {
+  min-width: 0;
+  color: #80616a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.council-kpi-button b {
+  color: #542b34;
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.council-kpi-button span {
+  align-self: end;
+  color: #80616a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.council-kpis .council-kpi-button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(216, 68, 87, 0.42);
+  box-shadow: 0 10px 22px rgba(101, 42, 52, 0.1);
+}
+.council-kpis .council-kpi-button:focus-visible {
+  outline: 3px solid rgba(216, 68, 87, 0.35);
+  outline-offset: 2px;
+}
+.council-kpis .council-kpi-button.pending {
+  border-color: #f1ca72;
+  background: #fffbf1;
+}
+.council-kpi-button.pending b {
+  color: #ac7200;
+}
 .council-kpis article {
-  min-height: 118px;
-  padding: 18px;
   border-color: rgba(216, 68, 87, 0.16);
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 8px 22px rgba(101, 42, 52, 0.06);

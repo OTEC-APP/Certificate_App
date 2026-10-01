@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+import logging
 from io import BytesIO
 from collections import Counter
 from contextlib import asynccontextmanager, suppress
@@ -30,19 +31,25 @@ from pydantic import BaseModel, Field,field_validator
 if __package__:
     # Package import: `from backend import app` or `uvicorn backend.main:app`
     from .firebase_service import get_firestore_client, get_storage_bucket
-    from .access_management import auth_router, callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router, send_user_invitation, record_history, mark_settings_updated, clean_oem_name, departed_employees_collection, demo_hr_activities, current_timestamp
+    from .access_management import auth_router, callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router, send_user_invitation, record_history, mark_settings_updated, clean_oem_name, departed_employees_collection, demo_hr_activities, current_timestamp, oem_deletion_collection, oem_deletion_id
     from .email_alerts import send_email
     from .realtime import realtime_connections
     from .employee_activity import latest_certificate_at
+    from .api_errors import service_error
+    from .rate_limit import RateLimitMiddleware
 else:
     # Direct execution: `python main.py`
     from firebase_service import get_firestore_client, get_storage_bucket
-    from access_management import auth_router, callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router, send_user_invitation, record_history, mark_settings_updated, clean_oem_name, departed_employees_collection, demo_hr_activities, current_timestamp
+    from access_management import auth_router, callback_router, options_router, purge_expired_departed_employee_data, router as access_management_router, send_user_invitation, record_history, mark_settings_updated, clean_oem_name, departed_employees_collection, demo_hr_activities, current_timestamp, oem_deletion_collection, oem_deletion_id
     from email_alerts import send_email
     from realtime import realtime_connections
     from employee_activity import latest_certificate_at
+    from api_errors import service_error
+    from rate_limit import RateLimitMiddleware
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+logger = logging.getLogger("certtrack.api")
 
 
 configured_origins = {
@@ -51,7 +58,7 @@ configured_origins = {
     if origin.strip()
 }
 allowed_origins = sorted(
-    configured_origins | {"http://localhost:3001", "http://127.0.0.1:3000", "http://192.168.0.40:3000"}
+    configured_origins | {"http://localhost:3000", "http://127.0.0.1:3000", "http://192.168.0.118:3000"}
 )
 
 
@@ -82,6 +89,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="CertTrack API", version="1.0.0", lifespan=lifespan)
+# Registered before CORS so the CORS layer stays outermost and rate-limit
+# responses still carry the headers browsers expect.
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -461,7 +471,6 @@ class CertificateCreate(BaseModel):
     reminder_days_before: int = Field(default=90, ge=1, le=90)
     issued_date: date | None = None
     submission_source: Literal["user", "admin"] = "user"
-    requester_role: str | None = Field(default=None, max_length=50)
 
     @field_validator("issued_date", mode="before")
     @classmethod
@@ -472,6 +481,7 @@ class CertificateCreate(BaseModel):
 class StatusUpdate(BaseModel):
     status: Literal["issued", "revoked"]
     reviewed_by: str = Field(min_length=2, max_length=100)
+    reviewed_by_id: str = Field(default="", max_length=100)
     reviewer_role: str = Field(default="", max_length=50)
     remarks: str = Field(default="", max_length=1000)
     matched_course_id: str | None = Field(default=None, max_length=100)
@@ -1564,6 +1574,7 @@ class HRActivityCreate(BaseModel):
 class HRActivityUpdate(BaseModel):
     status: Literal["pending", "approved", "rejected"] | None = None
     reviewed_by: str = Field(min_length=1, max_length=200)
+    reviewed_by_id: str = Field(default="", max_length=100)
     review_remarks: str = Field(default="", max_length=1000)
 
 
@@ -1826,6 +1837,7 @@ def approve_hr_activity(activity_id: str, payload: HRActivityUpdate, background_
     updates = {
         "status": "approved",
         "reviewed_by": payload.reviewed_by,
+        "reviewed_by_id": (payload.reviewed_by_id or "").strip(),
         "review_remarks": payload.review_remarks,
         "reviewed_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -1869,6 +1881,7 @@ def reject_hr_activity(activity_id: str, payload: HRActivityUpdate, background_t
     updates = {
         "status": "rejected",
         "reviewed_by": payload.reviewed_by,
+        "reviewed_by_id": (payload.reviewed_by_id or "").strip(),
         "review_remarks": payload.review_remarks,
         "reviewed_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -1928,7 +1941,7 @@ def get_council_member_stats(
         cert_rejected = sum(1 for a in cert_actions if a.get("status") == "rejected")
         
         # Count HR activity approvals (other types with approved status)
-        hr_actions = [a for a in completed if a.get("activity_type") != "council_activity"]
+        hr_actions = [a for a in completed if a.get("activity_type") != "council_activity" and a.get("reviewed_by") != "Auto-approved (HR approval disabled)"]
         hr_approved = sum(1 for a in hr_actions if a.get("status") == "approved")
         
         return {
@@ -1948,6 +1961,62 @@ def get_council_member_stats(
             }
         raise HTTPException(status_code=503, detail="Unable to load council member stats") from error
 
+@app.get("/api/council-member-stats/detailed")
+def get_council_member_stats_detailed():
+    """Per-member aggregated review counts from the full audit trail."""
+    reviewed_certs = [
+        c for c in get_all()
+        if c.get("status") in {"issued", "revoked"}
+        and c.get("reviewed_by")
+        and c.get("reviewed_by") != "Auto-approved (HR approval disabled)"
+    ]
+    reviewed_hr = []
+    if db:
+        try:
+            for snapshot in db.collection("hr_activities").stream():
+                activity = snapshot.to_dict()
+                if (
+                    activity.get("status") in {"approved", "rejected"}
+                    and activity.get("activity_type") != "council_activity"
+                    and activity.get("reviewed_by")
+                    and activity.get("reviewed_by") != "Auto-approved (HR approval disabled)"
+                ):
+                    reviewed_hr.append(activity)
+        except Exception:
+            reviewed_hr = []
+    members: dict[str, dict] = {}
+    for cert in reviewed_certs:
+        name = str(cert.get("reviewed_by")).strip()
+        if not name:
+            continue
+        member_key = " ".join(name.split()).casefold()
+        members.setdefault(
+            member_key, {"id": f"name:{member_key}", "name": name, "approvals": 0, "rejections": 0, "total_reviews": 0}
+        )
+        members[member_key]["total_reviews"] += 1
+        if cert.get("status") == "issued":
+            members[member_key]["approvals"] += 1
+        else:
+            members[member_key]["rejections"] += 1
+    for act in reviewed_hr:
+        name = str(act.get("reviewed_by")).strip()
+        if not name:
+            continue
+        member_key = " ".join(name.split()).casefold()
+        members.setdefault(
+            member_key, {"id": f"name:{member_key}", "name": name, "approvals": 0, "rejections": 0, "total_reviews": 0}
+        )
+        members[member_key]["total_reviews"] += 1
+        if act.get("status") == "approved":
+            members[member_key]["approvals"] += 1
+        else:
+            members[member_key]["rejections"] += 1
+    return {
+        "council_members": sorted(
+            members.values(),
+            key=lambda m: (-m["total_reviews"], m["name"].casefold()),
+        )
+    }
 
 def notification_read_document_id(user_key: str) -> str:
     return hashlib.sha256(user_key.strip().casefold().encode("utf-8")).hexdigest()
@@ -2700,7 +2769,7 @@ def list_certificates(
             start = (page - 1) * page_size
             return {"items": results[start : start + page_size], "total": total, "page": page, "page_size": page_size}
         except Exception as error:
-            raise HTTPException(status_code=503, detail=f"Unable to load pending certificates: {error}") from error
+            raise service_error("Unable to load pending certificates. Please try again shortly.", error) from error
     # Expired certificates are retained for audit in the employee profile, but
     # must not appear in general certificate pages or active reporting.
     results = [item for item in get_all() if item.get("status") != "issued" or certificate_is_current(item)]
@@ -2975,7 +3044,7 @@ def certificate_activity(
         if total is None:
             total = len(logs)
     except Exception as error:
-        raise HTTPException(status_code=503, detail=f"Unable to load certificate activity: {error}") from error
+        raise service_error("Unable to load certificate activity. Please try again shortly.", error) from error
     return {"items": logs, "total": total, "page": page, "page_size": page_size}
 
 
@@ -2992,6 +3061,7 @@ def council_activity(
     reviewed = [
         item for item in certificates
         if item.get("status") in {"issued", "revoked"} and item.get("reviewed_by")
+        and item.get("reviewed_by") != "Auto-approved (HR approval disabled)"
     ]
     if reviewer:
         reviewed = [item for item in reviewed if str(item.get("reviewed_by") or "").strip() == reviewer.strip()]
@@ -3007,7 +3077,7 @@ def council_activity(
                     pending.append({"id": snapshot.id, **certificate})
             pending.sort(key=lambda item: item.get("created_at") or f"{item.get('issued_date') or '1970-01-01'}T00:00:00", reverse=True)
         except Exception as error:
-            raise HTTPException(status_code=503, detail=f"Unable to load pending certificates: {error}") from error
+            raise service_error("Unable to load pending certificates. Please try again shortly.", error) from error
     else:
         pending = [item for item in certificates if item.get("status") == "pending"]
 
@@ -3025,7 +3095,7 @@ def council_activity(
                 activity["id"] = snapshot.id
                 if activity.get("status") == "pending":
                     hr_pending.append(activity)
-                elif activity.get("status") in ("approved", "rejected") and activity.get("reviewed_by"):
+                elif activity.get("status") in ("approved", "rejected") and activity.get("reviewed_by") and activity.get("reviewed_by") != "Auto-approved (HR approval disabled)":
                     hr_reviewed.append(activity)
             hr_pending.sort(key=lambda x: x.get("created_at", ""), reverse=True)
             hr_reviewed.sort(key=lambda x: x.get("reviewed_at", ""), reverse=True)
@@ -3038,7 +3108,7 @@ def council_activity(
                 continue
             if a.get("status") == "pending":
                 hr_pending.append(a)
-            elif a.get("status") in ("approved", "rejected") and a.get("reviewed_by"):
+            elif a.get("status") in ("approved", "rejected") and a.get("reviewed_by") and a.get("reviewed_by") != "Auto-approved (HR approval disabled)":
                 hr_reviewed.append(a)
         hr_pending.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         hr_reviewed.sort(key=lambda x: x.get("reviewed_at", ""), reverse=True)
@@ -3077,32 +3147,47 @@ def council_activity(
             for item in filtered_reviews
             if item.get("_review_source") == "hr"
         ]
+
+    filtered_reviews = [
+        item for item in filtered_reviews
+        if item.get("reviewed_by") != "Auto-approved (HR approval disabled)"
+    ]
     
-    validators: dict[str, dict[str, int]] = {}
+    validators: dict[str, dict] = {}
     for certificate in reviewed:
+        reviewer_id = str(certificate.get("reviewed_by_id") or "").strip()
         reviewer_name = str(certificate.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
-        if reviewer_name not in validators:
-            validators[reviewer_name] = {"validated": 0, "rejected": 0}
+        if not reviewer_id:
+            reviewer_id = f"name:{reviewer_name}"
+        if reviewer_id not in validators:
+            validators[reviewer_id] = {"name": reviewer_name, "validated": 0, "rejected": 0}
+        else:
+            validators[reviewer_id]["name"] = reviewer_name
         if certificate.get("status") == "issued":
-            validators[reviewer_name]["validated"] += 1
+            validators[reviewer_id]["validated"] += 1
         elif certificate.get("status") == "revoked":
-            validators[reviewer_name]["rejected"] += 1
+            validators[reviewer_id]["rejected"] += 1
     for activity in hr_reviewed:
+        reviewer_id = str(activity.get("reviewed_by_id") or "").strip()
         reviewer_name = str(activity.get("reviewed_by") or "Not recorded").strip() or "Not recorded"
-        if reviewer_name not in validators:
-            validators[reviewer_name] = {"validated": 0, "rejected": 0}
+        if not reviewer_id:
+            reviewer_id = f"name:{reviewer_name}"
+        if reviewer_id not in validators:
+            validators[reviewer_id] = {"name": reviewer_name, "validated": 0, "rejected": 0}
+        else:
+            validators[reviewer_id]["name"] = reviewer_name
         if activity.get("status") == "approved":
-            validators[reviewer_name]["validated"] += 1
+            validators[reviewer_id]["validated"] += 1
         elif activity.get("status") == "rejected":
-            validators[reviewer_name]["rejected"] += 1
+            validators[reviewer_id]["rejected"] += 1
 
     return {
         "pending_count": len(all_pending),
         "validated_count": sum(item.get("status") == "issued" for item in reviewed) + sum(1 for item in hr_reviewed if item.get("status") == "approved"),
         "revoked_count": sum(item.get("status") == "revoked" for item in reviewed) + sum(1 for item in hr_reviewed if item.get("status") == "rejected"),
         "validators": [
-            {"name": name, "validated_count": counts["validated"], "rejected_count": counts["rejected"]}
-            for name, counts in sorted(validators.items(), key=lambda item: (-(item[1]["validated"] + item[1]["rejected"]), item[0].casefold()))
+            {"id": vid, "name": v["name"], "validated_count": v["validated"], "rejected_count": v["rejected"]}
+            for vid, v in sorted(validators.items(), key=lambda item: (-(item[1]["validated"] + item[1]["rejected"]), item[1]["name"].casefold()))
         ],
         "recent_reviews": [
             {
@@ -3111,6 +3196,7 @@ def council_activity(
                 "recipient_name": item.get("recipient_name") or item.get("payload", {}).get("firstName", "") + " " + item.get("payload", {}).get("lastName", "") or item.get("payload", {}).get("name", "User"),
                 "status": item.get("status"),
                 "reviewed_by": item.get("reviewed_by"),
+                "reviewed_by_id": item.get("reviewed_by_id"),
                 "reviewed_at": item.get("reviewed_at"),
                 "submitted_by": item.get("submitted_by"),
                 "created_at": item.get("created_at"),
@@ -3409,7 +3495,7 @@ def partner_compliance(
                 if snapshot.to_dict().get("name", "").strip()
             ]
         except Exception as error:
-            raise HTTPException(status_code=503, detail=f"Unable to load compliance data: {error}") from error
+            raise service_error("Unable to load compliance data. Please try again shortly.", error) from error
  
     grouped = {compliance_vendor_name(name): {} for name in configured_oems}
     for certificate in get_all():
@@ -3530,7 +3616,7 @@ def get_oem_certifications(
             for snapshot in db.collection("users").stream()
         }
     except Exception as error:
-        raise HTTPException(status_code=503, detail=f"Unable to load compliance data: {error}") from error
+        raise service_error("Unable to load compliance data. Please try again shortly.", error) from error
     
     vendor_key = compliance_vendor_name(vendor)
     certifications_data = []
@@ -3615,7 +3701,7 @@ def get_certification_holders(
             for snapshot in db.collection("users").stream()
         }
     except Exception as error:
-        raise HTTPException(status_code=503, detail=f"Unable to load compliance data: {error}") from error
+        raise service_error("Unable to load compliance data. Please try again shortly.", error) from error
     
     vendor_key = compliance_vendor_name(vendor)
     cert_key = certification
@@ -3787,7 +3873,6 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
 
         raise HTTPException(status_code=409, detail="A certificate with this certificate number already exists")
     submitted_by_user = payload.submission_source == "user"
-    requester_role = getattr(payload, 'requester_role', None)
     
     # Check HR approval settings for add_certificate
     requires_approval = True
@@ -3803,10 +3888,6 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
         except Exception:
             pass  # Default to requiring approval on error
     
-    # Skip approval only if requester is admin
-    if requester_role == "admin":
-        requires_approval = False
-    
     initial_status = "pending" if requires_approval else "issued"
     
     certificate = {
@@ -3815,7 +3896,7 @@ async def create_certificate(payload: CertificateCreate, background_tasks: Backg
         "status": initial_status,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "submitted_by": "User" if submitted_by_user else "Administrator",
-        "submitted_by_role": requester_role if not submitted_by_user else "user",
+        "submitted_by_role": "user" if submitted_by_user else "admin",
     }
     if not requires_approval:
         certificate["reviewed_at"] = datetime.now(timezone.utc).isoformat()
@@ -3879,14 +3960,12 @@ async def update_certificate(certificate_id: str, payload: CertificateUpdate, ba
                         requires_approval = False
             except Exception:
                 pass
-        requester_role = getattr(payload, 'requester_role', None)
         if requires_approval:
-            updates.update({"status": "pending", "reviewed_at": None, "reviewed_by": None, "submitted_by": "User", "submitted_by_role": requester_role if not submitted_by_user else "user"})
+            updates.update({"status": "pending", "reviewed_at": None, "reviewed_by": None, "submitted_by": "User", "submitted_by_role": "user"})
         else:
             updates.update({"status": "issued", "reviewed_at": datetime.now(timezone.utc).isoformat(), "reviewed_by": "Auto-approved (HR approval disabled)"})
     else:
-        requester_role = getattr(payload, 'requester_role', None)
-        updates.update({"submitted_by": "Administrator", "submitted_by_role": requester_role})
+        updates.update({"submitted_by": "Administrator", "submitted_by_role": "admin"})
     if db:
         reference = db.collection("certificates").document(certificate_id)
         reference.update(updates)
@@ -3980,7 +4059,7 @@ async def upload_verification_image(certificate_id: str, image: UploadFile = Fil
             blob.delete()
         except Exception:
             pass
-        raise HTTPException(status_code=503, detail=f"Unable to upload certificate file: {error}") from error
+        raise service_error("Unable to upload the certificate file. Please try again shortly.", error) from error
     if old_path and old_path != path:
         try:
             bucket.blob(old_path).delete()
@@ -4182,6 +4261,7 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
         "status": payload.status,
         "reviewed_at": datetime.now(timezone.utc).isoformat(),
         "reviewed_by": payload.reviewed_by.strip(),
+        "reviewed_by_id": (payload.reviewed_by_id or "").strip(),
         "review_remarks": remarks if payload.status == "revoked" else None,
     }
     updates.update({"ru_verified": False})
@@ -4204,10 +4284,12 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
             "details": f"Certificate {action} for {certificate.get('recipient_name', 'user')} by {updates['reviewed_by']}",
             "requested_by": updates['reviewed_by'],
             "requested_by_name": updates['reviewed_by'],
+            "requested_by_id": updates.get('reviewed_by_id', ''),
             "status": "approved" if payload.status == "issued" else "rejected",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "reviewed_at": datetime.now(timezone.utc).isoformat(),
             "reviewed_by": updates['reviewed_by'],
+            "reviewed_by_id": updates.get('reviewed_by_id', ''),
             "payload": {"certificate_id": certificate_id, "action": action},
         }
         council_ref = db.collection("hr_activities").document()
@@ -4220,10 +4302,12 @@ async def update_status(certificate_id: str, payload: StatusUpdate, background_t
             "details": f"Certificate {action} for {certificate.get('recipient_name', 'user')} by {updates['reviewed_by']}",
             "requested_by": updates['reviewed_by'],
             "requested_by_name": updates['reviewed_by'],
+            "requested_by_id": updates.get('reviewed_by_id', ''),
             "status": "approved" if payload.status == "issued" else "rejected",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "reviewed_at": datetime.now(timezone.utc).isoformat(),
             "reviewed_by": updates['reviewed_by'],
+            "reviewed_by_id": updates.get('reviewed_by_id', ''),
             "payload": {"certificate_id": certificate_id, "action": action},
         }
         council_activity["id"] = f"demo-{uuid4().hex[:8]}"
@@ -4251,9 +4335,8 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    # Cloud Run sets PORT environment variable; fall back to API_PORT for local dev
     api_host = os.getenv("API_HOST", "0.0.0.0").strip() or "0.0.0.0"
-    api_port = int(os.getenv("PORT", os.getenv("API_PORT", "5000")))
+    api_port = int(os.getenv("API_PORT", "5000"))
 
     # Avoid Uvicorn's WinError 10048 when this API is already running. This is
     # common during local development when a terminal or IDE task owns port 5000.

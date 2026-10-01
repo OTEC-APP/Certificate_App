@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import apiUrl from '../api'
 import Pagination from '../components/Pagination'
 
@@ -21,6 +21,24 @@ export default function CouncilMemberDashboardPage({ notify }) {
   const [activityScope, setActivityScope] = useState('all')
   const [loading, setLoading] = useState(true)
 
+  // Pagination for the "Validated by" side panel so it never grows unbounded.
+  const [validatorPage, setValidatorPage] = useState(1)
+  const [validatorPageSize, setValidatorPageSize] = useState(5)
+
+  // Single source of truth for filter changes. Prevents the 12+ places where
+  // the same 4 setState calls were being repeated from drifting apart.
+  const applyFilter = (nextStatus, nextScope = 'all', nextReviewer = null) => {
+    setStatus(nextStatus)
+    setActivityScope(nextScope)
+    setReviewerFilter(nextReviewer)
+    setPage(1)
+  }
+
+  // Reset the validator page whenever the underlying filter changes.
+  useEffect(() => {
+    setValidatorPage(1)
+  }, [reviewerFilter, status, activityScope])
+
   useEffect(() => {
     let active = true
     const loadData = async () => {
@@ -33,49 +51,36 @@ export default function CouncilMemberDashboardPage({ notify }) {
           page_size: String(pageSize),
         })
         if (reviewerFilter) params.set('reviewer', reviewerFilter)
-        const [activityRes, statsRes] = await Promise.all([
+
+        // Fetch activity page + aggregate stats + per-member breakdown in parallel.
+        const [activityRes, statsRes, detailedRes] = await Promise.all([
           fetch(`${apiUrl}/council-activity?${params}`),
           fetch(`${apiUrl}/council-member-stats`),
+          fetch(`${apiUrl}/council-member-stats/detailed`),
         ])
-        const [activityResult, statsResult] = await Promise.all([
+        const [activityResult, statsResult, detailedResult] = await Promise.all([
           activityRes.json(),
           statsRes.json(),
+          detailedRes.json(),
         ])
+
         if (!activityRes.ok)
           throw new Error(activityResult.detail || 'Unable to load Council activity')
         if (!statsRes.ok) throw new Error(statsResult.detail || 'Unable to load stats')
+        if (!detailedRes.ok)
+          throw new Error(detailedResult.detail || 'Unable to load member stats')
 
         if (active) {
           setActivityData(activityResult)
-
-          const councilMembers = []
-          const memberMap = new Map()
-
-          activityResult.recent_reviews.forEach((review) => {
-            const name = review.reviewed_by || 'Unknown'
-            if (!memberMap.has(name)) {
-              memberMap.set(name, {
-                name,
-                approvals: 0,
-                rejections: 0,
-                total_reviews: 0,
-              })
-            }
-            const member = memberMap.get(name)
-            member.total_reviews++
-            if (review.status === 'issued') member.approvals++
-            else if (review.status === 'revoked') member.rejections++
-          })
-
-          memberMap.forEach((member) => councilMembers.push(member))
-
+          // The backend now provides the full per-member aggregation from the
+          // complete audit trail, not just the current page of recent_reviews.
           setMemberStats({
             ...statsResult,
-            council_members: councilMembers.sort((a, b) => b.total_reviews - a.total_reviews),
+            council_members: detailedResult.council_members || [],
           })
         }
       } catch (error) {
-        active && notify(error.message || 'Unable to load Council member dashboard')
+        if (active) notify(error.message || 'Unable to load Council member dashboard')
       } finally {
         if (active) setLoading(false)
       }
@@ -86,7 +91,21 @@ export default function CouncilMemberDashboardPage({ notify }) {
     }
   }, [activityScope, notify, page, pageSize, status, reviewerFilter])
 
-  if (loading) return <p className="user-empty">Loading Council member dashboard...</p>
+  // Only block the first render. Subsequent refetches dim the table instead of
+  // unmounting the whole page (hero, KPIs, and tabs stay in place).
+  const validators = activityData?.validators || []
+  const pagedValidators = useMemo(
+    () =>
+      validators.slice(
+        (validatorPage - 1) * validatorPageSize,
+        validatorPage * validatorPageSize,
+      ),
+    [validators, validatorPage, validatorPageSize],
+  )
+
+  if (loading && !activityData) {
+    return <p className="user-empty">Loading Council member dashboard...</p>
+  }
 
   return (
     <section className="council-activity-page">
@@ -100,62 +119,50 @@ export default function CouncilMemberDashboardPage({ notify }) {
       </header>
 
       <div className="council-kpis">
-        <article
-          className="pending clickable"
-          onClick={() => {
-            setStatus('pending')
-            setActivityScope('all')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
+        <button
+          type="button"
+          className="pending clickable council-kpi-button"
+          onClick={() => applyFilter('pending')}
           title="Show pending reviews"
+          aria-label="Show pending approvals"
         >
           <small>Pending approvals</small>
           <b>{activityData?.pending_count || 0}</b>
           <span>Certificates awaiting Council review</span>
-        </article>
-        <article
-          className="clickable"
-          onClick={() => {
-            setStatus('approved')
-            setActivityScope('all')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
+        </button>
+        <button
+          type="button"
+          className="clickable council-kpi-button"
+          onClick={() => applyFilter('approved')}
           title="Show approved"
+          aria-label="Show approved certificates"
         >
           <small>Certificates validated</small>
           <b>{activityData?.validated_count || 0}</b>
           <span>Completed Council decisions</span>
-        </article>
-        <article
-          className="clickable"
-          onClick={() => {
-            setStatus('rejected')
-            setActivityScope('all')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
+        </button>
+        <button
+          type="button"
+          className="clickable council-kpi-button"
+          onClick={() => applyFilter('rejected')}
           title="Show rejected"
+          aria-label="Show rejected certificates"
         >
           <small>Certificates revoked</small>
           <b>{activityData?.revoked_count || 0}</b>
           <span>Rejected after review</span>
-        </article>
-        <article
-          className="clickable"
-          onClick={() => {
-            setStatus('approved')
-            setActivityScope('hr')
-            setReviewerFilter(null)
-            setPage(1)
-          }}
+        </button>
+        <button
+          type="button"
+          className="clickable council-kpi-button"
+          onClick={() => applyFilter('approved', 'hr')}
           title="Show approved HR activities"
+          aria-label="Show approved HR activities"
         >
           <small>HR activities approved</small>
           <b>{memberStats.hr_activity_approvals || 0}</b>
           <span>User/Category/OEM requests approved</span>
-        </article>
+        </button>
         <button
           type="button"
           className={`council-members-toggle ${showCouncilMembers ? 'active' : ''}`}
@@ -183,10 +190,7 @@ export default function CouncilMemberDashboardPage({ notify }) {
                 type="button"
                 className="clear-filter-btn"
                 onClick={() => {
-                  setReviewerFilter(null)
-                  setStatus('overall')
-                  setActivityScope('all')
-                  setPage(1)
+                  applyFilter('overall')
                   setShowCouncilMembers(false)
                 }}
                 aria-label="Clear reviewer filter"
@@ -212,10 +216,7 @@ export default function CouncilMemberDashboardPage({ notify }) {
                       key={member.name}
                       className="clickable"
                       onClick={() => {
-                        setReviewerFilter(member.name)
-                        setStatus('overall')
-                        setActivityScope('all')
-                        setPage(1)
+                        applyFilter('overall', 'all', member.name)
                         setShowCouncilMembers(false)
                       }}
                       title={`Filter by ${member.name}`}
@@ -252,40 +253,54 @@ export default function CouncilMemberDashboardPage({ notify }) {
               <p>Completed certificate decisions by reviewer.</p>
             </div>
           </header>
-          {activityData?.validators?.length ? (
-            <div className="council-table-wrap">
-              <table className="council-table">
-                <thead>
-                  <tr>
-                    <th>Reviewer</th>
-                    <th>Validated</th>
-                    <th>Rejected</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activityData.validators.map((validator) => (
-                    <tr key={validator.name}>
-                      <td>
-                        <span className="council-initials">
-                          {validator.name
-                            .split(/\s+/)
-                            .map((part) => part[0])
-                            .join('')
-                            .slice(0, 2)}
-                        </span>
-                        {validator.name}
-                      </td>
-                      <td>{validator.validated_count}</td>
-                      <td>{validator.rejected_count}</td>
+          {validators.length ? (
+            <>
+              <div className="council-table-wrap">
+                <table className="council-table">
+                  <thead>
+                    <tr>
+                      <th>Reviewer</th>
+                      <th>Validated</th>
+                      <th>Rejected</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {pagedValidators.map((validator) => (
+                      <tr key={validator.id}>
+                        <td>
+                          <span className="council-initials">
+                            {validator.name
+                              .split(/\s+/)
+                              .map((part) => part[0])
+                              .join('')
+                              .slice(0, 2)}
+                          </span>
+                          {validator.name}
+                        </td>
+                        <td>{validator.validated_count}</td>
+                        <td>{validator.rejected_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                page={validatorPage}
+                totalItems={validators.length}
+                pageSize={validatorPageSize}
+                onPageChange={setValidatorPage}
+                onPageSizeChange={(size) => {
+                  setValidatorPageSize(size)
+                  setValidatorPage(1)
+                }}
+                label="reviewers"
+              />
+            </>
           ) : (
             <p className="user-empty">No Council validations have been recorded yet.</p>
           )}
         </section>
+
         <section className="er-card">
           <header>
             <div>
@@ -298,46 +313,30 @@ export default function CouncilMemberDashboardPage({ notify }) {
             </div>
             <div className="council-filters" role="group" aria-label="Review status">
               <button
+                type="button"
                 className={status === 'overall' ? 'active' : ''}
-                onClick={() => {
-                  setStatus('overall')
-                  setActivityScope('all')
-                  setReviewerFilter(null)
-                  setPage(1)
-                }}
+                onClick={() => applyFilter('overall')}
               >
                 Overall
               </button>
               <button
+                type="button"
                 className={status === 'pending' ? 'active' : ''}
-                onClick={() => {
-                  setStatus('pending')
-                  setActivityScope('all')
-                  setReviewerFilter(null)
-                  setPage(1)
-                }}
+                onClick={() => applyFilter('pending')}
               >
                 Pending
               </button>
               <button
+                type="button"
                 className={status === 'approved' ? 'active' : ''}
-                onClick={() => {
-                  setStatus('approved')
-                  setActivityScope('all')
-                  setReviewerFilter(null)
-                  setPage(1)
-                }}
+                onClick={() => applyFilter('approved')}
               >
                 Approved
               </button>
               <button
+                type="button"
                 className={status === 'rejected' ? 'active' : ''}
-                onClick={() => {
-                  setStatus('rejected')
-                  setActivityScope('all')
-                  setReviewerFilter(null)
-                  setPage(1)
-                }}
+                onClick={() => applyFilter('rejected')}
               >
                 Rejected
               </button>
@@ -349,12 +348,7 @@ export default function CouncilMemberDashboardPage({ notify }) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setReviewerFilter(null)
-                    setStatus('overall')
-                    setActivityScope('all')
-                    setPage(1)
-                  }}
+                  onClick={() => applyFilter('overall')}
                   aria-label="Clear filter"
                 >
                   <i className="bi bi-x" />
@@ -364,7 +358,7 @@ export default function CouncilMemberDashboardPage({ notify }) {
           </header>
           {activityData?.recent_reviews?.length ? (
             <>
-              <div className="council-table-wrap">
+              <div className="council-table-wrap" aria-busy={loading}>
                 <table className="council-table decisions">
                   <thead>
                     <tr>

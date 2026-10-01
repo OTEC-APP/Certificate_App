@@ -84,13 +84,13 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
     try {
       const typeParam = activeTab === 'overview' ? '' : activeTab
       const response = await fetch(
-        `${apiUrl}/hr-activities?activity_type=${typeParam}&page=${page}&page_size=${pageSize}`,
+        `${apiUrl}/hr-activities?status=pending&activity_type=${typeParam}&page=${page}&page_size=${pageSize}`,
       )
       const result = await response.json()
       if (!response.ok) throw new Error(result.detail || 'Unable to load HR activities')
 
       if (activeTab === 'overview') {
-        const allResponse = await fetch(`${apiUrl}/hr-activities?page=1&page_size=100`)
+        const allResponse = await fetch(`${apiUrl}/hr-activities?status=pending&page=1&page_size=100`)
         const allResult = await allResponse.json()
         const grouped = {}
         ;(allResult.items || []).forEach((item) => {
@@ -179,6 +179,7 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
+          reviewed_by_id: user.employeeId || user.id || '',
           review_remarks: '',
         }),
       })
@@ -188,6 +189,13 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
       }
       notify('Request approved')
       loadActivities()
+    }).catch((error) => {
+      if (error.message?.includes('not pending')) {
+        notify('This request was already reviewed')
+        loadActivities()
+      } else {
+        notify(error.message || 'Failed to approve')
+      }
     })
   }
 
@@ -198,6 +206,7 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reviewed_by: `${user.firstName} ${user.lastName}`.trim(),
+          reviewed_by_id: user.employeeId || user.id || '',
           review_remarks: 'Rejected by council member',
         }),
       })
@@ -207,6 +216,13 @@ export default function HrActivities({ user, notify, runWithLoader, query = '', 
       }
       notify('Request rejected')
       loadActivities()
+    }).catch((error) => {
+      if (error.message?.includes('not pending')) {
+        notify('This request was already reviewed')
+        loadActivities()
+      } else {
+        notify(error.message || 'Failed to reject')
+      }
     })
   }
 
